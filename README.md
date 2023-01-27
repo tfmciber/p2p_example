@@ -4,3 +4,5 @@ go mod init tfm_ciber/alber/p2p
 go mod tidy
 #Compilar el programa
 go build
+
+sysctl -w net.core.rmem_max=2500000

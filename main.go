@@ -21,7 +21,17 @@ import (
 
 func main() {
 
-	fmt.Println("Example P2P code ")
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-quit
+		fmt.Println("\r- Ctrl+C pressed in Terminal")
+
+		os.Exit(0)
+	}()
+
+	fmt.Println("Exampldsdsae P2P code ")
 
 	config, err := ParseFlags()
 
@@ -55,14 +65,7 @@ func main() {
 	FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 
 	ConnecToPeers(ctx, Host, FoundPeers, "/chat/1.1.0")
+	fmt.Print("streams")
+	//fmt.Print(streams)
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT)
-
-	select {
-	case <-stop:
-		Host.Close()
-		os.Exit(0)
-
-	}
 }
