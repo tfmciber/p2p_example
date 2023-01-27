@@ -8,13 +8,11 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/core/routing"
 
 	//"github.com/libp2p/go-libp2p/core/routing"
 
@@ -141,7 +139,7 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		panic(err)
 	}
 
-	var idht *dht.IpfsDHT
+	//var idht *dht.IpfsDHT
 
 	connmgr, err := connmgr.NewConnManager(
 		100, // Lowwater
@@ -160,7 +158,7 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		// Multiple listen addresses
 		libp2p.ListenAddrStrings(
 
-			//fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", Lport),      // regular tcp connections
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", Lport),      // regular tcp connections
 			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", Lport), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
 
 		),
@@ -177,10 +175,10 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		// Attempt to open ports using uPNP for NATed hosts.
 		libp2p.NATPortMap(),
 		// Let this host use the DHT to find other hosts
-		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			idht, err = dht.New(ctx, h)
-			return idht, err
-		}),
+		// libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
+		// 	idht, err = dht.New(ctx, h)
+		// 	return idht, err
+		// }),
 		// If you want to help other peers to figure out if they are behind
 		// NATs, you can launch the server-side of AutoNAT too (AutoRelay
 		// already runs the client)
@@ -197,24 +195,24 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		panic(err)
 	}
 	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
-
 	return h
 }
 
 func ConnecToPeers(ctx context.Context, host host.Host, peerChan <-chan peer.AddrInfo, ProtocolID string) {
 
 	for peer := range peerChan {
-		fmt.Print("HELLLO")
+
 		if peer.ID == host.ID() {
 			continue
 		}
+		fmt.Println("Connecting to:", peer)
 		if err := host.Connect(ctx, peer); err != nil {
 			fmt.Println("Connection failed:", err)
 			continue
 		}
-		//fmt.Println("Connecting to:", peer)
 
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
+		fmt.Print(stream.Conn().ConnState())
 		if err != nil {
 			fmt.Println("Connection failed:", err)
 

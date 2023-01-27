@@ -59,13 +59,11 @@ func main() {
 	if config.dht {
 		kademliaDHT := SetandJoinDHT(ctx, Host, config.BootstrapPeers)
 		FoundPeersDHT = FindPeersDHT(ctx, kademliaDHT, config.RendezvousString)
-		fmt.Println(FoundPeersDHT)
+
 	}
 
 	FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 
 	ConnecToPeers(ctx, Host, FoundPeers, "/chat/1.1.0")
-	fmt.Print("streams")
-	//fmt.Print(streams)
 
 }

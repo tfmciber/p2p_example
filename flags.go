@@ -49,11 +49,11 @@ type Config struct {
 
 func ParseFlags() (Config, error) {
 	config := Config{}
-	flag.StringVar(&config.RendezvousString, "rendezvous", "uwu",
+	flag.StringVar(&config.RendezvousString, "rendezvous", "aaa123f",
 		"Unique string to identify group of nodes. Share this with your friends to let them connect with you")
 	flag.Var(&config.BootstrapPeers, "BootstrapPeers", "Adds a peer multiaddress to the bootstrap list")
 	flag.IntVar(&config.Lport, "Lport", 5000, "Listen port")
-	flag.BoolVar(&config.mdns, "mdns", true, "Discover peers using Multicast DNS")
+	flag.BoolVar(&config.mdns, "mdns", false, "Discover peers using Multicast DNS")
 	flag.BoolVar(&config.dht, "dht", false, "Discover peers using Kademlia DHT")
 	flag.Parse()
 
