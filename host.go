@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -21,114 +19,11 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 )
 
-var textChan = make(chan string)
 var streams = make(map[string]network.Stream)
 
-func DisconnectHost(stream network.Stream) {
-
-	delete(streams, stream.ID())
-	fmt.Printf("Hay %d Clientes conectados \n", len(streams))
-	for k, v := range streams {
-		fmt.Println(k, "value is", v)
-	}
-
-}
-
-func handleStream(stream network.Stream) {
-
-	// Create a buffer stream for non blocking read and write.
-
-	fmt.Print(stream.Protocol())
-
-	go ReadStdin()
-	go readData(stream)
-	go writeToStreams()
-
-}
-func writeToStreams() {
-
-	for {
-		data := <-textChan
-		for _, stream := range streams {
-			w := bufio.NewWriter(stream)
-			_, err := w.WriteString(fmt.Sprintf("%s\n", data))
-			if err != nil {
-				fmt.Println("Error writing to buffer")
-				panic(err)
-			}
-
-			err = w.Flush()
-			if err != nil {
-				fmt.Println("Error flushing buffer")
-				panic(err)
-			}
-
-		}
-
-	}
-}
-func ReadStdin() {
-	stdReader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		Data, err := stdReader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from stdin")
-			panic(err)
-		}
-
-		textChan <- Data
-
-	}
-}
-
-func readData(stream network.Stream) {
-	for {
-		r := bufio.NewReader(stream)
-		str, err := r.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from buffer removing stream from list")
-			DisconnectHost(stream)
-		}
-
-		if str == "" {
-			return
-		}
-		if str != "\n" {
-			// Green console colour: 	\x1b[32m
-			// Reset console colour: 	\x1b[0m
-			fmt.Printf("\x1b[32m%s\x1b[0m> ", str)
-		}
-
-	}
-}
-
-func writeData(rw *bufio.ReadWriter) {
-	stdReader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		sendData, err := stdReader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from stdin")
-			panic(err)
-		}
-
-		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
-		if err != nil {
-			fmt.Println("Error writing to buffer")
-			panic(err)
-		}
-		err = rw.Flush()
-		if err != nil {
-			fmt.Println("Error flushing buffer")
-			panic(err)
-		}
-	}
-}
 func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 
 	priv, _, err := crypto.GenerateKeyPair(
@@ -166,9 +61,10 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
-		// support any other default transports (TCP)
-		libp2p.DefaultTransports,
 
+		libp2p.Transport(libp2pquic.NewTransport),
+		// support any other default transports (TCP)
+		//libp2p.DefaultTransports,
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
 		libp2p.ConnectionManager(connmgr),
@@ -195,6 +91,7 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		panic(err)
 	}
 	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
+
 	return h
 }
 
@@ -212,7 +109,7 @@ func ConnecToPeers(ctx context.Context, host host.Host, peerChan <-chan peer.Add
 		}
 
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
-		fmt.Print(stream.Conn().ConnState())
+
 		if err != nil {
 			fmt.Println("Connection failed:", err)
 
