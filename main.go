@@ -42,7 +42,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	Host := NewHost(ctx, config.Lport, "/chat/1.1.0")
+	Host = NewHost(ctx, config.Lport, "/chat/1.1.0")
 
 	fmt.Println("Host created. We are:", Host.ID())
 	fmt.Println(Host.Addrs())
@@ -52,18 +52,18 @@ func main() {
 
 	if config.mdns {
 		fmt.Println("Finding Peers using Multicast DNS")
-		FoundPeersMDNS = FindPeersMDNS(Host, config.RendezvousString)
+		FoundPeersMDNS = FindPeersMDNS(config.RendezvousString)
 
 	}
 
 	if config.dht {
-		kademliaDHT := SetandJoinDHT(ctx, Host, config.BootstrapPeers)
+		kademliaDHT := SetandJoinDHT(ctx, config.BootstrapPeers)
 		FoundPeersDHT = FindPeersDHT(ctx, kademliaDHT, config.RendezvousString)
 
 	}
 
 	FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 
-	ConnecToPeers(ctx, Host, FoundPeers, "/chat/1.1.0")
+	ConnecToPeers(ctx, FoundPeers, "/chat/1.1.0")
 
 }

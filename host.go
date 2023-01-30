@@ -22,7 +22,8 @@ import (
 	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 )
 
-var streams = make(map[string]network.Stream)
+var SendStreams = make(map[string]network.Stream)
+var Host host.Host
 
 func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 
@@ -39,7 +40,7 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 	connmgr, err := connmgr.NewConnManager(
 		100, // Lowwater
 		400, // HighWater,
-		connmgr.WithGracePeriod(time.Minute),
+		connmgr.WithGracePeriod(time.Second),
 	)
 
 	if err != nil {
@@ -92,31 +93,33 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 	}
 	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 
+	go SendTextHandler()
 	return h
 }
 
-func ConnecToPeers(ctx context.Context, host host.Host, peerChan <-chan peer.AddrInfo, ProtocolID string) {
+func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolID string) {
 
 	for peer := range peerChan {
 
-		if peer.ID == host.ID() {
+		if peer.ID == Host.ID() {
 			continue
 		}
-		fmt.Println("Connecting to:", peer)
-		if err := host.Connect(ctx, peer); err != nil {
+
+		if err := Host.Connect(ctx, peer); err != nil {
 			fmt.Println("Connection failed:", err)
 			continue
 		}
 
-		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
+		stream, err := Host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
 
 		if err != nil {
 			fmt.Println("Connection failed:", err)
 
 			continue
 		} else {
-			streams[stream.ID()] = stream
-			handleStream(stream)
+			SendStreams[stream.ID()] = stream
+			fmt.Println("ID ", stream.ID())
+			//handleStream(stream)
 
 		}
 

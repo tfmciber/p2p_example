@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
@@ -14,14 +13,14 @@ import (
 	//"github.com/libp2p/go-libp2p/core/routing"
 )
 
-func SetandJoinDHT(ctx context.Context, host host.Host, BootstrapPeers []multiaddr.Multiaddr) *dht.IpfsDHT {
+func SetandJoinDHT(ctx context.Context, BootstrapPeers []multiaddr.Multiaddr) *dht.IpfsDHT {
 
 	// Start a DHT, for use in peer discovery. We can't just make a new DHT
 	// client because we want each peer to maintain its own local copy of the
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
 
-	kademliaDHT, err := dht.New(ctx, host)
+	kademliaDHT, err := dht.New(ctx, Host)
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +41,7 @@ func SetandJoinDHT(ctx context.Context, host host.Host, BootstrapPeers []multiad
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := host.Connect(ctx, *peerinfo); err != nil {
+			if err := Host.Connect(ctx, *peerinfo); err != nil {
 				fmt.Println(err)
 			} else {
 				fmt.Println("Connection established with bootstrap node:", *peerinfo)
