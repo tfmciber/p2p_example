@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -13,6 +14,7 @@ import (
 
 	//"github.com/libp2p/go-libp2p/core/routing"
 
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
@@ -24,7 +26,20 @@ import (
 var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
-func NewHost(ctx context.Context, ProtocolID string) host.Host {
+func NewHost(ctx context.Context, ProtocolID string) (host.Host, network.ResourceManager) {
+
+	limiterCfg, err := os.Open("limiterCfg.json")
+	if err != nil {
+		panic(err)
+	}
+	limiter, err := rcmgr.NewDefaultLimiterFromJSON(limiterCfg)
+	if err != nil {
+		panic(err)
+	}
+	rcm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		panic(err)
+	}
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(quic.NewTransport),
@@ -62,6 +77,7 @@ func NewHost(ctx context.Context, ProtocolID string) host.Host {
 
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
+		libp2p.ResourceManager(rcm),
 
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
@@ -91,7 +107,7 @@ func NewHost(ctx context.Context, ProtocolID string) host.Host {
 
 	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 
-	return h
+	return h, rcm
 }
 
 func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolID string) {
@@ -121,3 +137,5 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolI
 	}
 
 }
+
+//todo: test dht, create vm and test audio and video stream

@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"context"
 
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -33,7 +35,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	Host = NewHost(ctx, "/chat/1.1.0")
+	var rcm network.ResourceManager
+	Host, rcm = NewHost(ctx, "/chat/1.1.0")
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +48,7 @@ func main() {
 	if config.mdns {
 
 		FoundPeersMDNS = FindPeersMDNS(config.RendezvousString)
-
+		go ConnecToPeers(ctx, FoundPeersMDNS, "/chat/1.1.0")
 	}
 
 	if config.dht {
@@ -57,7 +60,21 @@ func main() {
 
 	//FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 	SendTextHandler()
-	ConnecToPeers(ctx, FoundPeersMDNS, "/chat/1.1.0")
-	select {}
+
+	for {
+
+		<-time.After(1 * time.Minute)
+		rcm.ViewSystem(func(scope network.ResourceScope) error {
+			stat := scope.Stat()
+			fmt.Println("System:",
+				"\n\t memory", stat.Memory,
+				"\n\t numFD", stat.NumFD,
+				"\n\t connsIn", stat.NumConnsInbound,
+				"\n\t connsOut", stat.NumConnsOutbound,
+				"\n\t streamIn", stat.NumStreamsInbound,
+				"\n\t streamOut", stat.NumStreamsOutbound)
+			return nil
+		})
+	}
 
 }
