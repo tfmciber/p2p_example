@@ -20,11 +20,11 @@ func SendTextHandler() {
 
 func ReceiveTexthandler(stream network.Stream) {
 
-	fmt.Print("recibimos")
-
 	go readData(stream, 2000, func(buff []byte, stream network.Stream) {
 
 		fmt.Printf("\x1b[32m%s\x1b[0m> ", string(buff[:]))
+		buff = nil
+
 	})
 
 }

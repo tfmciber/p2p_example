@@ -8,25 +8,25 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-func DisconnectHost(stream network.Stream) {
+// Removes host,stream from list and prints the error
+func DisconnectHost(stream network.Stream, err error) {
 
 	for k := range SendStreams {
 
 		if strings.Split(k, "-")[0] == strings.Split(stream.ID(), "-")[0] {
 
+			fmt.Printf("Removed %s stream(%s,%s) %s due to %s \n", stream.Conn().LocalPeer().String(), stream.Protocol(), stream.Conn().ConnState(), stream.ID(), err)
 			delete(SendStreams, k)
 
 		}
 
 	}
-	fmt.Printf("Hay %d conexiones", len(SendStreams))
+	fmt.Printf("%d  Conections left\n", len(SendStreams))
 
 }
 
 func handleStream(stream network.Stream) {
 
-	// Create a buffer stream for non blocking read and write.
-	fmt.Print("handleStream stream.ID() ", stream.ID(), "\n")
 	switch stream.Protocol() {
 
 	case "/chat/1.1.0":
@@ -37,22 +37,21 @@ func handleStream(stream network.Stream) {
 
 //Function that reads data of size n from stream and calls f funcion
 func readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
-	fmt.Print("readData stream.ID() ", stream.ID(), "\n")
-	buff := make([]byte, size)
-	for {
 
+	for {
+		buff := make([]byte, size)
 		r := bufio.NewReader(stream)
 
 		_, err := r.Read(buff)
 
 		if err != nil {
-			fmt.Println("Error reading from buffer removing stream from list")
-			fmt.Print("errr", err)
-			DisconnectHost(stream)
+
+			DisconnectHost(stream, err)
 			return
 
 		}
 		f(buff, stream)
+
 	}
 }
 
@@ -62,21 +61,18 @@ func WriteData() {
 
 		data := <-textChan
 		for _, stream := range SendStreams {
-			fmt.Print(stream)
+
 			w := bufio.NewWriter(stream)
 			_, err := w.Write(data)
 			if err != nil {
 				fmt.Println("Error writing to buffer")
 
 			}
-
 			err = w.Flush()
 			if err != nil {
 				fmt.Println("Error flushing buffer")
 
 			}
-
 		}
-
 	}
 }

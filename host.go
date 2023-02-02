@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -16,17 +15,21 @@ import (
 
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
-	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
-	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
-func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
+func NewHost(ctx context.Context, ProtocolID string) host.Host {
+	var DefaultTransports = libp2p.ChainOptions(
 
+		libp2p.Transport(quic.NewTransport),
+		libp2p.Transport(tcp.NewTCPTransport),
+	)
 	priv, _, err := crypto.GenerateKeyPair(
 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
 		-1,             // Select key length when possible (i.e. RSA).
@@ -36,12 +39,6 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 	}
 
 	//var idht *dht.IpfsDHT
-
-	connmgr, err := connmgr.NewConnManager(
-		100, // Lowwater
-		400, // HighWater,
-		connmgr.WithGracePeriod(time.Second),
-	)
 
 	if err != nil {
 		panic(err)
@@ -54,21 +51,21 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 		// Multiple listen addresses
 		libp2p.ListenAddrStrings(
 
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", Lport),      // regular tcp connections
-			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", Lport), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
-
+			// regular tcp connections
+			fmt.Sprintf("/ip4/0.0.0.0/udp/0/quic"), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
 		),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
 
-		libp2p.Transport(libp2pquic.NewTransport),
-		// support any other default transports (TCP)
-		//libp2p.DefaultTransports,
+		// support any other default transports (TCP,quic)
+		DefaultTransports,
+
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connmgr),
+		//libp2p.ConnectionManager(connmgr),
 		// Attempt to open ports using uPNP for NATed hosts.
 		libp2p.NATPortMap(),
 		// Let this host use the DHT to find other hosts
@@ -91,9 +88,9 @@ func NewHost(ctx context.Context, Lport int, ProtocolID string) host.Host {
 	if err != nil {
 		panic(err)
 	}
+
 	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 
-	go SendTextHandler()
 	return h
 }
 
@@ -109,18 +106,16 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolI
 			fmt.Println("Connection failed:", err)
 			continue
 		}
+		fmt.Println("Connected to:", peer.ID.Pretty())
 
 		stream, err := Host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
 
 		if err != nil {
-			fmt.Println("Connection failed:", err)
+			fmt.Println("Stream failed:", err)
 
 			continue
 		} else {
 			SendStreams[stream.ID()] = stream
-			fmt.Println("ID ", stream.ID())
-			//handleStream(stream)
-
 		}
 
 	}

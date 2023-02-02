@@ -9,14 +9,6 @@ import (
 	"context"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	// "time"
-	// "github.com/libp2p/go-libp2p/p2p/net/connmgr"
-	// "github.com/libp2p/go-libp2p"
-	// "github.com/libp2p/go-libp2p/core/crypto"
-	// "github.com/libp2p/go-libp2p/core/host"
-	// "github.com/libp2p/go-libp2p/core/routing"
-	// "github.com/libp2p/go-libp2p/p2p/security/noise"
-	// libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 )
 
 func main() {
@@ -26,8 +18,8 @@ func main() {
 
 	go func() {
 		<-quit
-		fmt.Println("\r- Ctrl+C pressed in Terminal")
-
+		fmt.Println("\r- Exiting Program")
+		Host.Close()
 		os.Exit(0)
 	}()
 
@@ -41,29 +33,31 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	Host = NewHost(ctx, config.Lport, "/chat/1.1.0")
-
+	Host = NewHost(ctx, "/chat/1.1.0")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("Host created. We are:", Host.ID())
-	fmt.Println(Host.Addrs())
 
 	var FoundPeersDHT <-chan peer.AddrInfo
 	var FoundPeersMDNS <-chan peer.AddrInfo
 
 	if config.mdns {
-		fmt.Println("Finding Peers using Multicast DNS")
+
 		FoundPeersMDNS = FindPeersMDNS(config.RendezvousString)
 
 	}
 
 	if config.dht {
-		kademliaDHT := SetandJoinDHT(ctx, config.BootstrapPeers)
-		FoundPeersDHT = FindPeersDHT(ctx, kademliaDHT, config.RendezvousString)
+
+		FoundPeersDHT = discoverPeers(ctx, Host, config.RendezvousString)
+		go ConnecToPeers(ctx, FoundPeersDHT, "/chat/1.1.0")
 
 	}
 
-	FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
-
-	ConnecToPeers(ctx, FoundPeers, "/chat/1.1.0")
+	//FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
+	SendTextHandler()
+	ConnecToPeers(ctx, FoundPeersMDNS, "/chat/1.1.0")
+	select {}
 
 }
