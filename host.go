@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -13,6 +12,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 
 	//"github.com/libp2p/go-libp2p/core/routing"
+
+	"strings"
 
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
@@ -26,13 +27,37 @@ import (
 var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
-func NewHost(ctx context.Context, ProtocolID string) (host.Host, network.ResourceManager) {
+func NewHost(ctx context.Context, ProtocolIDs []string) (host.Host, network.ResourceManager) {
 
-	limiterCfg, err := os.Open("limiterCfg.json")
-	if err != nil {
-		panic(err)
-	}
-	limiter, err := rcmgr.NewDefaultLimiterFromJSON(limiterCfg)
+	limiterCfg := `{
+    "System":  {
+      "StreamsInbound": 4096,
+      "StreamsOutbound": 32768,
+      "Conns": 64000,
+      "ConnsInbound": 512,
+      "ConnsOutbound": 32768,
+      "FD": 64000
+    },
+    "Transient": {
+      "StreamsInbound": 4096,
+      "StreamsOutbound": 32768,
+      "ConnsInbound": 512,
+      "ConnsOutbound": 32768,
+      "FD": 64000
+    },
+
+    "ProtocolDefault":{
+      "StreamsInbound": 1024,
+      "StreamsOutbound": 32768
+    },
+
+    "ServiceDefault":{
+      "StreamsInbound": 2048,
+      "StreamsOutbound": 32768
+    }
+  }`
+
+	limiter, err := rcmgr.NewDefaultLimiterFromJSON(strings.NewReader(limiterCfg))
 	if err != nil {
 		panic(err)
 	}
@@ -104,13 +129,15 @@ func NewHost(ctx context.Context, ProtocolID string) (host.Host, network.Resourc
 	if err != nil {
 		panic(err)
 	}
+	for _, ProtocolID := range ProtocolIDs {
 
-	h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
+		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
+	}
 
 	return h, rcm
 }
 
-func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolID string) {
+func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolIDs []string) {
 
 	for peer := range peerChan {
 
@@ -123,15 +150,17 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolI
 			continue
 		}
 		fmt.Println("Connected to:", peer.ID.Pretty())
+		for _, ProtocolID := range ProtocolIDs {
 
-		stream, err := Host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
+			stream, err := Host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
 
-		if err != nil {
-			fmt.Println("Stream failed:", err)
+			if err != nil {
+				fmt.Println("Stream failed:", err)
 
-			continue
-		} else {
-			SendStreams[stream.ID()] = stream
+				continue
+			} else {
+				SendStreams[stream.ID()] = stream
+			}
 		}
 
 	}

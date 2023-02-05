@@ -9,6 +9,7 @@ import (
 
 	"context"
 
+	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -18,14 +19,29 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
+	ctx1, err1 := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+
+	})
+	if err1 != nil {
+		fmt.Println(err1)
+		os.Exit(1)
+	}
+	defer func() {
+		_ = ctx1.Uninit()
+		ctx1.Free()
+	}()
+	CaptureDevice := initCaptureDevice(ctx1)
+	PlayDevice := initPlaybackDevice(ctx1)
+	startDevice(CaptureDevice)
+
+	startDevice(PlayDevice)
+
 	go func() {
 		<-quit
 		fmt.Println("\r- Exiting Program")
 		Host.Close()
 		os.Exit(0)
 	}()
-
-	fmt.Println("Exampldsdsae P2P code ")
 
 	config, err := ParseFlags()
 
@@ -35,8 +51,10 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	protocols := []string{"/audio/1.1.0", "/chat/1.1.0"}
+
 	var rcm network.ResourceManager
-	Host, rcm = NewHost(ctx, "/chat/1.1.0")
+	Host, rcm = NewHost(ctx, protocols)
 	if err != nil {
 		panic(err)
 	}
@@ -48,18 +66,19 @@ func main() {
 	if config.mdns {
 
 		FoundPeersMDNS = FindPeersMDNS(config.RendezvousString)
-		go ConnecToPeers(ctx, FoundPeersMDNS, "/chat/1.1.0")
+		go ConnecToPeers(ctx, FoundPeersMDNS, protocols)
 	}
 
 	if config.dht {
 
 		FoundPeersDHT = discoverPeers(ctx, Host, config.RendezvousString)
-		go ConnecToPeers(ctx, FoundPeersDHT, "/chat/1.1.0")
+		go ConnecToPeers(ctx, FoundPeersDHT, protocols)
 
 	}
 
 	//FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 	SendTextHandler()
+	SendAudioHandler()
 
 	for {
 

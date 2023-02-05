@@ -49,7 +49,7 @@ type Config struct {
 
 func ParseFlags() (Config, error) {
 	config := Config{}
-	flag.StringVar(&config.RendezvousString, "rendezvous", "aaa123f",
+	flag.StringVar(&config.RendezvousString, "rendezvous", "123123123eqeqw",
 		"Unique string to identify group of nodes. Share this with your friends to let them connect with you")
 	flag.Var(&config.BootstrapPeers, "BootstrapPeers", "Adds a peer multiaddress to the bootstrap list")
 	flag.BoolVar(&config.mdns, "mdns", false, "Discover peers using Multicast DNS")

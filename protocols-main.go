@@ -31,6 +31,10 @@ func handleStream(stream network.Stream) {
 
 	case "/chat/1.1.0":
 		ReceiveTexthandler(stream)
+	case "/audio/1.1.0":
+
+		ReceiveAudioHandler(stream)
+
 	}
 
 }
@@ -55,23 +59,26 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 	}
 }
 
-func WriteData() {
+func WriteData(Chan chan []byte, protocol string) {
 
 	for {
 
-		data := <-textChan
+		data := <-Chan
+
 		for _, stream := range SendStreams {
 
-			w := bufio.NewWriter(stream)
-			_, err := w.Write(data)
-			if err != nil {
-				fmt.Println("Error writing to buffer")
+			if string(stream.Protocol()) == protocol {
+				w := bufio.NewWriter(stream)
+				_, err := w.Write(data)
+				if err != nil {
+					fmt.Println("Error writing to buffer")
 
-			}
-			err = w.Flush()
-			if err != nil {
-				fmt.Println("Error flushing buffer")
+				}
+				err = w.Flush()
+				if err != nil {
+					fmt.Println("Error flushing buffer")
 
+				}
 			}
 		}
 	}
