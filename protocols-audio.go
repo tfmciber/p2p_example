@@ -14,7 +14,6 @@ var AudioChan = make(chan []byte)
 var length int
 
 func SendAudioHandler() {
-	//go func() { AudioChan <- RecvBuff }()
 
 	go WriteData(AudioChan, "/audio/1.1.0")
 
@@ -29,7 +28,12 @@ func ReceiveAudioHandler(stream network.Stream) {
 	})
 
 }
-
+func startInit(ctx1 *malgo.AllocatedContext) {
+	CaptureDevice := initCaptureDevice(ctx1)
+	PlayDevice := initPlaybackDevice(ctx1)
+	startDevice(CaptureDevice)
+	startDevice(PlayDevice)
+}
 func initAudio() *malgo.AllocatedContext {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		fmt.Printf("LOG <%v>\n", message)

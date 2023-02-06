@@ -1,24 +1,31 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
-
-	"context"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+var cmdChan = make(chan string)
+
 func main() {
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	protocols := []string{"/audio/1.1.0", "/chat/1.1.0"}
+	filename := "./config.json"
 
+	Interrupts()
+	priv := initPriv(filename)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var rcm network.ResourceManager
+	Host, rcm = NewHost(ctx, protocols, priv)
+
+	fmt.Println("Host created. We are:", Host.ID())
 	ctx1, err1 := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 
 	})
@@ -30,36 +37,14 @@ func main() {
 		_ = ctx1.Uninit()
 		ctx1.Free()
 	}()
-	CaptureDevice := initCaptureDevice(ctx1)
-	PlayDevice := initPlaybackDevice(ctx1)
-	startDevice(CaptureDevice)
-
-	startDevice(PlayDevice)
-
-	go func() {
-		<-quit
-		fmt.Println("\r- Exiting Program")
-		Host.Close()
-		os.Exit(0)
-	}()
 
 	config, err := ParseFlags()
 
 	if err != nil {
 		panic(err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	protocols := []string{"/audio/1.1.0", "/chat/1.1.0"}
-
-	var rcm network.ResourceManager
-	Host, rcm = NewHost(ctx, protocols)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Host created. We are:", Host.ID())
-
+	// Go routines
+	go execCommnad()
 	var FoundPeersDHT <-chan peer.AddrInfo
 	var FoundPeersMDNS <-chan peer.AddrInfo
 
@@ -78,7 +63,7 @@ func main() {
 
 	//FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
 	SendTextHandler()
-	SendAudioHandler()
+	//SendAudioHandler()
 
 	for {
 

@@ -27,7 +27,31 @@ import (
 var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
-func NewHost(ctx context.Context, ProtocolIDs []string) (host.Host, network.ResourceManager) {
+//function executes terminal typed in comands
+func execCommnad() {
+
+	for {
+
+		cmd := <-cmdChan
+crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
+		switch {
+		case cmd == "text":
+			fmt.Print("text")
+		case cmd == "audio":
+			fmt.Print("audio")
+		case cmd == "users":
+			fmt.Print("audio")
+		case cmd == "mute":
+			fmt.Print("mute")
+		case cmd == "quit":
+			fmt.Print("mute")
+		default:
+			fmt.Print("Comnad ", cmd, "not valid")
+		}
+	}
+}
+
+func NewHost(ctx context.Context, ProtocolIDs []string, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
 
 	limiterCfg := `{
     "System":  {
@@ -70,13 +94,6 @@ func NewHost(ctx context.Context, ProtocolIDs []string) (host.Host, network.Reso
 		libp2p.Transport(quic.NewTransport),
 		libp2p.Transport(tcp.NewTCPTransport),
 	)
-	priv, _, err := crypto.GenerateKeyPair(
-		crypto.Ed25519, // Select your key type. Ed25519 are nice short
-		-1,             // Select key length when possible (i.e. RSA).
-	)
-	if err != nil {
-		panic(err)
-	}
 
 	//var idht *dht.IpfsDHT
 
