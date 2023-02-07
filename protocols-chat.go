@@ -9,11 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-var textChan = make(chan []byte)
-
 func SendTextHandler() {
-
-	go ReadStdin()
 
 	go WriteData(textChan, "/chat/1.1.0")
 
@@ -38,6 +34,7 @@ func ReadStdin() {
 	for {
 
 		fmt.Print("$ ")
+		fmt.Println(len(SendStreams))
 		Data, err := stdReader.ReadString('\n')
 		Data = strings.TrimSuffix(Data, "\n")
 		if err != nil {
@@ -47,13 +44,14 @@ func ReadStdin() {
 		}
 		if strings.HasPrefix(Data, "/") {
 			Data = strings.TrimPrefix(Data, "/")
-			fmt.Print("sent")
+
 			cmdChan <- Data
-			fmt.Print("pass")
 
+		} else if len(SendStreams) > 0 {
+			fmt.Println("enviando mensaje a")
+
+			textChan <- []byte(Data)
 		}
-
-		textChan <- []byte(Data)
 	}
 
 }

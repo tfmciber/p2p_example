@@ -29,6 +29,7 @@ func ReceiveAudioHandler(stream network.Stream) {
 
 }
 func startInit(ctx1 *malgo.AllocatedContext) {
+
 	CaptureDevice := initCaptureDevice(ctx1)
 	PlayDevice := initPlaybackDevice(ctx1)
 	startDevice(CaptureDevice)
@@ -129,7 +130,7 @@ func initPlaybackDevice(ctx *malgo.AllocatedContext) *malgo.Device {
 		fmt.Println(int(Samples+samplesToRead), len(RecvBuff))
 		if int(Samples+samplesToRead) < len(RecvBuff) {
 			copy(pSample, RecvBuff[Samples:Samples+samplesToRead])
-			fmt.Println("dsad")
+
 			Samples += samplesToRead
 		} else {
 			Samples = 0

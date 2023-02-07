@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -28,17 +29,30 @@ var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
 //function executes terminal typed in comands
-func execCommnad() {
+func execCommnad(ctx context.Context) {
 
 	for {
 
 		cmd := <-cmdChan
-crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
+		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
-		case cmd == "text":
-			fmt.Print("text")
+		case cmd == "connect-mdns":
+			fmt.Println("connect-mdns")
+			cadena := "tesksdla3213123121"
+			FoundPeersMDNS = FindPeersMDNS(cadena)
+			go ConnecToPeers(ctx, FoundPeersMDNS)
+			fmt.Println("connect-mdns")
+			SendTextHandler()
+		case cmd == "connect-dht":
+			cadena := "tesksdla3213123121"
+			FoundPeersDHT = discoverPeers(ctx, Host, cadena)
+			go ConnecToPeers(ctx, FoundPeersDHT)
+
+			SendTextHandler()
+
 		case cmd == "audio":
 			fmt.Print("audio")
+			SendAudioHandler()
 		case cmd == "users":
 			fmt.Print("audio")
 		case cmd == "mute":
@@ -51,7 +65,7 @@ crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados
 	}
 }
 
-func NewHost(ctx context.Context, ProtocolIDs []string, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
+func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
 
 	limiterCfg := `{
     "System":  {
@@ -110,7 +124,7 @@ func NewHost(ctx context.Context, ProtocolIDs []string, priv crypto.PrivKey) (ho
 
 			// regular tcp connections
 			fmt.Sprintf("/ip4/0.0.0.0/udp/0/quic"), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
+		//	fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
 		),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
@@ -146,7 +160,7 @@ func NewHost(ctx context.Context, ProtocolIDs []string, priv crypto.PrivKey) (ho
 	if err != nil {
 		panic(err)
 	}
-	for _, ProtocolID := range ProtocolIDs {
+	for _, ProtocolID := range protocols {
 
 		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 	}
@@ -154,10 +168,10 @@ func NewHost(ctx context.Context, ProtocolIDs []string, priv crypto.PrivKey) (ho
 	return h, rcm
 }
 
-func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolIDs []string) {
+func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo) {
 
 	for peer := range peerChan {
-
+		fmt.Println("found", peer)
 		if peer.ID == Host.ID() {
 			continue
 		}
@@ -167,21 +181,41 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, ProtocolI
 			continue
 		}
 		fmt.Println("Connected to:", peer.ID.Pretty())
-		for _, ProtocolID := range ProtocolIDs {
-
-			stream, err := Host.NewStream(ctx, peer.ID, protocol.ID(ProtocolID))
-
-			if err != nil {
-				fmt.Println("Stream failed:", err)
-
-				continue
-			} else {
-				SendStreams[stream.ID()] = stream
-			}
-		}
+		streamStart(ctx, peer.ID)
 
 	}
 
 }
+func streamStart(ctx context.Context, peerid peer.ID) {
+	for _, ProtocolID := range protocols {
 
-//todo: test dht, create vm and test audio and video stream
+		stream, err := Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
+
+		if err != nil {
+			fmt.Println("Stream failed:", err)
+
+			continue
+		} else {
+			SendStreams[stream.ID()] = stream
+		}
+	}
+}
+
+func debug(rcm network.ResourceManager) {
+
+	for {
+
+		<-time.After(1 * time.Minute)
+		rcm.ViewSystem(func(scope network.ResourceScope) error {
+			stat := scope.Stat()
+			fmt.Println("System:",
+				"\n\t memory", stat.Memory,
+				"\n\t numFD", stat.NumFD,
+				"\n\t connsIn", stat.NumConnsInbound,
+				"\n\t connsOut", stat.NumConnsOutbound,
+				"\n\t streamIn", stat.NumStreamsInbound,
+				"\n\t streamOut", stat.NumStreamsOutbound)
+			return nil
+		})
+	}
+}

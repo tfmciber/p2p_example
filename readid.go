@@ -41,7 +41,7 @@ func SetId() ([]byte, string) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Print(privM)
+
 	return privM, fmt.Sprintf("%x", pub)
 }
 
@@ -60,10 +60,10 @@ func initPriv(filename string) crypto.PrivKey {
 		}
 		key := hex.EncodeToString(NewSHA256([]byte(bytePassword)))
 		pObj, pub = SetId()
-		fmt.Print(pub)
+
 		write_keys(filename, pObj, pub, key)
 	} else {
-		fmt.Println("using values from profile file")
+		fmt.Println("using values from profile file ", filename)
 
 		for {
 			bytePassword, err := requestPwd(true)
@@ -115,7 +115,7 @@ func requestPwd(ver bool) ([]byte, error) {
 }
 func read_keys(filename string, key string) ([]byte, string, error) {
 	// Let's first read the `config.json` file
-	content, err := os.ReadFile("./config.json")
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatal("Error during readfile(): ", err)
 	}
