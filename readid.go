@@ -100,7 +100,7 @@ func requestPwd(ver bool) ([]byte, error) {
 		if ver {
 			return bytePassword_1, err
 		}
-		fmt.Println("Re-enter password")
+		fmt.Println("Confirm password")
 		bytePassword_2, err = term.ReadPassword(int(syscall.Stdin))
 
 		if err != nil {

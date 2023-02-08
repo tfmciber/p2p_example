@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"strings"
 
@@ -26,9 +25,9 @@ func DisconnectHost(stream network.Stream, err error) {
 
 }
 
-fix code redundancy and start gui
 func isconnected(stream network.Stream) bool {
 	for k := range SendStreams {
+		fmt.Println(strings.Split(k, "-")[0], strings.Split(stream.ID(), "-"))
 		if strings.Split(k, "-")[0] == strings.Split(stream.ID(), "-")[0] {
 			return true
 		}
@@ -38,12 +37,13 @@ func isconnected(stream network.Stream) bool {
 }
 
 func handleStream(stream network.Stream) {
+	/*
+		if !isconnected(stream) {
 
-	if !isconnected(stream) {
+			streamStart(context.Background(), stream.Conn().RemotePeer())
 
-		streamStart(context.Background(), stream.Conn().RemotePeer())
-
-	}
+		}
+	*/
 	switch stream.Protocol() {
 
 	case "/chat/1.1.0":
@@ -83,7 +83,7 @@ func WriteData(Chan chan []byte, protocol string) {
 		data := <-Chan
 
 		for _, stream := range SendStreams {
-			fmt.Println("enviamos ", stream)
+
 			if string(stream.Protocol()) == protocol {
 				w := bufio.NewWriter(stream)
 				_, err := w.Write(data)

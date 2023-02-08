@@ -29,28 +29,26 @@ func ReceiveTexthandler(stream network.Stream) {
 
 func ReadStdin() {
 
-	stdReader := bufio.NewReader(os.Stdin)
-
 	for {
 
 		fmt.Print("$ ")
-		fmt.Println(len(SendStreams))
-		Data, err := stdReader.ReadString('\n')
-		Data = strings.TrimSuffix(Data, "\n")
-		if err != nil {
+		fmt.Print(len(SendStreams))
+		var Data string
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		Data = scanner.Text()
 
-			return
-
-		}
 		if strings.HasPrefix(Data, "/") {
 			Data = strings.TrimPrefix(Data, "/")
 
 			cmdChan <- Data
 
 		} else if len(SendStreams) > 0 {
-			fmt.Println("enviando mensaje a")
 
 			textChan <- []byte(Data)
+		} else {
+
+			fmt.Println("No command selected and not connected to any host")
 		}
 	}
 

@@ -36,31 +36,32 @@ func execCommnad(ctx context.Context) {
 		cmd := <-cmdChan
 		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
-		case cmd == "connect-mdns":
+		case strings.Contains(cmd, "mdns"):
 			fmt.Println("connect-mdns")
-			cadena := "tesksdla3213123121"
+			cadena := "etesksdla321323121"
 			FoundPeersMDNS = FindPeersMDNS(cadena)
 			go ConnecToPeers(ctx, FoundPeersMDNS)
 			fmt.Println("connect-mdns")
 			SendTextHandler()
-		case cmd == "connect-dht":
-			cadena := "tesksdla3213123121"
+		case strings.Contains(cmd, "dht"):
+			cadena := "etesksdla3213123121"
 			FoundPeersDHT = discoverPeers(ctx, Host, cadena)
 			go ConnecToPeers(ctx, FoundPeersDHT)
 
 			SendTextHandler()
 
-		case cmd == "audio":
+		case strings.Contains(cmd, "audio"):
 			fmt.Print("audio")
+			startInit(ctx1)
 			SendAudioHandler()
-		case cmd == "users":
+		case strings.Contains(cmd, "users"):
 			fmt.Print("audio")
-		case cmd == "mute":
+		case strings.Contains(cmd, "mute"):
 			fmt.Print("mute")
-		case cmd == "quit":
+		case strings.Contains(cmd, "quit"):
 			fmt.Print("mute")
 		default:
-			fmt.Print("Comnad ", cmd, "not valid")
+			fmt.Printf("Comnad %s not valid \n", cmd)
 		}
 	}
 }
@@ -124,7 +125,7 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 
 			// regular tcp connections
 			fmt.Sprintf("/ip4/0.0.0.0/udp/0/quic"), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
-		//	fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
 		),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
@@ -171,7 +172,7 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo) {
 
 	for peer := range peerChan {
-		fmt.Println("found", peer)
+
 		if peer.ID == Host.ID() {
 			continue
 		}
@@ -190,6 +191,7 @@ func streamStart(ctx context.Context, peerid peer.ID) {
 	for _, ProtocolID := range protocols {
 
 		stream, err := Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
+		fmt.Print("new stream")
 
 		if err != nil {
 			fmt.Println("Stream failed:", err)
