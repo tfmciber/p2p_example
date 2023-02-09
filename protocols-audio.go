@@ -1,17 +1,22 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
 var pReceivedSamples = make(chan []byte)
-var RecvBuff = make([]byte, 0)
+var RecvBuff = make(chan []byte, 500)
 var AudioChan = make(chan []byte)
-var length int
+
+var SampleRate int = 44100
+var temp float32 = 2 //time in s to send
+
+type StreamConfig struct {
+	Format     malgo.FormatType
+	Channels   int
+	SampleRate int
+}
 
 func SendAudioHandler() {
 
@@ -20,133 +25,137 @@ func SendAudioHandler() {
 }
 
 func ReceiveAudioHandler(stream network.Stream) {
+	count := len(<-AudioChan)
+	reps := temp / float32(count) * float32(SampleRate) * 4
+	length := (int(reps) * count)
 
 	go readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
 
-		RecvBuff = buff
+		RecvBuff <- buff
 
 	})
 
 }
-func startInit(ctx1 *malgo.AllocatedContext) {
 
-	CaptureDevice := initCaptureDevice(ctx1)
-	PlayDevice := initPlaybackDevice(ctx1)
-	startDevice(CaptureDevice)
-	startDevice(PlayDevice)
+func initAudio(ctx *malgo.AllocatedContext) {
+
+	var config StreamConfig
+	config.Format = malgo.FormatS16
+	config.Channels = 2
+	config.SampleRate = SampleRate
+
+	var captureChan = make(chan []byte)
+
+	Capture(ctx, captureChan, config)
+	go Playback(ctx, RecvBuff, config)
+
+	go FrameChan(captureChan)
+
 }
-func initAudio() *malgo.AllocatedContext {
-	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-		fmt.Printf("LOG <%v>\n", message)
-	})
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer func() {
-		_ = ctx.Uninit()
-		ctx.Free()
-	}()
-	return ctx
-}
-func initCaptureDevice(ctx *malgo.AllocatedContext) *malgo.Device {
 
-	deviceConfig := malgo.DefaultDeviceConfig(malgo.Duplex)
-	deviceConfig.Capture.Format = malgo.FormatS16
-	deviceConfig.Capture.Channels = 2
-	deviceConfig.SampleRate = 44100
+//write 20 ms of data into AudioChan variable
+func FrameChan(channel chan []byte) {
 
-	var capturedSampleCount uint32
-	var pCapturedSamples = make([]byte, 0)
-	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
-	length = int(deviceConfig.SampleRate * deviceConfig.Capture.Channels * sizeInBytes / 10)
-	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+	var count int
 
-		sampleCount := framecount * deviceConfig.Capture.Channels * sizeInBytes
+	count = len(<-channel)
+	reps := temp / float32(count) * float32(SampleRate) * 4
 
-		newCapturedSampleCount := capturedSampleCount + sampleCount
+	for {
+		var aux []byte
 
-		pCapturedSamples = append(pCapturedSamples, pInputSamples...)
-		//fmt.Println(capturedSampleCount)
-		if uint32(len(pCapturedSamples)) > uint32(length) {
+		for i := 0; i < int(reps); i++ {
 
-			//RecvBuff = pCapturedSamples
-			fmt.Println(len(pCapturedSamples))
-			AudioChan <- pCapturedSamples
+			data := <-channel
 
-			newCapturedSampleCount = 0
-			pCapturedSamples = make([]byte, 0)
-
+			aux = append(aux, data...)
 		}
 
-		capturedSampleCount = newCapturedSampleCount
-
-	}
-	captureCallbacks := malgo.DeviceCallbacks{
-		Data: onRecvFrames,
-	}
-	device, err := malgo.InitDevice(ctx.Context, deviceConfig, captureCallbacks)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	return device
-}
-func startDevice(device *malgo.Device) {
-	err := device.Start()
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		AudioChan <- aux
 	}
 
 }
-func stopDevice(device *malgo.Device) {
-	err := device.Start()
 
+func stream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig, deviceCallbacks malgo.DeviceCallbacks) error {
+
+	device, err := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
-	device.Uninit()
 
+	err = device.Start()
+
+	return err
 }
 
-func initPlaybackDevice(ctx *malgo.AllocatedContext) *malgo.Device {
-	deviceConfig := malgo.DefaultDeviceConfig(malgo.Duplex)
-	deviceConfig.Capture.Format = malgo.FormatS16
-	deviceConfig.Capture.Channels = 2
+// StreamConfig describes the parameters for an audio stream.
+// Default values will pick the defaults of the default device.
 
-	deviceConfig.Playback.Format = malgo.FormatS16
-	deviceConfig.Playback.Channels = 2
-	deviceConfig.SampleRate = 44100
+func (config StreamConfig) asDeviceConfig(deviceType malgo.DeviceType) malgo.DeviceConfig {
+	deviceConfig := malgo.DefaultDeviceConfig(deviceType)
+	if config.Format != malgo.FormatUnknown {
+		deviceConfig.Capture.Format = config.Format
+		deviceConfig.Playback.Format = config.Format
+	}
+	if config.Channels != 0 {
+		deviceConfig.Capture.Channels = uint32(config.Channels)
+		deviceConfig.Playback.Channels = uint32(config.Channels)
+	}
+	if config.SampleRate != 0 {
+		deviceConfig.SampleRate = uint32(config.SampleRate)
+	}
+	return deviceConfig
+}
+
+// Capture records incoming samples into the provided writer.
+// The function initializes a capture device in the default context using
+// provide stream configuration.
+// Capturing will commence writing the samples to the writer until either the
+// writer returns an error, or the context signals done.
+
+func Capture(ctx *malgo.AllocatedContext, samples chan []byte, config StreamConfig) error {
+	deviceConfig := config.asDeviceConfig(malgo.Capture)
+
+	deviceCallbacks := malgo.DeviceCallbacks{
+		Data: func(outputSamples, inputSamples []byte, frameCount uint32) {
+
+			samples <- inputSamples
+
+		},
+	}
+
+	return stream(ctx, deviceConfig, deviceCallbacks)
+}
+
+// Playback streams samples from a reader to the sound device.
+// The function initializes a playback device in the default context using
+// provide stream configuration.
+// Playback will commence playing the samples provided from the reader until either the
+// reader returns an error, or the context signals done.
+func Playback(ctx *malgo.AllocatedContext, samples chan []byte, config StreamConfig) error {
+	deviceConfig := config.asDeviceConfig(malgo.Playback)
+
+	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
+	buffer := make([]byte, 0)
 	var Samples uint32
 	Samples = 0
-	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
+	deviceCallbacks := malgo.DeviceCallbacks{
+		Data: func(outputSamples, inputSamples []byte, frameCount uint32) {
+			samplesToRead := frameCount * deviceConfig.Playback.Channels * sizeInBytes
 
-	onSendFrames := func(pSample, nil []byte, framecount uint32) {
+			if int(Samples+samplesToRead) < len(buffer) {
+				copy(outputSamples, buffer[Samples:Samples+samplesToRead])
 
-		samplesToRead := framecount * deviceConfig.Playback.Channels * sizeInBytes
-		fmt.Println(int(Samples+samplesToRead), len(RecvBuff))
-		if int(Samples+samplesToRead) < len(RecvBuff) {
-			copy(pSample, RecvBuff[Samples:Samples+samplesToRead])
+				Samples += samplesToRead
+			} else {
+				Samples = 0
 
-			Samples += samplesToRead
-		} else {
-			Samples = 0
-			RecvBuff = make([]byte, length)
+				buffer = <-samples
 
-		}
+			}
 
-	}
-	playbackCallbacks := malgo.DeviceCallbacks{
-		Data: onSendFrames,
+		},
 	}
 
-	device, err := malgo.InitDevice(ctx.Context, deviceConfig, playbackCallbacks)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	return device
+	return stream(ctx, deviceConfig, deviceCallbacks)
 }

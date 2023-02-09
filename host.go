@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -22,14 +23,13 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
-	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
 //function executes terminal typed in comands
-func execCommnad(ctx context.Context) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 
 	for {
 
@@ -43,23 +43,24 @@ func execCommnad(ctx context.Context) {
 			go ConnecToPeers(ctx, FoundPeersMDNS)
 			fmt.Println("connect-mdns")
 			SendTextHandler()
+			SendFileHandler()
 		case strings.Contains(cmd, "dht"):
 			cadena := "etesksdla3213123121"
 			FoundPeersDHT = discoverPeers(ctx, Host, cadena)
 			go ConnecToPeers(ctx, FoundPeersDHT)
 
 			SendTextHandler()
+			SendFileHandler()
 
 		case strings.Contains(cmd, "audio"):
 			fmt.Print("audio")
-			startInit(ctx1)
+
+			initAudio(ctxmalgo)
 			SendAudioHandler()
+
 		case strings.Contains(cmd, "users"):
-			fmt.Print("audio")
-		case strings.Contains(cmd, "mute"):
-			fmt.Print("mute")
-		case strings.Contains(cmd, "quit"):
-			fmt.Print("mute")
+			listUSers()
+
 		default:
 			fmt.Printf("Comnad %s not valid \n", cmd)
 		}
@@ -107,7 +108,7 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(quic.NewTransport),
-		libp2p.Transport(tcp.NewTCPTransport),
+	//	libp2p.Transport(tcp.NewTCPTransport),
 	)
 
 	//var idht *dht.IpfsDHT
@@ -121,12 +122,9 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 		libp2p.Identity(priv),
 
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0"),
 
-			// regular tcp connections
-			fmt.Sprintf("/ip4/0.0.0.0/udp/0/quic"), // a UDP endpoint for the QUIC transport If errors regarding buffer run sudo sysctl -w net.core.rmem_max=2500000
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/0"),
-		),
+		//libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic"),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -191,7 +189,6 @@ func streamStart(ctx context.Context, peerid peer.ID) {
 	for _, ProtocolID := range protocols {
 
 		stream, err := Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
-		fmt.Print("new stream")
 
 		if err != nil {
 			fmt.Println("Stream failed:", err)

@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
@@ -25,9 +27,20 @@ func DisconnectHost(stream network.Stream, err error) {
 
 }
 
+func listUSers() {
+	users := make(map[string]bool)
+	for k := range SendStreams {
+		user := strings.Split(k, "-")[0]
+		if !users[user] {
+			users[user] = true
+			fmt.Println(user)
+		}
+	}
+
+}
 func isconnected(stream network.Stream) bool {
 	for k := range SendStreams {
-		fmt.Println(strings.Split(k, "-")[0], strings.Split(stream.ID(), "-"))
+
 		if strings.Split(k, "-")[0] == strings.Split(stream.ID(), "-")[0] {
 			return true
 		}
@@ -37,13 +50,14 @@ func isconnected(stream network.Stream) bool {
 }
 
 func handleStream(stream network.Stream) {
-	/*
-		if !isconnected(stream) {
 
-			streamStart(context.Background(), stream.Conn().RemotePeer())
+	//check if bidirectional stream exists
+	if !isconnected(stream) {
 
-		}
-	*/
+		streamStart(context.Background(), stream.Conn().RemotePeer())
+
+	}
+
 	switch stream.Protocol() {
 
 	case "/chat/1.1.0":
@@ -51,6 +65,9 @@ func handleStream(stream network.Stream) {
 	case "/audio/1.1.0":
 
 		ReceiveAudioHandler(stream)
+	case "/file/1.1.0":
+
+		ReceiveFilehandler(stream)
 
 	}
 
@@ -75,7 +92,23 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 	}
 }
+func SimplereadData(stream network.Stream, size uint16) []byte {
 
+	buff := make([]byte, size)
+	r := bufio.NewReader(stream)
+
+	_, err := r.Read(buff)
+	fmt.Print("leemos ", string(buff))
+	if err != nil {
+
+		DisconnectHost(stream, err)
+		return nil
+
+	}
+
+	return buff
+
+}
 func WriteData(Chan chan []byte, protocol string) {
 
 	for {
@@ -93,10 +126,41 @@ func WriteData(Chan chan []byte, protocol string) {
 				}
 				err = w.Flush()
 				if err != nil {
-					fmt.Println("Error flushing buffer")
+					fmt.Println("Error flushing buffer", err)
 
 				}
 			}
 		}
 	}
+}
+
+func ReadStdin() {
+
+	for {
+
+		fmt.Print("$ ")
+
+		var Data string
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		Data = scanner.Text()
+
+		if strings.HasPrefix(Data, "/") { // READ COMMANDS
+			Data = strings.TrimPrefix(Data, "/")
+
+			cmdChan <- Data
+
+		} else if strings.HasPrefix(Data, "!") { // Send File
+			Data = strings.TrimPrefix(Data, "!")
+			sendFile(Data)
+
+		} else if len(SendStreams) > 0 {
+
+			textChan <- []byte(Data)
+		} else {
+
+			fmt.Println("No command selected and not connected to any host")
+		}
+	}
+
 }

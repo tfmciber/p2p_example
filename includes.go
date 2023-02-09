@@ -15,8 +15,10 @@ var FoundPeersMDNS <-chan peer.AddrInfo
 var hostctx context.Context
 var discctx_m context.Context
 var discctx_d context.Context
-var ctx1 *malgo.AllocatedContext
+
+//var ctx1 *malgo.AllocatedContext
 var textChan = make(chan []byte)
+var fileChan = make(chan []byte) //0 stores the file name, rest all data
 
 func initCTX() {
 	var cancel context.CancelFunc
@@ -24,7 +26,7 @@ func initCTX() {
 	defer cancel()
 
 	var err1 error
-	ctx1, err1 = malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+	ctx1, err1 := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 
 	})
 	if err1 != nil {
