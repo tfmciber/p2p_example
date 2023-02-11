@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
@@ -25,7 +24,6 @@ import (
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 )
 
-var SendStreams = make(map[string]network.Stream)
 var Host host.Host
 
 //function executes terminal typed in comands
@@ -36,31 +34,28 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 		cmd := <-cmdChan
 		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
-		case strings.Contains(cmd, "mdns"):
-			fmt.Println("connect-mdns")
-			cadena := "etesksdla321323121"
+		case strings.Contains(cmd, "mdns:"):
+			cadena := strings.TrimPrefix(cmd, "mdns:")
 			FoundPeersMDNS = FindPeersMDNS(cadena)
 			go ConnecToPeers(ctx, FoundPeersMDNS)
-			fmt.Println("connect-mdns")
-			SendTextHandler()
-			SendFileHandler()
-		case strings.Contains(cmd, "dht"):
-			cadena := "etesksdla3213123121"
+		case strings.Contains(cmd, "dht:"):
+			cadena := strings.TrimPrefix(cmd, "dht:")
 			FoundPeersDHT = discoverPeers(ctx, Host, cadena)
 			go ConnecToPeers(ctx, FoundPeersDHT)
-
-			SendTextHandler()
-			SendFileHandler()
-
+		case strings.Contains(cmd, "text:"):
+			cadena := strings.TrimPrefix(cmd, "text:")
+			textChan <- []byte(cadena)
+		case strings.Contains(cmd, "file:"):
+			filename := strings.TrimPrefix(cmd, "file:")
+			sendFile(filename)
 		case strings.Contains(cmd, "audio"):
-			fmt.Print("audio")
-
 			initAudio(ctxmalgo)
-			SendAudioHandler()
-
 		case strings.Contains(cmd, "users"):
 			listUSers()
-
+		case strings.Contains(cmd, "conns"):
+			listCons()
+		case strings.Contains(cmd, "streams"):
+			listStreams()
 		default:
 			fmt.Printf("Comnad %s not valid \n", cmd)
 		}
@@ -159,12 +154,50 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 	if err != nil {
 		panic(err)
 	}
+	var protocols = []string{"/audio/1.1.0", "/chat/1.1.0", "/file/1.1.0"}
 	for _, ProtocolID := range protocols {
 
 		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 	}
 
 	return h, rcm
+}
+
+func listCons() {
+	fmt.Println("Conns open:")
+	for _, v := range Host.Network().Conns() {
+		fmt.Println(v)
+	}
+}
+
+// func to list all streams open
+func listStreams() {
+	fmt.Println("Streams open:")
+	for _, v := range Host.Network().Conns() {
+		//list all streams for the connection
+		for _, s := range v.GetStreams() {
+			fmt.Println(s)
+		}
+
+	}
+}
+
+// func t o notify on disconection
+
+func Notifyondisconnect() {
+	Host.Network().Notify(&network.NotifyBundle{
+		DisconnectedF: func(net network.Network, conn network.Conn) {
+			fmt.Println("Disconnected from:", conn.RemotePeer())
+		},
+	})
+}
+
+// funct to list all curennt users
+func listUSers() {
+	fmt.Println("Users connected:")
+	for _, v := range Host.Network().Peers() {
+		fmt.Println(v)
+	}
 }
 
 func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo) {
@@ -179,42 +212,79 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo) {
 			fmt.Println("Connection failed:", err)
 			continue
 		}
+
 		fmt.Println("Connected to:", peer.ID.Pretty())
-		streamStart(ctx, peer.ID)
 
 	}
 
 }
-func streamStart(ctx context.Context, peerid peer.ID) {
-	for _, ProtocolID := range protocols {
+
+//func to check if stream is bidirectional not using dirboth
+
+func isBidirectional(stream network.Stream) bool {
+	return stream.Stat().Direction == network.DirOutbound
+
+}
+
+//func for getting all streams from host of a given protocol
+func GetStreamsFromProtocol(protocol string) []network.Stream {
+	var streams []network.Stream
+	for _, c := range Host.Network().Conns() {
+		for _, s := range c.GetStreams() {
+			if string(s.Protocol()) == protocol {
+				streams = append(streams, s)
+			}
+
+		}
+
+	}
+	return streams
+}
+
+//func for checking if host has any stream open of a protocol
+func HasStreamOfProtocol(protocol string) bool {
+	for _, c := range Host.Network().Conns() {
+		for _, s := range c.GetStreams() {
+
+			if string(s.Protocol()) == protocol {
+				return true
+			}
+		}
+	}
+	return false
+}
+func HasStream() bool {
+	for _, c := range Host.Network().Conns() {
+		for _, s := range c.GetStreams() {
+			if s != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+//func for checking if host has any connection open
+func HasConnection() bool {
+	for _, c := range Host.Network().Conns() {
+		if c != nil {
+			return true
+		}
+	}
+	return false
+}
+
+//func to start a stream with a peer only if there is no stream open and return the stream in any cases
+func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
+	if HasStreamOfProtocol(ProtocolID) == false {
 
 		stream, err := Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
 
 		if err != nil {
 			fmt.Println("Stream failed:", err)
 
-			continue
-		} else {
-			SendStreams[stream.ID()] = stream
 		}
+		return stream
 	}
-}
-
-func debug(rcm network.ResourceManager) {
-
-	for {
-
-		<-time.After(1 * time.Minute)
-		rcm.ViewSystem(func(scope network.ResourceScope) error {
-			stat := scope.Stat()
-			fmt.Println("System:",
-				"\n\t memory", stat.Memory,
-				"\n\t numFD", stat.NumFD,
-				"\n\t connsIn", stat.NumConnsInbound,
-				"\n\t connsOut", stat.NumConnsOutbound,
-				"\n\t streamIn", stat.NumStreamsInbound,
-				"\n\t streamOut", stat.NumStreamsOutbound)
-			return nil
-		})
-	}
+	return GetStreamsFromProtocol(ProtocolID)[0]
 }

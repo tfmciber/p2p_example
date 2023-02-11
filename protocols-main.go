@@ -10,53 +10,12 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-// Removes host,stream from list and prints the error
+//func for removing and disconecting a peer
 func DisconnectHost(stream network.Stream, err error) {
-
-	for k := range SendStreams {
-
-		if strings.Split(k, "-")[0] == strings.Split(stream.ID(), "-")[0] {
-
-			fmt.Printf("Removed %s stream(%s,%s) %s due to %s \n", stream.Conn().LocalPeer().String(), stream.Protocol(), stream.Conn().ConnState(), stream.ID(), err)
-			delete(SendStreams, k)
-
-		}
-
-	}
-	fmt.Printf("%d  Conections left\n", len(SendStreams))
-
+	fmt.Println("Disconnecting host:", err)
+	Host.Network().ClosePeer(stream.Conn().RemotePeer())
 }
-
-func listUSers() {
-	users := make(map[string]bool)
-	for k := range SendStreams {
-		user := strings.Split(k, "-")[0]
-		if !users[user] {
-			users[user] = true
-			fmt.Println(user)
-		}
-	}
-
-}
-func isconnected(stream network.Stream) bool {
-	for k := range SendStreams {
-
-		if strings.Split(k, "-")[0] == strings.Split(stream.ID(), "-")[0] {
-			return true
-		}
-
-	}
-	return false
-}
-
 func handleStream(stream network.Stream) {
-
-	//check if bidirectional stream exists
-	if !isconnected(stream) {
-
-		streamStart(context.Background(), stream.Conn().RemotePeer())
-
-	}
 
 	switch stream.Protocol() {
 
@@ -73,14 +32,33 @@ func handleStream(stream network.Stream) {
 
 }
 
+//func to close all strems of a given protocol
+func CloseStreams(ProtocolID string) {
+
+	for _, peerid := range Host.Network().Peers() {
+
+		for _, conns := range Host.Network().ConnsToPeer(peerid) {
+
+			for _, stream := range conns.GetStreams() {
+
+				if string(stream.Protocol()) == ProtocolID {
+
+					stream.Close()
+				}
+			}
+		}
+
+	}
+
+}
+
 //Function that reads data of size n from stream and calls f funcion
 func readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
 
 	for {
 		buff := make([]byte, size)
-		r := bufio.NewReader(stream)
 
-		_, err := r.Read(buff)
+		_, err := stream.Read(buff)
 
 		if err != nil {
 
@@ -92,48 +70,31 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 	}
 }
-func SimplereadData(stream network.Stream, size uint16) []byte {
 
-	buff := make([]byte, size)
-	r := bufio.NewReader(stream)
-
-	_, err := r.Read(buff)
-	fmt.Print("leemos ", string(buff))
-	if err != nil {
-
-		DisconnectHost(stream, err)
-		return nil
-
-	}
-
-	return buff
-
-}
-func WriteData(Chan chan []byte, protocol string) {
-
+func WriteData(Chan chan []byte, ProtocolID string) {
 	for {
-
 		data := <-Chan
 
-		for _, stream := range SendStreams {
+		for _, peerid := range Host.Network().Peers() {
+		restart:
+			s := streamStart(context.Background(), peerid, ProtocolID)
 
-			if string(stream.Protocol()) == protocol {
-				w := bufio.NewWriter(stream)
-				_, err := w.Write(data)
-				if err != nil {
-					fmt.Println("Error writing to buffer")
+			_, err := s.Write(data)
 
-				}
-				err = w.Flush()
-				if err != nil {
-					fmt.Println("Error flushing buffer", err)
-
-				}
+			if err != nil {
+				fmt.Println("Write failed:", err)
+				s.Close()
+				goto restart
 			}
+
 		}
 	}
+
 }
 
+//function to send data over a stream
+
+//Function that reads data from stdin and sends it to the cmd channel
 func ReadStdin() {
 
 	for {
@@ -150,16 +111,9 @@ func ReadStdin() {
 
 			cmdChan <- Data
 
-		} else if strings.HasPrefix(Data, "!") { // Send File
-			Data = strings.TrimPrefix(Data, "!")
-			sendFile(Data)
-
-		} else if len(SendStreams) > 0 {
-
-			textChan <- []byte(Data)
 		} else {
 
-			fmt.Println("No command selected and not connected to any host")
+			fmt.Println("Please enter a valid command")
 		}
 	}
 

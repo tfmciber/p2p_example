@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"net"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +16,7 @@ func SendFileHandler() {
 
 }
 func sendFile(path string) {
+
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
@@ -31,19 +32,21 @@ func sendFile(path string) {
 
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 	fileChan <- []byte(fileSize)
-	//time.Sleep(1 * time.Second)
-	fileChan <- []byte(fileName)
 
-	// sendBuffer := make([]byte, 1024)
-	// for {
-	// 	_, err = file.Read(sendBuffer)
-	// 	if err == io.EOF {
-	// 		break
-	// 	}
-	// 	fileChan <- sendBuffer
-	// }
+	fileChan <- []byte(fileName)
+	sendBuffer := make([]byte, 1024)
+	for {
+		_, err = file.Read(sendBuffer)
+		if err == io.EOF {
+			break
+		}
+		fileChan <- sendBuffer
+	}
+
 	fmt.Println("File has been sent successfully!")
+
 }
+
 func fillString(retunString string, toLength int) string {
 	for {
 		lengtString := len(retunString)
@@ -55,22 +58,23 @@ func fillString(retunString string, toLength int) string {
 	}
 	return retunString
 }
-terminar la lectura de archivos y migrar las funciones de lectura/escritura 
-a stream.Read y write si se puede
 
 func ReceiveFilehandler(stream network.Stream) {
 
-	fmt.Print("ReceiveFilehandler")
+	downloadDir := GetDefaultDownloadDir()
+	createDirIfNotExist(downloadDir) //create download dir if it does not exist
+
 	fileSizeBuffer := make([]byte, 10)
 	stream.Read(fileSizeBuffer)
 
 	fileSize, _ := strconv.Atoi(strings.Trim(string(fileSizeBuffer), ":"))
+	fmt.Println("fileSize", string(fileSizeBuffer))
 	fileNameBuffer := make([]byte, 64)
 	stream.Read(fileNameBuffer)
-
 	fileName := strings.Trim(string(fileNameBuffer), ":")
-	fmt.Printf("archivo %s de %d \n", fileName, fileSize)
-	newFile, err := os.Create(fileName)
+	fmt.Println("fileName", string(fileNameBuffer))
+
+	newFile, err := os.Create(fmt.Sprintf("%s/%s", downloadDir, fileName))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -93,39 +97,7 @@ func ReceiveFilehandler(stream network.Stream) {
 			break
 		}
 	}
-}
 
-func receiveFile(fileName string, conn net.Conn) {
-	fileSizeBuffer := make([]byte, 10)
-	conn.Read(fileSizeBuffer)
-	fileSize, _ := strconv.Atoi(strings.Trim(string(fileSizeBuffer), ":"))
-
-	fileNameBuffer := make([]byte, 64)
-	conn.Read(fileNameBuffer)
-	fileName = strings.Trim(string(fileNameBuffer), ":")
-
-	newFile, err := os.Create(fileName)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer newFile.Close()
-
-	var receivedBytes int
-	receiveBuffer := make([]byte, 1024)
-	for {
-		if (fileSize - receivedBytes) < 1024 {
-			receiveBuffer = make([]byte, (fileSize - receivedBytes))
-		}
-		n, err := conn.Read(receiveBuffer)
-		if err != nil {
-			break
-		}
-		receivedBytes += n
-		newFile.Write(receiveBuffer[:n])
-		if receivedBytes == fileSize {
-			break
-		}
-	}
 	fmt.Println("File has been received successfully!")
+	stream.Close()
 }

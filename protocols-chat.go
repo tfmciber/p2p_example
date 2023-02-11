@@ -16,7 +16,7 @@ func ReceiveTexthandler(stream network.Stream) {
 
 	go readData(stream, 2000, func(buff []byte, stream network.Stream) {
 
-		fmt.Printf("%s \n", string(buff[:]))
+		fmt.Printf("%s = %s \n", stream.Conn().RemotePeer(), string(buff[:]))
 
 		buff = nil
 

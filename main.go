@@ -8,8 +8,6 @@ import (
 	"github.com/gen2brain/malgo"
 )
 
-var protocols = []string{"/audio/1.1.0", "/chat/1.1.0", "/file/1.1.0"}
-
 func main() {
 
 	filename := "./config.json"
@@ -37,6 +35,11 @@ func main() {
 	// Go routines
 
 	go ReadStdin()
+	go Notifyondisconnect()
+
+	go WriteData(textChan, "/chat/1.1.0")
+	go WriteData(audioChan, "/audio/1.1.0")
+	go WriteData(fileChan, "/file/1.1.0")
 
 	// Start State machine
 	ctx, cancel := context.WithCancel(context.Background())

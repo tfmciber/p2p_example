@@ -7,7 +7,7 @@ import (
 
 var pReceivedSamples = make(chan []byte)
 var RecvBuff = make(chan []byte, 500)
-var AudioChan = make(chan []byte)
+var audioChan = make(chan []byte)
 
 var SampleRate int = 44100
 var temp float32 = 2 //time in s to send
@@ -20,12 +20,12 @@ type StreamConfig struct {
 
 func SendAudioHandler() {
 
-	go WriteData(AudioChan, "/audio/1.1.0")
+	go WriteData(audioChan, "/audio/1.1.0")
 
 }
 
 func ReceiveAudioHandler(stream network.Stream) {
-	count := len(<-AudioChan)
+	count := len(<-audioChan)
 	reps := temp / float32(count) * float32(SampleRate) * 4
 	length := (int(reps) * count)
 
@@ -71,7 +71,7 @@ func FrameChan(channel chan []byte) {
 			aux = append(aux, data...)
 		}
 
-		AudioChan <- aux
+		audioChan <- aux
 	}
 
 }

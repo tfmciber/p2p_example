@@ -1,30 +1,22 @@
 package main
 
-import (
-	"sync"
+import "os"
 
-	"github.com/libp2p/go-libp2p/core/peer"
-)
-
-func merge(cs ...<-chan peer.AddrInfo) <-chan peer.AddrInfo {
-	out := make(chan peer.AddrInfo)
-	var wg sync.WaitGroup
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go func(c <-chan peer.AddrInfo) {
-			for v := range c {
-				out <- v
-			}
-		}(c)
+//func to get the default download directory os independent
+func GetDefaultDownloadDir() string {
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = os.Getenv("USERPROFILE") // windows
 	}
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
+	downloadir := home + "/Downloads"
+	return downloadir
 }
-func chk(err error) {
-	if err != nil {
-		panic(err)
+
+//func to create a directory if it does not exist os independent
+func createDirIfNotExist(dir string) {
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		os.Mkdir(dir, 0777)
 	}
+
 }
