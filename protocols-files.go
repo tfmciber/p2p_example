@@ -6,16 +6,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-func SendFileHandler() {
-
-	go WriteData(fileChan, "/file/1.1.0")
-
-}
-func sendFile(path string) {
+func sendFile(rendezvous string, path string) {
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -31,20 +27,22 @@ func sendFile(path string) {
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
-	fileChan <- []byte(fileSize)
-
-	fileChan <- []byte(fileName)
-	sendBuffer := make([]byte, 1024)
+	WriteDataRend([]byte(fileSize), "/file/1.1.0", rendezvous)
+	WriteDataRend([]byte(fileName), "/file/1.1.0", rendezvous)
+	start := time.Now()
 	for {
-		_, err = file.Read(sendBuffer)
+		sendBuffer := make([]byte, 1024)
+		_, err := file.Read(sendBuffer)
 		if err == io.EOF {
 			break
+		} else {
+
+			WriteDataRend(sendBuffer, "/file/1.1.0", rendezvous)
 		}
-		fileChan <- sendBuffer
+
 	}
-
-	fmt.Println("File has been sent successfully!")
-
+	elapsed := time.Since(start)
+	fmt.Println("File has been sent successfully! in ", elapsed, "at an average speed of ", float64(fileInfo.Size())/float64(elapsed.Milliseconds()), " Mbytes/sec")
 }
 
 func fillString(retunString string, toLength int) string {
@@ -68,11 +66,12 @@ func ReceiveFilehandler(stream network.Stream) {
 	stream.Read(fileSizeBuffer)
 
 	fileSize, _ := strconv.Atoi(strings.Trim(string(fileSizeBuffer), ":"))
-	fmt.Println("fileSize", string(fileSizeBuffer))
+
 	fileNameBuffer := make([]byte, 64)
 	stream.Read(fileNameBuffer)
 	fileName := strings.Trim(string(fileNameBuffer), ":")
-	fmt.Println("fileName", string(fileNameBuffer))
+
+	fmt.Println("Receiving file: ", fileName, " of size: ", fileSize, " bytes")
 
 	newFile, err := os.Create(fmt.Sprintf("%s/%s", downloadDir, fileName))
 	if err != nil {
@@ -82,6 +81,7 @@ func ReceiveFilehandler(stream network.Stream) {
 	defer newFile.Close()
 
 	var receivedBytes int
+
 	receiveBuffer := make([]byte, 1024)
 	for {
 		if (fileSize - receivedBytes) < 1024 {
@@ -100,4 +100,5 @@ func ReceiveFilehandler(stream network.Stream) {
 
 	fmt.Println("File has been received successfully!")
 	stream.Close()
+
 }

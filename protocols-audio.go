@@ -18,9 +18,11 @@ type StreamConfig struct {
 	SampleRate int
 }
 
-func SendAudioHandler() {
-
-	go WriteData(audioChan, "/audio/1.1.0")
+func SendAudioHandler(rendezvous string) {
+	for {
+		data := <-audioChan
+		WriteDataRend(data, "/audio/1.1.0", rendezvous)
+	}
 
 }
 
@@ -52,8 +54,32 @@ func initAudio(ctx *malgo.AllocatedContext) {
 	go FrameChan(captureChan)
 
 }
+func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan bool) {
+	var config StreamConfig
+	config.Format = malgo.FormatS16
+	config.Channels = 2
+	config.SampleRate = SampleRate
+	var aux []byte
+	var captureChan = make(chan []byte)
+	Capture(ctx, captureChan, config)
+	select {
 
-//write 20 ms of data into AudioChan variable
+	case data := <-audioChan:
+
+		aux = append(aux, data...)
+
+	case <-quitchan:
+
+		WriteDataRend(aux, "/audio/1.1.0", rendezvous)
+		break
+	}
+
+}
+func quitAudio(ctx *malgo.AllocatedContext) {
+	ctx.Free()
+}
+
+//write 20 ms of data into AudioChan variable a send audio data at 20 ms intervals to audio chan
 func FrameChan(channel chan []byte) {
 
 	var count int

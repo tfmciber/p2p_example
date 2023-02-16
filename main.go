@@ -35,11 +35,7 @@ func main() {
 	// Go routines
 
 	go ReadStdin()
-	go Notifyondisconnect()
-
-	go WriteData(textChan, "/chat/1.1.0")
-	go WriteData(audioChan, "/audio/1.1.0")
-	go WriteData(fileChan, "/file/1.1.0")
+	//go Notifyondisconnect()
 
 	// Start State machine
 	ctx, cancel := context.WithCancel(context.Background())

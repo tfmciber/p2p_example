@@ -1,6 +1,12 @@
 package main
 
-import "os"
+import (
+	"encoding/csv"
+	"fmt"
+	"os"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+)
 
 //func to get the default download directory os independent
 func GetDefaultDownloadDir() string {
@@ -19,4 +25,68 @@ func createDirIfNotExist(dir string) {
 		os.Mkdir(dir, 0777)
 	}
 
+}
+
+//funct to create a csv file
+func createFile(file string) {
+	f, err := os.Create(file)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+}
+
+//func to append string into csv
+func appendToCSV(file string, data []string) {
+
+	//if file not exist create it
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		createFile(file)
+	}
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+
+	defer f.Close()
+	writer := csv.NewWriter(f)
+	e := writer.Write(data)
+	writer.Flush()
+
+	if e != nil {
+		fmt.Println(e)
+	}
+
+}
+
+//func to add to a map of slices of peers if not already there else set peer to online
+func Add(Map map[string][]Peer, Peeraddr peer.AddrInfo, rendezvous string) map[string][]Peer {
+
+	found := false
+
+	for i, v := range Map[rendezvous] {
+		if v.peer.ID == Peeraddr.ID {
+			Map[rendezvous][i] = Peer{Peeraddr, true}
+			found = true
+			break
+		}
+	}
+
+	if found == false {
+		Map[rendezvous] = append(Map[rendezvous], Peer{Peeraddr, true})
+		fmt.Print("rwe")
+	}
+
+	return Map
+
+}
+
+//func to check if slice contains a value
+func Contains(s []peer.ID, e peer.ID) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

@@ -2,10 +2,8 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
 )
@@ -14,42 +12,33 @@ import (
 func DisconnectHost(stream network.Stream, err error) {
 	fmt.Println("Disconnecting host:", err)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
+	//func to get all keys from a map
 }
+
 func handleStream(stream network.Stream) {
 
-	switch stream.Protocol() {
+	// check if a stream with the same protocol and peer is already open
+	if GetStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
-	case "/chat/1.1.0":
-		ReceiveTexthandler(stream)
-	case "/audio/1.1.0":
+		fmt.Print("New stream from:", stream.Conn().RemotePeer(), "Protocol:", stream.Protocol())
+		switch stream.Protocol() {
 
-		ReceiveAudioHandler(stream)
-	case "/file/1.1.0":
+		case "/chat/1.1.0":
+			ReceiveTexthandler(stream)
+		case "/audio/1.1.0":
 
-		ReceiveFilehandler(stream)
+			ReceiveAudioHandler(stream)
+		case "/file/1.1.0":
 
-	}
+			ReceiveFilehandler(stream)
+		case "/bench/1.1.0":
 
-}
+			ReceiveBenchhandler(stream)
 
-//func to close all strems of a given protocol
-func CloseStreams(ProtocolID string) {
-
-	for _, peerid := range Host.Network().Peers() {
-
-		for _, conns := range Host.Network().ConnsToPeer(peerid) {
-
-			for _, stream := range conns.GetStreams() {
-
-				if string(stream.Protocol()) == ProtocolID {
-
-					stream.Close()
-				}
-			}
 		}
-
+	} else {
+		stream.Close()
 	}
-
 }
 
 //Function that reads data of size n from stream and calls f funcion
@@ -71,25 +60,31 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 	}
 }
 
-func WriteData(Chan chan []byte, ProtocolID string) {
-	for {
-		data := <-Chan
+func WriteDataRend(data []byte, ProtocolID string, rendezvous string) {
 
-		for _, peerid := range Host.Network().Peers() {
-		restart:
-			s := streamStart(context.Background(), peerid, ProtocolID)
+	// loop over Peers map
+	for i, v := range Ren[rendezvous] {
+		if v.online == true {
 
-			_, err := s.Write(data)
+			stream := streamStart(hostctx, v.peer.ID, ProtocolID)
 
-			if err != nil {
-				fmt.Println("Write failed:", err)
-				s.Close()
-				goto restart
+			if stream == nil {
+
+				Peers[rendezvous][i].online = false
+
+			} else {
+
+				_, err := stream.Write(data)
+
+				if err != nil {
+					fmt.Println("Write failed:", err)
+					Peers[rendezvous][i].online = false
+					stream.Close()
+
+				}
 			}
-
 		}
 	}
-
 }
 
 //function to send data over a stream
@@ -106,15 +101,8 @@ func ReadStdin() {
 		scanner.Scan()
 		Data = scanner.Text()
 
-		if strings.HasPrefix(Data, "/") { // READ COMMANDS
-			Data = strings.TrimPrefix(Data, "/")
+		cmdChan <- Data
 
-			cmdChan <- Data
-
-		} else {
-
-			fmt.Println("Please enter a valid command")
-		}
 	}
 
 }
