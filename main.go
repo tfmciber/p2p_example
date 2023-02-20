@@ -40,7 +40,7 @@ func main() {
 	// Start State machine
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go execCommnad(ctx, mctx)
+	go execCommnad(ctx, mctx, priv)
 
 	select {}
 }

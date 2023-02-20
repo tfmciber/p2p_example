@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
+
+	"strings"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
@@ -12,10 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-
-	//"github.com/libp2p/go-libp2p/core/routing"
-
-	"strings"
+	"github.com/multiformats/go-multiaddr"
 
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
@@ -23,30 +23,30 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
-	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	tcp "github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 var Host host.Host
 
 type Peer struct {
-	peer   peer.AddrInfo
+	peer   []peer.AddrInfo
 	online bool
 }
 
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
 var Peers = make(map[peer.ID]Peer)   //map of peers
+var found chan bool
 
 //function executes terminal typed in comands
 
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey) {
 	var quitchan chan bool
 	for {
 
 		cmds := strings.SplitN(<-cmdChan, ":", 4)
 		var cmd string
 		var rendezvous string
-		var param2 string
-		var param3 string
+		var param2, param3, param4 string
 
 		if len(cmds) > 0 {
 			cmd = cmds[0]
@@ -60,18 +60,25 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 		if len(cmds) > 3 {
 			param3 = cmds[3]
 		}
-
+		if len(cmds) > 4 {
+			param4 = cmds[4]
+		}
+		quic := true
 		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
+
 		case cmd == "mdns":
 
+			fmt.Println("MDNS")
 			FoundPeersMDNS = FindPeersMDNS(rendezvous)
-			go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous)
+			go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic)
+			go Notifyonconnect()
 
 		case cmd == "dht":
 
 			FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-			go ConnecToPeers(ctx, FoundPeersDHT, rendezvous)
+			ConnecToPeers(ctx, FoundPeersDHT, rendezvous, quic)
+			go Notifyonconnect()
 
 		case cmd == "text":
 
@@ -106,34 +113,95 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 		case cmd == "streams":
 
 			listStreams()
+		case cmd == "bench":
+			sendBench(1000, 1000, rendezvous)
 
 		case cmd == "benchmark":
 
-			nMess := 10
+			nMess := 2048
 			nBytes := 1024
+			mdns := "mdns"
 
 			if param2 != "" {
-				nMess, _ = strconv.Atoi(param2)
+				mdns = param2
 			}
+
 			if param3 != "" {
-				nBytes, _ = strconv.Atoi(param3)
+				nMess, _ = strconv.Atoi(param3)
+			}
+			if param4 != "" {
+				nBytes, _ = strconv.Atoi(param4)
 
 			}
-			for i := 1; i < nMess; i++ {
-				for j := 1; j < nBytes; j++ {
-					fmt.Println("Benchmarking with ", i, " messages of ", j, " bytes")
-					go sendBench(i, j, rendezvous)
+
+			fmt.Println("QUIC benchmark")
+
+			DisconnectAll()
+			if mdns == "mdns" {
+				FoundPeersMDNS = FindPeersMDNS(rendezvous)
+				go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, true)
+			} else {
+				FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
+				ConnecToPeers(ctx, FoundPeersDHT, rendezvous, true)
+
+			}
+			go Notifyonconnect()
+
+			<-time.After(4 * time.Second)
+
+			for j := 64; j < nBytes+1; j += 64 {
+				for i := 0; i < 1000; i++ {
+					fmt.Println("Benchmarking with ", nMess, " messages of ", j, " bytes")
+					sendBench(nMess, j, rendezvous)
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+
+			fmt.Println("TCP benchmark")
+			DisconnectAll()
+
+			if mdns == "mdns" {
+				FoundPeersMDNS = FindPeersMDNS(rendezvous)
+				go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, false)
+			} else {
+				FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
+				ConnecToPeers(ctx, FoundPeersDHT, rendezvous, false)
+			}
+			go Notifyonconnect()
+
+			<-time.After(4 * time.Second)
+
+			for j := 64; j < nBytes+1; j += 64 {
+				for i := 0; i < 1000; i++ {
+					fmt.Println("Benchmarking with ", nMess, " messages of ", j, " bytes")
+					sendBench(nMess, j, rendezvous)
+					time.Sleep(100 * time.Millisecond)
 				}
 			}
 
 		default:
 			fmt.Printf("Comnad %s not valid \n", cmd)
-			fmt.Printf("Valid commands are:\n \t mdns:rendezvous \n \t dht:rendezvous \n \t text:rendezvous:text \n \t file:rendezvous:file \n \t audio:rendezvous \n \t stopaudio \n \t users:rendezvous \n \t allusers \n \t conns \n \t streams \n \t benchmark:rendezvous:nMess:nBytes \n")
+			fmt.Print("Valid commands are: \n")
+			fmt.Print("mdns:rendezvous \n")
+			fmt.Print("dht:rendezvous \n")
+			fmt.Print("text:rendezvous:text \n")
+			fmt.Print("file:rendezvous:file \n")
+			fmt.Print("call:rendezvous \n")
+			fmt.Print("stopcall \n")
+			fmt.Print("audio:rendezvous \n")
+			fmt.Print("stopaudio \n")
+			fmt.Print("users:rendezvous \n")
+			fmt.Print("allusers \n")
+			fmt.Print("conns \n")
+			fmt.Print("streams \n")
+			fmt.Print("bench:rendezvous \n")
+			fmt.Print("benchmark:rendezvous:mdns|dht:number of messages:number of bytes \n")
+
 		}
 	}
 }
 
-//function to notify if a peer found by discoverPeers(ctx, Host, cadena) is not connected
+//create a new stream to a peer using tcp transport protocol
 
 //function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
@@ -174,10 +242,12 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 	if err != nil {
 		panic(err)
 	}
+
 	var DefaultTransports = libp2p.ChainOptions(
 
-		libp2p.Transport(quic.NewTransport),
 		libp2p.Transport(tcp.NewTCPTransport),
+
+		libp2p.Transport(quic.NewTransport),
 	)
 
 	//var idht *dht.IpfsDHT
@@ -228,6 +298,19 @@ func listCons() {
 	}
 }
 
+//func to close all streams of a given protocol
+func closeStreams(protocol string) {
+	for _, v := range Host.Network().Conns() {
+		//list all streams for the connection
+		for _, s := range v.GetStreams() {
+			if string(s.Protocol()) == protocol {
+				s.Reset()
+			}
+		}
+
+	}
+}
+
 // func to list all streams open
 func listStreams() {
 	fmt.Println("Streams open:")
@@ -242,25 +325,14 @@ func listStreams() {
 
 // func t o notify on disconection
 
-func Notifyondisconnect() {
-	Host.Network().Notify(&network.NotifyBundle{
-		DisconnectedF: func(net network.Network, conn network.Conn) {
-			fmt.Println("Disconnected from:", conn.RemotePeer())
-			//remove from peers map
-			aux := Peers[conn.RemotePeer()]
-			aux.online = false
-			Peers[conn.RemotePeer()] = aux
-
-		},
-	})
-}
 func Notifyonconnect() {
 	Host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
-			fmt.Println("Connected to:", conn.RemotePeer())
-			//add to peers map
+			fmt.Println("Connected to:", conn.RemotePeer(), " ", conn.RemoteMultiaddr())
+			var addrs []peer.AddrInfo
 
-			Peers[conn.RemotePeer()] = Peer{peer: net.Peerstore().PeerInfo(conn.RemotePeer()), online: true}
+			addrs = append(addrs, net.Peerstore().PeerInfo(conn.RemotePeer()))
+			Peers[conn.RemotePeer()] = Peer{peer: addrs, online: true}
 
 		},
 	})
@@ -281,12 +353,12 @@ func listallUSers() {
 	fmt.Println("Users connected:")
 	for str, peerr := range Ren {
 		for _, p := range peerr {
-			fmt.Printf("Rendezvous %s peer ID %s  Online %s, ", str, p, Peers[p].online)
+			fmt.Printf("Rendezvous %s peer ID %s ", str, p)
 		}
 	}
 }
 
-func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string) {
+func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool) {
 
 	var peersFound []peer.AddrInfo
 	for peer := range peerChan {
@@ -302,21 +374,51 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 	DisconnectAll()
 
 	for _, peer := range peersFound {
-		fmt.Println("Connecting to:", peer.ID.Pretty())
-
-		Host.Connect(ctx, peer)
-
-		if !Contains(Ren[rendezvous], peer.ID) {
-			Ren[rendezvous] = append(Ren[rendezvous], peer.ID)
+		fmt.Println("Connecting to:", peer.ID.Pretty(), " ", peer.Addrs)
+		//connect to the peer to the tcp address
+		//connect only to quic addresses
+		if preferQUIC {
+			var addrs []multiaddr.Multiaddr
+			for _, v := range peer.Addrs {
+				if strings.Contains(v.String(), "quic") {
+					addrs = append(addrs, v)
+				}
+			}
+			peer.Addrs = addrs
 		}
 
-		stream := streamStart(hostctx, peer.ID, "/chat/1.1.0")
-		go ReceiveTexthandler(stream)
+		//if not prefer quic connect to tcp addresses and if there are no quic addreses
+		if !preferQUIC || len(peer.Addrs) == 0 {
+			var addrs []multiaddr.Multiaddr
+			for _, v := range peer.Addrs {
+				if strings.Contains(v.String(), "tcp") {
+					addrs = append(addrs, v)
+				}
+			}
+			peer.Addrs = addrs
+		}
 
-		stream2 := streamStart(hostctx, peer.ID, "/audio/1.1.0")
-		ReceiveAudioHandler(stream2)
+		err := Host.Connect(ctx, peer)
+
+		fmt.Println(err)
+		if err != nil {
+			fmt.Println("Error connecting to peer:", err)
+		}
+		if err == nil {
+
+			if !Contains(Ren[rendezvous], peer.ID) {
+				Ren[rendezvous] = append(Ren[rendezvous], peer.ID)
+			}
+
+			stream := streamStart(hostctx, peer.ID, "/chat/1.1.0")
+			go ReceiveTexthandler(stream)
+
+			stream2 := streamStart(hostctx, peer.ID, "/audio/1.1.0")
+			go ReceiveAudioHandler(stream2)
+		}
 
 	}
+	fmt.Println("Connected to all peers")
 
 }
 
@@ -326,6 +428,7 @@ func GetStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
 	for _, v := range Host.Network().Conns() {
 		if v.RemotePeer() == peerID {
 			for _, s := range v.GetStreams() {
+
 				if string(s.Protocol()) == protocol {
 					return s
 				}
@@ -336,7 +439,7 @@ func GetStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
 	return nil
 }
 
-func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string) {
+func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool) {
 
 	for peer := range peerChan {
 
@@ -344,7 +447,31 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 			continue
 		}
 
-		fmt.Println("Connecting to:", peer.ID.Pretty())
+		fmt.Println("Connecting to:", peer.ID.Pretty(), " ", peer.Addrs)
+
+		//connect only to quic addresses
+		if preferQUIC {
+			fmt.Println("quic prerence")
+			var addrs []multiaddr.Multiaddr
+			for _, v := range peer.Addrs {
+				if strings.Contains(v.String(), "quic") {
+					addrs = append(addrs, v)
+				}
+			}
+			peer.Addrs = addrs
+		}
+
+		//if not prefer quic connect to tcp addresses and if there are no quic addreses
+		if !preferQUIC || len(peer.Addrs) == 0 {
+			fmt.Println("tcp prerence")
+			var addrs []multiaddr.Multiaddr
+			for _, v := range peer.Addrs {
+				if strings.Contains(v.String(), "tcp") {
+					addrs = append(addrs, v)
+				}
+			}
+			peer.Addrs = addrs
+		}
 
 		err := Host.Connect(ctx, peer)
 		if err != nil {
@@ -355,7 +482,7 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 
 			Ren[rendezvous] = append(Ren[rendezvous], peer.ID)
 		}
-
+		found <- true
 		//start stream of text and audio
 
 	}
@@ -365,7 +492,14 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 //func to disconnect from all peers and close connections
 func DisconnectAll() {
 	for _, v := range Host.Network().Conns() {
+
+		for _, s := range v.GetStreams() {
+			s.Close()
+			s.Reset()
+
+		}
 		v.Close()
+
 	}
 }
 
@@ -411,6 +545,7 @@ func HasConnection() bool {
 func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
 
 	stream := GetStreamsFromPeerProto(peerid, ProtocolID)
+
 	if stream == nil {
 		var err error
 		stream, err = Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))

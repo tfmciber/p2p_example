@@ -63,18 +63,24 @@ func appendToCSV(file string, data []string) {
 func Add(Map map[string][]Peer, Peeraddr peer.AddrInfo, rendezvous string) map[string][]Peer {
 
 	found := false
-
+	var addrs []peer.AddrInfo
 	for i, v := range Map[rendezvous] {
-		if v.peer.ID == Peeraddr.ID {
-			Map[rendezvous][i] = Peer{Peeraddr, true}
-			found = true
-			break
+		for _, v2 := range v.peer {
+			if v2.ID == Peeraddr.ID {
+				addrs = append(addrs, v2)
+
+				found = true
+
+			}
 		}
+		Map[rendezvous][i] = Peer{addrs, true}
+
 	}
 
 	if found == false {
-		Map[rendezvous] = append(Map[rendezvous], Peer{Peeraddr, true})
-		fmt.Print("rwe")
+		addrs = append(addrs, Peeraddr)
+		Map[rendezvous] = append(Map[rendezvous], Peer{addrs, true})
+
 	}
 
 	return Map

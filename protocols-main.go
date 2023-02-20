@@ -13,14 +13,15 @@ func DisconnectHost(stream network.Stream, err error) {
 	fmt.Println("Disconnecting host:", err)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
 	//func to get all keys from a map
+
 }
 
 func handleStream(stream network.Stream) {
 
 	// check if a stream with the same protocol and peer is already open
+	fmt.Print("New stream from:", stream.Conn().RemotePeer(), "Protocol:", stream.Protocol(), "Transport:", stream.Conn().ConnState().Transport)
 	if GetStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
-		fmt.Print("New stream from:", stream.Conn().RemotePeer(), "Protocol:", stream.Protocol())
 		switch stream.Protocol() {
 
 		case "/chat/1.1.0":
@@ -63,23 +64,26 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 func WriteDataRend(data []byte, ProtocolID string, rendezvous string) {
 
 	// loop over Peers map
-	for i, v := range Ren[rendezvous] {
-		if v.online == true {
+	for _, v := range Ren[rendezvous] {
+		aux := Peers[v]
+		if aux.online == true {
+		restart:
 
-			stream := streamStart(hostctx, v.peer.ID, ProtocolID)
+			stream := streamStart(hostctx, v, ProtocolID)
 
 			if stream == nil {
-
-				Peers[rendezvous][i].online = false
+				fmt.Println("stream is nil")
+				aux.online = false
+				Peers[v] = aux
 
 			} else {
 
 				_, err := stream.Write(data)
 
 				if err != nil {
-					fmt.Println("Write failed:", err)
-					Peers[rendezvous][i].online = false
+					fmt.Println("Write failed: restarting ", err)
 					stream.Close()
+					goto restart
 
 				}
 			}

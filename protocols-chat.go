@@ -8,6 +8,7 @@ import (
 
 func SendTextHandler(text string, rendezvous string) {
 
+	fmt.Println("Sending text to:", rendezvous, "text:", text)
 	WriteDataRend([]byte(text), "/chat/1.1.0", rendezvous)
 
 }
