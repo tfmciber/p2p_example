@@ -44,8 +44,9 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-chan peer.AddrInfo {
 	kademliaDHT := initDHT(ctx, h)
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
-	dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 
+	// Advertise this node, so that it will be found by others but only once
+	dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 	// Look for others who have announced and attempt to connect to them
 
 	fmt.Println("Searching for peers...")

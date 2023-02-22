@@ -1,80 +1,56 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
-	"context"
-
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/gen2brain/malgo"
 )
 
 func main() {
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	filename := "./config.json"
+	priv := initPriv(filename)
 
-	go func() {
-		<-quit
-		fmt.Println("\r- Exiting Program")
-		Host.Close()
-		os.Exit(0)
+	hostctx = context.Background()
+
+	Interrupts()
+
+	mctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+
+	})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer func() {
+		_ = mctx.Uninit()
+		mctx.Free()
 	}()
+	Host, _ = NewHost(hostctx, priv)
 
-	fmt.Println("Exampldsdsae P2P code ")
-
-	config, err := ParseFlags()
-
-	if err != nil {
-		panic(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var rcm network.ResourceManager
-	Host, rcm = NewHost(ctx, "/chat/1.1.0")
-	if err != nil {
-		panic(err)
-	}
 	fmt.Println("Host created. We are:", Host.ID())
 
-	var FoundPeersDHT <-chan peer.AddrInfo
-	var FoundPeersMDNS <-chan peer.AddrInfo
+	// Go routines
 
-	if config.mdns {
+	go ReadStdin()
 
-		FoundPeersMDNS = FindPeersMDNS(config.RendezvousString)
-		go ConnecToPeers(ctx, FoundPeersMDNS, "/chat/1.1.0")
-	}
+	// call CheckCoon every 5 seconds
+	go func() {
+		for {
+			CheckCoon()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
-	if config.dht {
+	//go Notifyondisconnect()
 
-		FoundPeersDHT = discoverPeers(ctx, Host, config.RendezvousString)
-		go ConnecToPeers(ctx, FoundPeersDHT, "/chat/1.1.0")
+	// Start State machine
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go execCommnad(ctx, mctx, priv)
 
-	}
-
-	//FoundPeers := merge(FoundPeersDHT, FoundPeersMDNS)
-	SendTextHandler()
-
-	for {
-
-		<-time.After(1 * time.Minute)
-		rcm.ViewSystem(func(scope network.ResourceScope) error {
-			stat := scope.Stat()
-			fmt.Println("System:",
-				"\n\t memory", stat.Memory,
-				"\n\t numFD", stat.NumFD,
-				"\n\t connsIn", stat.NumConnsInbound,
-				"\n\t connsOut", stat.NumConnsOutbound,
-				"\n\t streamIn", stat.NumStreamsInbound,
-				"\n\t streamOut", stat.NumStreamsOutbound)
-			return nil
-		})
-	}
-
+	select {}
 }
