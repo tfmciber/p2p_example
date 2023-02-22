@@ -21,7 +21,7 @@ type StreamConfig struct {
 func SendAudioHandler(rendezvous string) {
 	for {
 		data := <-audioChan
-		WriteDataRend(data, "/audio/1.1.0", rendezvous)
+		WriteDataRend(data, "/audio/1.1.0", rendezvous, false)
 	}
 
 }
@@ -70,7 +70,7 @@ func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan b
 
 	case <-quitchan:
 
-		WriteDataRend(aux, "/audio/1.1.0", rendezvous)
+		WriteDataRend(aux, "/audio/1.1.0", rendezvous, false)
 		break
 	}
 
@@ -79,7 +79,7 @@ func quitAudio(ctx *malgo.AllocatedContext) {
 	ctx.Free()
 }
 
-//write 20 ms of data into AudioChan variable a send audio data at 20 ms intervals to audio chan
+// write 20 ms of data into AudioChan variable a send audio data at 20 ms intervals to audio chan
 func FrameChan(channel chan []byte) {
 
 	var count int

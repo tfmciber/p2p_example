@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gen2brain/malgo"
 )
@@ -35,6 +36,15 @@ func main() {
 	// Go routines
 
 	go ReadStdin()
+
+	// call CheckCoon every 5 seconds
+	go func() {
+		for {
+			CheckCoon()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
 	//go Notifyondisconnect()
 
 	// Start State machine

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"strings"
 
@@ -29,7 +28,7 @@ import (
 var Host host.Host
 
 type Peer struct {
-	peer   []peer.AddrInfo
+	peer   peer.AddrInfo
 	online bool
 }
 
@@ -72,13 +71,11 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			fmt.Println("MDNS")
 			FoundPeersMDNS = FindPeersMDNS(rendezvous)
 			go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic)
-			go Notifyonconnect()
 
 		case cmd == "dht":
 
 			FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
 			ConnecToPeers(ctx, FoundPeersDHT, rendezvous, quic)
-			go Notifyonconnect()
 
 		case cmd == "text":
 
@@ -101,7 +98,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			quitchan <- true
 		case cmd == "users":
 
-			listUSers(rendezvous)
+			listUSers()
 		case cmd == "allusers":
 
 			listallUSers()
@@ -133,51 +130,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 				nBytes, _ = strconv.Atoi(param4)
 
 			}
-
-			fmt.Println("QUIC benchmark")
-
-			DisconnectAll()
-			if mdns == "mdns" {
-				FoundPeersMDNS = FindPeersMDNS(rendezvous)
-				go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, true)
-			} else {
-				FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-				ConnecToPeers(ctx, FoundPeersDHT, rendezvous, true)
-
-			}
-			go Notifyonconnect()
-
-			<-time.After(4 * time.Second)
-
-			for j := 64; j < nBytes+1; j += 64 {
-				for i := 0; i < 1000; i++ {
-					fmt.Println("Benchmarking with ", nMess, " messages of ", j, " bytes")
-					sendBench(nMess, j, rendezvous)
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
-
-			fmt.Println("TCP benchmark")
-			DisconnectAll()
-
-			if mdns == "mdns" {
-				FoundPeersMDNS = FindPeersMDNS(rendezvous)
-				go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, false)
-			} else {
-				FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-				ConnecToPeers(ctx, FoundPeersDHT, rendezvous, false)
-			}
-			go Notifyonconnect()
-
-			<-time.After(4 * time.Second)
-
-			for j := 64; j < nBytes+1; j += 64 {
-				for i := 0; i < 1000; i++ {
-					fmt.Println("Benchmarking with ", nMess, " messages of ", j, " bytes")
-					sendBench(nMess, j, rendezvous)
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
+			benchTCPQUIC(ctx, mdns, rendezvous, nBytes, nMess)
 
 		default:
 			fmt.Printf("Comnad %s not valid \n", cmd)
@@ -203,7 +156,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 //create a new stream to a peer using tcp transport protocol
 
-//function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
+// function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
 
 	limiterCfg := `{
@@ -298,7 +251,7 @@ func listCons() {
 	}
 }
 
-//func to close all streams of a given protocol
+// func to close all streams of a given protocol
 func closeStreams(protocol string) {
 	for _, v := range Host.Network().Conns() {
 		//list all streams for the connection
@@ -323,28 +276,59 @@ func listStreams() {
 	}
 }
 
+// func to see if var Peers is in Host conn
+func CheckCoon() {
+	found := false
+	for _, v := range Ren {
+		for _, p := range v {
+
+			for _, c := range Host.Network().Conns() {
+				if c.RemotePeer() == p {
+					if !Peers[c.RemotePeer()].online {
+						fmt.Println("User ", c.RemotePeer(), " connected")
+						Peers[c.RemotePeer()] = Peer{peer: Host.Network().Peerstore().PeerInfo(c.RemotePeer()), online: true}
+						fmt.Println("found", c.RemotePeer())
+					}
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if Peers[p].online {
+					fmt.Println("User ", p, " disconnected")
+					Peers[p] = Peer{peer: Host.Network().Peerstore().PeerInfo(p), online: false}
+				}
+			}
+		}
+	}
+}
+
+// func to get peer.Addrinfo from peer.ID
+func GetPeerInfo(id peer.ID) peer.AddrInfo {
+	return Host.Network().Peerstore().PeerInfo(id)
+}
+
 // func t o notify on disconection
 
 func Notifyonconnect() {
 	Host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
-			fmt.Println("Connected to:", conn.RemotePeer(), " ", conn.RemoteMultiaddr())
-			var addrs []peer.AddrInfo
 
-			addrs = append(addrs, net.Peerstore().PeerInfo(conn.RemotePeer()))
-			Peers[conn.RemotePeer()] = Peer{peer: addrs, online: true}
+			Peers[conn.RemotePeer()] = Peer{peer: net.Peerstore().PeerInfo(conn.RemotePeer()), online: true}
 
 		},
 	})
 }
 
 // funct to list all curennt users in rendezvous
-func listUSers(rendezvous string) {
+func listUSers() {
 
 	fmt.Println("Users connected:")
-	for _, v := range Ren[rendezvous] {
-		fmt.Println(v, Peers[v])
+	for _, v := range Peers {
+		fmt.Println(v)
 	}
+
 }
 
 // funct to list all curennt users
@@ -356,6 +340,7 @@ func listallUSers() {
 			fmt.Printf("Rendezvous %s peer ID %s ", str, p)
 		}
 	}
+
 }
 
 func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool) {
@@ -366,15 +351,18 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		if peer.ID == Host.ID() {
 			continue
 		}
-		peersFound = append(peersFound, peer)
-		fmt.Println("found:", peer.ID.Pretty())
+		//check if peer has addresses
+		if len(peer.Addrs) > 0 {
+			peersFound = append(peersFound, peer)
+			fmt.Println("found:", peer.ID, " ", peer.Addrs)
+		}
 
 	}
-	fmt.Print("Bootstrap finished")
+	fmt.Print("Bootstrap finished\n")
 	DisconnectAll()
 
 	for _, peer := range peersFound {
-		fmt.Println("Connecting to:", peer.ID.Pretty(), " ", peer.Addrs)
+		fmt.Println("Trying connection with", peer.ID, " ", peer.Addrs)
 		//connect to the peer to the tcp address
 		//connect only to quic addresses
 		if preferQUIC {
@@ -398,19 +386,30 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			peer.Addrs = addrs
 		}
 
-		err := Host.Connect(ctx, peer)
+		//try to connect to the peer 3 times
+		var err error
+		for i := 0; i < 3; i++ {
+			//print
+			fmt.Printf("\r Attempt %d of 3", i+1)
 
-		fmt.Println(err)
-		if err != nil {
-			fmt.Println("Error connecting to peer:", err)
+			err = Host.Connect(ctx, peer)
+			if err == nil {
+
+				fmt.Println("\nSuccessfully connected to ", peer.ID)
+				break
+			}
 		}
+		fmt.Print("\n")
 		if err == nil {
 
 			if !Contains(Ren[rendezvous], peer.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peer.ID)
 			}
+			Peers[peer.ID] = Peer{peer: peer, online: true}
 
 			stream := streamStart(hostctx, peer.ID, "/chat/1.1.0")
+			stream.Write([]byte("/cmd/" + rendezvous + "/"))
+
 			go ReceiveTexthandler(stream)
 
 			stream2 := streamStart(hostctx, peer.ID, "/audio/1.1.0")
@@ -418,11 +417,11 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		}
 
 	}
-	fmt.Println("Connected to all peers")
+	fmt.Println("Finished")
 
 }
 
-//func to get all streams with a peer of a given protcol
+// func to get all streams with a peer of a given protcol
 func GetStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
 
 	for _, v := range Host.Network().Conns() {
@@ -489,7 +488,7 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 
 }
 
-//func to disconnect from all peers and close connections
+// func to disconnect from all peers and close connections
 func DisconnectAll() {
 	for _, v := range Host.Network().Conns() {
 
@@ -503,7 +502,7 @@ func DisconnectAll() {
 	}
 }
 
-//func for getting all streams from host of a given protocol
+// func for getting all streams from host of a given protocol
 func GetStreamsFromProtocol(protocol string) []network.Stream {
 	var streams []network.Stream
 	for _, c := range Host.Network().Conns() {
@@ -518,7 +517,7 @@ func GetStreamsFromProtocol(protocol string) []network.Stream {
 	return streams
 }
 
-//func for checking if host has any stream open of a protocol
+// func for checking if host has any stream open of a protocol
 func HasStreamOfProtocol(protocol string) bool {
 	for _, c := range Host.Network().Conns() {
 		for _, s := range c.GetStreams() {
@@ -531,7 +530,7 @@ func HasStreamOfProtocol(protocol string) bool {
 	return false
 }
 
-//func for checking if host has any connection open
+// func for checking if host has any connection open
 func HasConnection() bool {
 	for _, c := range Host.Network().Conns() {
 		if c != nil {
@@ -541,7 +540,7 @@ func HasConnection() bool {
 	return false
 }
 
-//func to start a stream with a peer only if there is no stream open and return the stream in any cases
+// func to start a stream with a peer only if there is no stream open and return the stream in any cases
 func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
 
 	stream := GetStreamsFromPeerProto(peerid, ProtocolID)

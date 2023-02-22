@@ -21,8 +21,6 @@ def main():
     df=df[df["size"] != 0]
     df=df[df["size"] != 0]
 
-    
-  
     #plot the data x axis is the size of the message and y axis is the time, one line for
     #each protocol in diferent colors
     #interpolate dataframe dat

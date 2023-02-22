@@ -27,8 +27,8 @@ func sendFile(rendezvous string, path string) {
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
-	WriteDataRend([]byte(fileSize), "/file/1.1.0", rendezvous)
-	WriteDataRend([]byte(fileName), "/file/1.1.0", rendezvous)
+	WriteDataRend([]byte(fileSize), "/file/1.1.0", rendezvous, false)
+	WriteDataRend([]byte(fileName), "/file/1.1.0", rendezvous, false)
 	start := time.Now()
 	for {
 		sendBuffer := make([]byte, 1024)
@@ -37,7 +37,7 @@ func sendFile(rendezvous string, path string) {
 			break
 		} else {
 
-			WriteDataRend(sendBuffer, "/file/1.1.0", rendezvous)
+			WriteDataRend(sendBuffer, "/file/1.1.0", rendezvous, false)
 		}
 
 	}

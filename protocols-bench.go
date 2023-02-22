@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +13,8 @@ import (
 
 func sendBench(numMessages int, messageSize int, rendezvous string) {
 
+	//send only if there is a peer connected
+
 	protocol := "/bench/1.1.0"
 
 	//fmt.Println("Starting connection Benchmark ", numMessages, " messages of size ", messageSize, " bytes each, please ensure that only one peer is connected to the host ")
@@ -19,14 +22,14 @@ func sendBench(numMessages int, messageSize int, rendezvous string) {
 	numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 
 	messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
-	WriteDataRend([]byte(numMessagesStr), protocol, rendezvous)
-	WriteDataRend([]byte(messageSizeStr), protocol, rendezvous)
+	WriteDataRend([]byte(numMessagesStr), protocol, rendezvous, false)
+	WriteDataRend([]byte(messageSizeStr), protocol, rendezvous, false)
 	//start := time.Now()
 	sendBuffer := make([]byte, messageSize)
 	sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 	for i := 0; i < numMessages; i++ {
 
-		WriteDataRend(sendBuffer, protocol, rendezvous)
+		WriteDataRend(sendBuffer, protocol, rendezvous, false)
 	}
 
 	//elapsed := time.Since(start)
@@ -60,4 +63,72 @@ func ReceiveBenchhandler(stream network.Stream) {
 	stream.Reset()
 	stream.Close()
 
+}
+
+func benchTCPQUIC(ctx context.Context, mdns string, rendezvous string, nBytes int, nMess int) {
+	fmt.Println("QUIC benchmark with", mdns)
+
+	DisconnectAll()
+	if mdns == "mdns" {
+		FoundPeersMDNS = FindPeersMDNS(rendezvous)
+		go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, true)
+
+	} else {
+		FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
+		ConnecToPeers(ctx, FoundPeersDHT, rendezvous, true)
+
+	}
+	<-time.After(4 * time.Second)
+	if len(Ren[rendezvous]) == 0 {
+		fmt.Println("No peers found")
+		return
+
+	} else {
+		fmt.Println("Starting benchmark with")
+		for _, p := range Ren[rendezvous] {
+			fmt.Println(Peers[p].peer)
+		}
+	}
+
+	for j := 64; j < nBytes+1; j += 64 {
+		for i := 0; i < 10; i++ {
+			sendBench(nMess, j, rendezvous)
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	fmt.Println("TCP benchmark")
+	DisconnectAll()
+
+	if mdns == "mdns" {
+		FoundPeersMDNS = FindPeersMDNS(rendezvous)
+		go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, false)
+
+	} else {
+		FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
+		ConnecToPeers(ctx, FoundPeersDHT, rendezvous, false)
+	}
+
+	<-time.After(4 * time.Second)
+
+	if len(Ren[rendezvous]) == 0 {
+		fmt.Println("No peers found")
+		return
+
+	} else {
+		fmt.Println("Starting benchmark with")
+		for _, p := range Ren[rendezvous] {
+			fmt.Println(Peers[p].peer)
+		}
+	}
+
+	fmt.Println("Benchmarking with ", nMess, " messages of ", nBytes, " bytes")
+	for j := 64; j < nBytes+1; j += 64 {
+		for i := 0; i < 10; i++ {
+
+			sendBench(nMess, j, rendezvous)
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	fmt.Println("Benchmark finished")
 }

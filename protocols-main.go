@@ -8,7 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
-//func for removing and disconecting a peer
+// func for removing and disconecting a peer
 func DisconnectHost(stream network.Stream, err error) {
 	fmt.Println("Disconnecting host:", err)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
@@ -19,7 +19,14 @@ func DisconnectHost(stream network.Stream, err error) {
 func handleStream(stream network.Stream) {
 
 	// check if a stream with the same protocol and peer is already open
+
 	fmt.Print("New stream from:", stream.Conn().RemotePeer(), "Protocol:", stream.Protocol(), "Transport:", stream.Conn().ConnState().Transport)
+
+	//add peer to the map of peers if it is not already there
+	if _, ok := Peers[stream.Conn().RemotePeer()]; !ok {
+		Peers[stream.Conn().RemotePeer()] = Peer{online: true, peer: GetPeerInfo(stream.Conn().RemotePeer())}
+	}
+
 	if GetStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
 		switch stream.Protocol() {
@@ -42,7 +49,7 @@ func handleStream(stream network.Stream) {
 	}
 }
 
-//Function that reads data of size n from stream and calls f funcion
+// Function that reads data of size n from stream and calls f funcion
 func readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
 
 	for {
@@ -61,10 +68,13 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 	}
 }
 
-func WriteDataRend(data []byte, ProtocolID string, rendezvous string) {
+func WriteDataRend(data []byte, ProtocolID string, rendezvous string, verbose bool) {
 
-	// loop over Peers map
 	for _, v := range Ren[rendezvous] {
+		if verbose {
+			fmt.Println("Sending data to:", v)
+		}
+
 		aux := Peers[v]
 		if aux.online == true {
 		restart:
@@ -86,14 +96,23 @@ func WriteDataRend(data []byte, ProtocolID string, rendezvous string) {
 					goto restart
 
 				}
+				if verbose {
+					if err != nil {
+						fmt.Println("Write failed: restarting ", err)
+					} else {
+						fmt.Println("Data sent to:", v)
+					}
+				}
 			}
 		}
+
 	}
+
 }
 
 //function to send data over a stream
 
-//Function that reads data from stdin and sends it to the cmd channel
+// Function that reads data from stdin and sends it to the cmd channel
 func ReadStdin() {
 
 	for {
