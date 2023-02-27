@@ -48,7 +48,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		cmds := strings.SplitN(<-cmdChan, "$", 5)
 		var cmd string
 		var rendezvous string
-		var param2, param3, param4, param5 string
+		var param2, param3, param4 string
 
 		if len(cmds) > 0 {
 			cmd = cmds[0]
@@ -65,9 +65,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		if len(cmds) > 4 {
 			param4 = cmds[4]
 		}
-		if len(cmds) > 5 {
-			param5 = cmds[5]
-		}
+
 		quic := true
 		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
@@ -128,16 +126,24 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			times := 100
 
 			if param2 != "" {
-				times, _ = strconv.Atoi(param3)
+				times, _ = strconv.Atoi(param2)
 
 			}
-
 			if param3 != "" {
-				nMess, _ = strconv.Atoi(param4)
+				nMess, _ = strconv.Atoi(param3)
 			}
 			if param4 != "" {
-				nBytes, _ = strconv.Atoi(param5)
+				nBytes, _ = strconv.Atoi(param4)
 
+			}
+			if times < 1 {
+				times = 1
+			}
+			if nMess < 1 {
+				nMess = 1
+			}
+			if nBytes < 1 {
+				nBytes = 1
 			}
 			benchTCPQUIC(ctx, rendezvous, times, nBytes, nMess)
 
@@ -477,7 +483,9 @@ func SetPeersTRansport(ctx context.Context, preferQUIC bool) {
 func startStreams(rendezvous string, peeraddr peer.AddrInfo) {
 
 	stream := streamStart(hostctx, peeraddr.ID, "/chat/1.1.0")
+
 	stream.Write([]byte("/cmd/" + rendezvous + "/"))
+
 	go ReceiveTexthandler(stream)
 	stream2 := streamStart(hostctx, peeraddr.ID, "/audio/1.1.0")
 	go ReceiveAudioHandler(stream2)
