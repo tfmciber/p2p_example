@@ -20,8 +20,6 @@ func handleStream(stream network.Stream) {
 
 	// check if a stream with the same protocol and peer is already open
 
-	fmt.Print("New stream from:", stream.Conn().RemotePeer(), "Protocol:", stream.Protocol(), "Transport:", stream.Conn().ConnState().Transport)
-
 	//add peer to the map of peers if it is not already there
 	if _, ok := Peers[stream.Conn().RemotePeer()]; !ok {
 		Peers[stream.Conn().RemotePeer()] = Peer{online: true, peer: GetPeerInfo(stream.Conn().RemotePeer())}
@@ -127,5 +125,10 @@ func ReadStdin() {
 		cmdChan <- Data
 
 	}
+
+}
+
+// func to change stream connection transport to tcp or quic
+func ChangeTransport(stream network.Stream, transport string) {
 
 }

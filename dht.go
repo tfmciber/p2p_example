@@ -32,7 +32,7 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 		go func() {
 			defer wg.Done()
 			if err := h.Connect(ctx, *peerinfo); err != nil {
-				fmt.Println("Bootstrap warning:", err)
+
 			}
 		}()
 	}
@@ -49,7 +49,7 @@ func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-
 	dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 	// Look for others who have announced and attempt to connect to them
 
-	fmt.Println("Searching for peers...")
+	fmt.Println("\t [*] Searching for peers in DHT [", RendezvousString, "]")
 
 	peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
 	if err != nil {

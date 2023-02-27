@@ -52,7 +52,7 @@ func initPriv(filename string) crypto.PrivKey {
 	var pub string
 	var pObj []byte
 	if err != nil {
-		fmt.Println("profile not found, creating new")
+		fmt.Println("Profile not found, Creating new")
 
 		bytePassword, err := requestPwd(false)
 		if err != nil {
@@ -63,7 +63,7 @@ func initPriv(filename string) crypto.PrivKey {
 
 		write_keys(filename, pObj, pub, key)
 	} else {
-		fmt.Println("using values from profile file ", filename)
+		fmt.Println("Using values from profile file ", filename)
 
 		for {
 			bytePassword, err := requestPwd(true)

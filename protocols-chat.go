@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
@@ -24,7 +25,7 @@ func ReceiveTexthandler(stream network.Stream) {
 			rendezvous := string(buff[5:])
 			rendezvous = strings.Split(rendezvous, "/")[0]
 			if !Contains(Ren[rendezvous], stream.Conn().RemotePeer()) {
-				fmt.Print("New peer:", stream.Conn().RemotePeer(), "added to rendezvous:", rendezvous)
+				log.Println("New peer:", stream.Conn().RemotePeer(), "added to rendezvous:", rendezvous)
 				Ren[rendezvous] = append(Ren[rendezvous], stream.Conn().RemotePeer())
 
 			}

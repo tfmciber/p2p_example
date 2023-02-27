@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 func main() {
 
+	fmt.Println("[*] Starting Application [*]")
 	filename := "./config.json"
 	priv := initPriv(filename)
 
@@ -22,7 +24,7 @@ func main() {
 
 	})
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	defer func() {

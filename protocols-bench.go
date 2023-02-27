@@ -9,37 +9,27 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/schollz/progressbar/v3"
 )
 
 func sendBench(numMessages int, messageSize int, rendezvous string) {
 
-	//send only if there is a peer connected
-
 	protocol := "/bench/1.1.0"
-
-	//fmt.Println("Starting connection Benchmark ", numMessages, " messages of size ", messageSize, " bytes each, please ensure that only one peer is connected to the host ")
-
 	numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
-
 	messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
 	WriteDataRend([]byte(numMessagesStr), protocol, rendezvous, false)
 	WriteDataRend([]byte(messageSizeStr), protocol, rendezvous, false)
-	//start := time.Now()
 	sendBuffer := make([]byte, messageSize)
 	sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 	for i := 0; i < numMessages; i++ {
 
 		WriteDataRend(sendBuffer, protocol, rendezvous, false)
 	}
-
-	//elapsed := time.Since(start)
-
-	//fmt.Println("Bench completed in ", elapsed, "at an average speed of ", float64(numMessages*messageSize)/float64(elapsed.Milliseconds()), " Mbytes/sec")
 	closeStreams(protocol)
 }
 
 func ReceiveBenchhandler(stream network.Stream) {
-	fmt.Println("Receiving Benchmark data")
+
 	numMessages := make([]byte, 32)
 	stream.Read(numMessages)
 
@@ -50,13 +40,20 @@ func ReceiveBenchhandler(stream network.Stream) {
 
 	messageSizenum, _ := strconv.Atoi(strings.Trim(string(messageSize), ":"))
 
+	if numMessagesnum == 0 || messageSizenum == 0 {
+		fmt.Println("Invalid message size or number of messages")
+		stream.Reset()
+		stream.Close()
+		return
+	}
+
 	start := time.Now()
 	receiveBuffer := make([]byte, messageSizenum)
 	for i := 0; i < numMessagesnum; i++ {
 		stream.Read(receiveBuffer)
 	}
 	elapsed := time.Since(start)
-	fmt.Println("Benchmarked ", stream.Conn().ConnState().Transport, " Protocol, receiving ", numMessagesnum, messageSizenum, " bytes in ", elapsed, "at an average speed of ", float64(numMessagesnum*messageSizenum)/float64(elapsed.Milliseconds()), " Mbytes/sec")
+	fmt.Print("\r \t [*] Benchmarked ", stream.Conn().ConnState().Transport, " Protocol (", numMessagesnum, messageSizenum, ") in ", elapsed)
 
 	appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numMessagesnum), fmt.Sprintf("%d", messageSizenum), fmt.Sprintf("%d ", elapsed.Microseconds())})
 
@@ -65,22 +62,13 @@ func ReceiveBenchhandler(stream network.Stream) {
 
 }
 
-func benchTCPQUIC(ctx context.Context, mdns string, rendezvous string, nBytes int, nMess int) {
-	fmt.Println("QUIC benchmark with", mdns)
+func benchTCPQUIC(ctx context.Context, mdns string, rendezvous string, times, nBytes int, nMess int) {
 
-	DisconnectAll()
-	if mdns == "mdns" {
-		FoundPeersMDNS = FindPeersMDNS(rendezvous)
-		go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, true)
+	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
+	fmt.Println("\t[*] Starting QUIC Benchmark")
 
-	} else {
-		FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-		ConnecToPeers(ctx, FoundPeersDHT, rendezvous, true)
-
-	}
-	<-time.After(4 * time.Second)
 	if len(Ren[rendezvous]) == 0 {
-		fmt.Println("No peers found")
+		fmt.Println("No peers found in ", rendezvous, " exiting benchmark")
 		return
 
 	} else {
@@ -89,46 +77,50 @@ func benchTCPQUIC(ctx context.Context, mdns string, rendezvous string, nBytes in
 			fmt.Println(Peers[p].peer)
 		}
 	}
+	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
+	fmt.Println("\t[*] Starting QUIC Benchmark")
+	SetPeersTRansport(ctx, true)
+	total := 0
+	last := 0
+	//sucesion aritemtica
 
+	all := (64 + 1024) / 2 * int(nBytes/64) * times
+	bar := progressbar.Default(100)
 	for j := 64; j < nBytes+1; j += 64 {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < times; i++ {
 			sendBench(nMess, j, rendezvous)
+			total += j
 			time.Sleep(10 * time.Millisecond)
 		}
-	}
-
-	fmt.Println("TCP benchmark")
-	DisconnectAll()
-
-	if mdns == "mdns" {
-		FoundPeersMDNS = FindPeersMDNS(rendezvous)
-		go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, false)
-
-	} else {
-		FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-		ConnecToPeers(ctx, FoundPeersDHT, rendezvous, false)
-	}
-
-	<-time.After(4 * time.Second)
-
-	if len(Ren[rendezvous]) == 0 {
-		fmt.Println("No peers found")
-		return
-
-	} else {
-		fmt.Println("Starting benchmark with")
-		for _, p := range Ren[rendezvous] {
-			fmt.Println(Peers[p].peer)
+		progress := int((float64(total)) / (float64(all)) * 100)
+		if progress%1 == 0 && progress != last {
+			bar.Add(progress - last)
 		}
+		last = progress
+
 	}
 
-	fmt.Println("Benchmarking with ", nMess, " messages of ", nBytes, " bytes")
-	for j := 64; j < nBytes+1; j += 64 {
-		for i := 0; i < 10; i++ {
+	fmt.Println("\t[*] Starting TCP Benchmark")
+	SetPeersTRansport(ctx, false)
+	total = 0
 
+	last = 0
+	bar = progressbar.Default(100)
+	for j := 64; j < nBytes+1; j += 64 {
+		for i := 0; i < times; i++ {
 			sendBench(nMess, j, rendezvous)
+			total += j
 			time.Sleep(10 * time.Millisecond)
 		}
+
+		progress := int((float64(total)) / (float64(all)) * 100)
+		if progress%1 == 0 && progress != last {
+			bar.Add(progress - last)
+		}
+		last = progress
+
 	}
-	fmt.Println("Benchmark finished")
+
+	fmt.Println("\t[*] Benchmark finished")
+
 }
