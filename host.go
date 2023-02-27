@@ -383,10 +383,8 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			fmt.Println("Error connecting to ", peeraddr.Addrs, err1)
 		}
 
-		stream.Write([]byte("/cmd/" + rendezvous + "/"))
-
-		if err == nil {
-
+		if err1 == nil {
+			stream.Write([]byte("/cmd/" + rendezvous + "/"))
 			fmt.Println("Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
 			if !Contains(Ren[rendezvous], peeraddr.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
@@ -394,7 +392,7 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			Peers[peeraddr.ID] = Peer{peer: peeraddr, online: true}
 			setTransport(ctx, peeraddr.ID, preferQUIC)
 			if start {
-				startStreams(rendezvous, peeraddr)
+				startStreams(rendezvous, peeraddr, stream)
 			}
 
 		} else {
@@ -487,9 +485,7 @@ func SetPeersTRansport(ctx context.Context, preferQUIC bool) {
 
 }
 
-func startStreams(rendezvous string, peeraddr peer.AddrInfo) {
-
-	stream := streamStart(hostctx, peeraddr.ID, "/chat/1.1.0")
+func startStreams(rendezvous string, peeraddr peer.AddrInfo, stream network.Stream) {
 
 	go ReceiveTexthandler(stream)
 	stream2 := streamStart(hostctx, peeraddr.ID, "/audio/1.1.0")
