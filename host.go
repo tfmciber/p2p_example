@@ -378,6 +378,13 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 	for _, peeraddr := range peersFound {
 		err := Host.Connect(ctx, peeraddr)
+		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
+		if err1 != nil {
+			fmt.Println("Error connecting to ", peeraddr.Addrs, err1)
+		}
+
+		stream.Write([]byte("/cmd/" + rendezvous + "/"))
+
 		if err == nil {
 
 			fmt.Println("Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
@@ -437,7 +444,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
 	}
 	if len(addrs) == 0 {
 
-		fmt.Print("Not Supported")
+		fmt.Print("Not Supported", peeraddr.Addrs, preferQUIC, "current transport", conn)
 		os.Exit(0)
 
 	}
@@ -454,7 +461,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
 
 	if err != nil {
 
-		fmt.Println("Error connecting to ", peeraddr.Addrs, err)
+		fmt.Println("Error connecting to ", addrs, err)
 	} else {
 
 		conn := Host.Network().ConnsToPeer(peeraddr.ID)[0]
@@ -483,8 +490,6 @@ func SetPeersTRansport(ctx context.Context, preferQUIC bool) {
 func startStreams(rendezvous string, peeraddr peer.AddrInfo) {
 
 	stream := streamStart(hostctx, peeraddr.ID, "/chat/1.1.0")
-
-	stream.Write([]byte("/cmd/" + rendezvous + "/"))
 
 	go ReceiveTexthandler(stream)
 	stream2 := streamStart(hostctx, peeraddr.ID, "/audio/1.1.0")
