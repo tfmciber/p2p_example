@@ -80,7 +80,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		case cmd == "dht":
 
 			FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-			ConnecToPeers(ctx, FoundPeersDHT, rendezvous, quic, false)
+			ConnecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
 
 		case cmd == "clear":
 			DisconnectAll()
@@ -126,25 +126,20 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			nMess := 2048
 			nBytes := 1024
 			times := 100
-			mdns := "mdns"
 
 			if param2 != "" {
-				mdns = param2
-			}
-
-			if param3 != "" {
 				times, _ = strconv.Atoi(param3)
 
 			}
 
-			if param4 != "" {
+			if param3 != "" {
 				nMess, _ = strconv.Atoi(param4)
 			}
-			if param5 != "" {
+			if param4 != "" {
 				nBytes, _ = strconv.Atoi(param5)
 
 			}
-			benchTCPQUIC(ctx, mdns, rendezvous, times, nBytes, nMess)
+			benchTCPQUIC(ctx, rendezvous, times, nBytes, nMess)
 
 		default:
 			fmt.Printf("Comnad %s not valid \n", cmd)
@@ -162,7 +157,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			fmt.Print("conns \n")
 			fmt.Print("streams \n")
 			fmt.Print("bench$rendezvous \n")
-			fmt.Print("benchmark$rendezvous$mdns|dht$times$number of messages$number of bytes \n")
+			fmt.Print("benchmark$rendezvous$times$number of messages$number of bytes \n")
 
 		}
 	}

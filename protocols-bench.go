@@ -62,7 +62,7 @@ func ReceiveBenchhandler(stream network.Stream) {
 
 }
 
-func benchTCPQUIC(ctx context.Context, mdns string, rendezvous string, times, nBytes int, nMess int) {
+func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMess int) {
 
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
