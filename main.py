@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('TkAgg')
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-def plot_benchs(files):
+def plot_benchs(files,titles):
 
+    fig, ax = plt.subplots(1,len(files),sharex=True, sharey=True)
+    i=0
     for file in files:
 
         df = pd.read_csv(file, header=None)
@@ -23,7 +24,7 @@ def plot_benchs(files):
         #each protocol in diferent colors
         #interpolate dataframe dat
 
-        fig, ax = plt.subplots()
+        
         protocol_groups=df.groupby(['protocol'])
         labels=[]
         positions=[]
@@ -39,7 +40,7 @@ def plot_benchs(files):
             
             data= [np.array(grup.get_group(x)["time"]) for x in grup.groups]
             color=colors[key]
-            bp=ax.boxplot(data,showfliers=False,positions=val+offset,widths=10,patch_artist=True)
+            bp=ax[i].boxplot(data,showfliers=False,positions=val+offset,widths=10,patch_artist=True)
             for element in ['boxes', 'whiskers', 'fliers', 'medians', 'caps']:
                 plt.setp(bp[element], color=color)
             for patch in bp['boxes']:
@@ -50,32 +51,37 @@ def plot_benchs(files):
         #get longer list of positions
     
         #set legend for all bps
-        ax.legend([bp["boxes"][0] for bp in bps],labels,loc="best")
+       
         list_len = [len(i) for i in positions]
         positions= (positions[np.argmax(np.array(list_len))])
         ticks=np.arange(positions[0],positions[-1]+1,positions[1]-positions[0])
         
-        ax.set_xticks(ticks)
-        ax.set_xticklabels(ticks)
+        ax[i].set_xticks(ticks)
+        ax[i].set_xticklabels(ticks)
         #add legend and labels to each protocol
 
         #make y ticks every 50 ms
-        start, end = ax.get_ylim()
+        start, end = ax[i].get_ylim()
         print(start,end)
-        ax.yaxis.set_ticks(np.arange(0, end, 50))
+        ax[i].yaxis.set_ticks(np.arange(0, end, 50))
+        ax[i].set_title(titles[i])
         
   
         
-        ax.set_xlabel("Size (bytes)")
-        ax.set_ylabel("Time (ms)")
-        ax.set_title("QUIC and TCP performance differences")
-        #print dataframe
-        plt.show()
-        plt.savefig(fname="bench_100.pdf",format="pdf")
+
+
+        i=i+1
+    fig.supxlabel("Size (bytes)")
+    fig.supylabel("Time (ms)")
+    fig.suptitle("QUIC and TCP performance differences")
+    fig.legend([bp["boxes"][0] for bp in bps],labels)
+    fig.tight_layout()
+    plt.show()
+    plt.savefig(fname="bench_100.pdf",format="pdf")
 
 
 def main():
-    plot_benchs(["bench_azure.csv"])
+    plot_benchs(["bench_azure.csv","bench_100.csv"],titles=["Global Internet Test","Local Network Test"])
 
 if __name__ == "__main__":
     main()
