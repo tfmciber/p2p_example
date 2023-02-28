@@ -67,15 +67,11 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
 
-	if len(Ren[rendezvous]) == 0 {
-		fmt.Println("No peers found in ", rendezvous, " exiting benchmark")
+	if !HasPeers(rendezvous) {
+		fmt.Println("No online peers found")
 		return
-
 	} else {
-		fmt.Println("Starting benchmark with")
-		for _, p := range Ren[rendezvous] {
-			fmt.Println(Peers[p].peer)
-		}
+		fmt.Println(OnlinePeers(rendezvous))
 	}
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
@@ -101,7 +97,11 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	}
 
 	fmt.Println("\t[*] Starting TCP Benchmark")
-	SetPeersTRansport(ctx, false)
+
+	if !SetPeersTRansport(ctx, false) {
+		fmt.Println("Error Changing Peers Transport")
+		return
+	}
 	total = 0
 
 	last = 0

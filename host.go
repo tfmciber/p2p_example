@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -404,7 +403,7 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 }
 
-func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
+func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 
 	// get peer addrinfo from id
 	peeraddr := Host.Peerstore().PeerInfo(peerid)
@@ -417,13 +416,13 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
 		// if we want to use quic and the connection is quic, return
 		if c.ConnState().Transport == "quic" && preferQUIC {
 			fmt.Println("[*] Using QUIC protocol")
-			return
+			return true
 		}
 		// if we want to use tcp and the connection is tcp, return
 		if c.ConnState().Transport == "tcp" && !preferQUIC {
 			fmt.Println("[*] Using TCP protocol")
 
-			return
+			return true
 		}
 		//conn is tcp and we want quic
 		if c.ConnState().Transport == "tcp" {
@@ -443,7 +442,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
 	if len(addrs) == 0 {
 
 		fmt.Print("Not Supported", peeraddr.Addrs, preferQUIC, "current transport", conn)
-		os.Exit(0)
+		return false
 
 	}
 
@@ -460,28 +459,37 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) {
 	if err != nil {
 
 		fmt.Println("Error connecting to ", addrs, err)
+		return false
 	} else {
 
 		conn := Host.Network().ConnsToPeer(peeraddr.ID)[0]
 		if preferQUIC && conn.ConnState().Transport == "quic" {
-			fmt.Println("Using QUIC")
+			fmt.Println("[*] Succesfully changed to QUIC")
+			return true
 
 		} else if !preferQUIC && conn.ConnState().Transport == "tcp" {
-			fmt.Println("Using TCP")
+			fmt.Println("[*] Succesfully changed to TCP")
+			return true
 
 		} else {
 			fmt.Println("Error changing transport")
+			return false
 		}
 
 	}
 
 }
-func SetPeersTRansport(ctx context.Context, preferQUIC bool) {
-
+func SetPeersTRansport(ctx context.Context, preferQUIC bool) bool {
+	//if anyone is succesfully changed, return true
+	ret := false
 	for _, v := range Peers {
-		setTransport(ctx, v.peer.ID, preferQUIC)
+		aux := setTransport(ctx, v.peer.ID, preferQUIC)
+		if aux {
+			ret = true
+		}
 
 	}
+	return ret
 
 }
 
@@ -496,6 +504,27 @@ func CloseConns(ID peer.ID) {
 	for _, v := range Host.Network().ConnsToPeer(ID) {
 		v.Close()
 	}
+}
+
+// func to see if a rendevous has online peers
+func HasPeers(rendezvous string) bool {
+	rendezvousPeers := Ren[rendezvous]
+	for _, v := range rendezvousPeers {
+		if Peers[v].online {
+			return true
+		}
+	}
+	return false
+}
+func OnlinePeers(rendezvous string) []peer.ID {
+	var peers []peer.ID
+	rendezvousPeers := Ren[rendezvous]
+	for _, v := range rendezvousPeers {
+		if Peers[v].online {
+			peers = append(peers, v)
+		}
+	}
+	return peers
 }
 
 // func to get all streams with a peer of a given protcol

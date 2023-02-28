@@ -75,7 +75,7 @@ def plot_benchs(files):
 
 
 def main():
-    plot_benchs(["bench.csv"])
+    plot_benchs(["bench_azure.csv"])
 
 if __name__ == "__main__":
     main()

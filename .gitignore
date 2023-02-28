@@ -1,5 +1,3 @@
-#ignore all csv
-*.csv
 #ignore all executable windows
 *.exe
 #ignore all executable linux

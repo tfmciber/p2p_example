@@ -15,3 +15,6 @@ sudo apt-get install gcc-multilib -y
 GOOS=windows GOARCH=386 \
   CGO_ENABLED=1 CXX=i686-w64-mingw32-g++ CC=i686-w64-mingw32-gcc \
   go build
+
+git ignore no va, hacer que si hay un error en el csv no se pare el bench
+al hacer benchmark si no están el otro online da erro
