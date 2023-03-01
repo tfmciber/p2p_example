@@ -47,10 +47,7 @@ func realy() {
 	log.Println("First let's attempt to directly connect")
 
 	// Attempt to connect the unreachable hosts directly
-	unreachable2info := peer.AddrInfo{
-		ID:    unreachable2.ID(),
-		Addrs: unreachable2.Addrs(),
-	}
+	unreachable2info := peer.AddrInfo{ID: unreachable2.ID(), Addrs: unreachable2.Addrs()}
 
 	err = unreachable1.Connect(context.Background(), unreachable2info)
 	if err == nil {
@@ -79,10 +76,7 @@ func realy() {
 		return
 	}
 
-	relay1info := peer.AddrInfo{
-		ID:    relay1.ID(),
-		Addrs: relay1.Addrs(),
-	}
+	relay1info := peer.AddrInfo{ID: relay1.ID(), Addrs: relay1.Addrs()}
 
 	// Connect both unreachable1 and unreachable2 to relay1
 	if err := unreachable1.Connect(context.Background(), relay1info); err != nil {
@@ -108,6 +102,12 @@ func realy() {
 	// As we will open a stream to unreachable2, unreachable2 needs to make the
 	// reservation
 	_, err = client.Reserve(context.Background(), unreachable2, relay1info)
+	if err != nil {
+		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+		return
+	}
+
+	_, err = client.Reserve(context.Background(), unreachable1, relay1info)
 	if err != nil {
 		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
 		return
@@ -155,7 +155,8 @@ func realy() {
 		log.Println("Whoops, this should have worked...: ", err)
 		return
 	}
-	s.Write([]byte("DSADSA"))
-	s.Read(make([]byte, 1)) // block until the handler closes the stream
+
+	// send message from unreachable1 to unreachable2
+
 	select {}
 }
