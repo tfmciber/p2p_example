@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -50,10 +49,7 @@ func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-
 
 	fmt.Println("\t [*] Searching for peers in DHT [", RendezvousString, "]")
 
-	//context with 10 seconds timeout
-	timeoutctx, _ := context.WithTimeout(ctx, 10*time.Second)
-
-	peers, err := routingDiscovery.FindPeers(timeoutctx, RendezvousString)
+	peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
 	if err != nil {
 		panic(err)
 	}
