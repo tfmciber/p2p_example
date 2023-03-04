@@ -19,6 +19,7 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
 	kademliaDHT, err := dht.New(ctx, h)
+
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +43,7 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 }
 
 func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-chan peer.AddrInfo {
-	kademliaDHT := initDHT(ctx, h)
+
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 
 	// Look for others who have announced and attempt to connect to them

@@ -35,6 +35,7 @@ import (
 var Host host.Host
 var cmdChan = make(chan string)
 var hostctx context.Context
+var kademliaDHT = initDHT(hostctx, Host)
 
 type peerStruct struct {
 	peer   peer.AddrInfo
@@ -202,6 +203,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 	for _, peeraddr := range peersFound {
 		fmt.Println("[*] Connecting to: ", peeraddr.ID)
+
 		err := Host.Connect(ctx, peeraddr)
 		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
 		if err1 == nil {
