@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -10,35 +11,43 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+
 	"github.com/multiformats/go-multiaddr"
 
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	tcp "github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
+// Host is the libp2p host
 var Host host.Host
+var cmdChan = make(chan string)
+var hostctx context.Context
 
-type Peer struct {
+type peerStruct struct {
 	peer   peer.AddrInfo
 	online bool
 }
 
+// Ren variable to store the rendezvous string and the peers associated to it
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
-var Peers = make(map[peer.ID]Peer)   //map of peers
-var found chan bool
+// Peers variable to store the peers, their addresses and their online status
+var Peers = make(map[peer.ID]peerStruct) //map of peers
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
-func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
+func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.Host, network.ResourceManager) {
 
 	limiterCfg := `{
     "System":  {
@@ -83,6 +92,13 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 
 		libp2p.Transport(quic.NewTransport),
 	)
+	var addr config.Option
+	if nolisteners {
+		addr = libp2p.NoListenAddrs
+	} else {
+		addr = libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0")
+
+	}
 
 	//var idht *dht.IpfsDHT
 
@@ -94,8 +110,7 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 		// Use the keypair we generated
 		libp2p.Identity(priv),
 
-		// Multiple listen addresses
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0"),
+		addr,
 
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
@@ -105,15 +120,16 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
 		libp2p.ResourceManager(rcm),
+
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
+		libp2p.EnableNATService(),
 
 		libp2p.ChainOptions(
 			libp2p.Muxer("/yamux/1.0.0", yamux.DefaultTransport),
 			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 		),
-		libp2p.EnableNATService(),
 	)
 	if err != nil {
 		panic(err)
@@ -123,12 +139,19 @@ func NewHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 
 		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 	}
+	fmt.Print("host listening on: ", h.Addrs())
+	fmt.Print("Iniciando sistema de relay")
 
+	_, err = relay.New(h)
+	if err != nil {
+		log.Printf("Failed to instantiate the relay: %v", err)
+
+	}
 	return h, rcm
 }
 
 // func to see if var Peers is in Host conn
-func CheckCoon() {
+func checkCoon() {
 	found := false
 	for _, v := range Ren {
 		for _, p := range v {
@@ -137,7 +160,7 @@ func CheckCoon() {
 				if c.RemotePeer() == p {
 					if !Peers[c.RemotePeer()].online {
 						fmt.Println("User ", c.RemotePeer(), " connected")
-						Peers[c.RemotePeer()] = Peer{peer: Host.Network().Peerstore().PeerInfo(c.RemotePeer()), online: true}
+						Peers[c.RemotePeer()] = peerStruct{peer: Host.Network().Peerstore().PeerInfo(c.RemotePeer()), online: true}
 						fmt.Println("found", c.RemotePeer())
 					}
 					found = true
@@ -148,7 +171,7 @@ func CheckCoon() {
 			if !found {
 				if Peers[p].online {
 					fmt.Println("User ", p, " disconnected")
-					Peers[p] = Peer{peer: Host.Network().Peerstore().PeerInfo(p), online: false}
+					Peers[p] = peerStruct{peer: Host.Network().Peerstore().PeerInfo(p), online: false}
 				}
 			}
 		}
@@ -156,19 +179,25 @@ func CheckCoon() {
 }
 
 // func to connect to peers found in rendezvous
-func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) {
+func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.AddrInfo {
 
 	var peersFound []peer.AddrInfo
+	var failed []peer.AddrInfo
+
 	for peer := range peerChan {
 
 		if peer.ID == Host.ID() {
 			continue
 		}
-		//check if peer has addresses
-		if len(peer.Addrs) > 0 {
-			peersFound = append(peersFound, peer)
-			fmt.Println("found:", peer.ID)
-		}
+		//check if peer has addresses commented for debugging
+		/*
+			if len(peer.Addrs) > 0 {
+				peersFound = append(peersFound, peer)
+				fmt.Println("found:", peer.ID)
+			}*/
+
+		peersFound = append(peersFound, peer)
+		fmt.Println("found:", peer.ID)
 
 	}
 	fmt.Print("Bootstrap finished\n")
@@ -178,16 +207,17 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
 		if err1 != nil {
 			fmt.Println("Error connecting to ", peeraddr.Addrs, err1)
+			failed = append(failed, peeraddr)
 		}
 
 		if err1 == nil {
 			stream.Write([]byte("/cmd/" + rendezvous + "/"))
 			fmt.Println("Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
-			if !Contains(Ren[rendezvous], peeraddr.ID) {
+			if !contains(Ren[rendezvous], peeraddr.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
 			}
-			Peers[peeraddr.ID] = Peer{peer: peeraddr, online: true}
-			setTransport(ctx, peeraddr.ID, preferQUIC)
+			Peers[peeraddr.ID] = peerStruct{peer: peeraddr, online: true}
+			setTransport(ctx, peeraddr.ID, preferQUIC) // da error al usar varios peers
 			if start {
 				startStreams(rendezvous, peeraddr, stream)
 			}
@@ -198,6 +228,7 @@ func ConnecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 	}
 	fmt.Println("\t [*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren[rendezvous]), " peers connected")
+	return failed
 
 }
 
@@ -246,7 +277,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 
 	Host.Peerstore().ClearAddrs(peeraddr.ID)
 	Host.Peerstore().AddAddrs(peeraddr.ID, addrs, time.Hour*1)
-	CloseConns(peeraddr.ID)
+	closeConns(peeraddr.ID)
 
 	var NewPeer peer.AddrInfo
 	NewPeer.ID = peeraddr.ID
@@ -258,22 +289,20 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 
 		fmt.Println("Error connecting to ", addrs, err)
 		return false
+	}
+
+	singleconn := Host.Network().ConnsToPeer(peeraddr.ID)[0]
+	if preferQUIC && singleconn.ConnState().Transport == "quic" {
+		fmt.Println("[*] Succesfully changed to QUIC")
+		return true
+
+	} else if !preferQUIC && singleconn.ConnState().Transport == "tcp" {
+		fmt.Println("[*] Succesfully changed to TCP")
+		return true
+
 	} else {
-
-		conn := Host.Network().ConnsToPeer(peeraddr.ID)[0]
-		if preferQUIC && conn.ConnState().Transport == "quic" {
-			fmt.Println("[*] Succesfully changed to QUIC")
-			return true
-
-		} else if !preferQUIC && conn.ConnState().Transport == "tcp" {
-			fmt.Println("[*] Succesfully changed to TCP")
-			return true
-
-		} else {
-			fmt.Println("Error changing transport")
-			return false
-		}
-
+		fmt.Println("Error changing transport")
+		return false
 	}
 
 }
@@ -309,20 +338,31 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 		case cmd == "mdns":
 
-			FoundPeersMDNS = FindPeersMDNS(rendezvous)
-			go ConnecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic, false)
+			FoundPeersMDNS := findPeersMDNS(rendezvous)
+			go connecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic, false)
 
 		case cmd == "dht":
 
-			FoundPeersDHT = discoverPeers(ctx, Host, rendezvous)
-			ConnecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
+			FoundPeersDHT := discoverPeers(ctx, Host, rendezvous)
+			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
+
+			if hasPeer(rendezvous) {
+				fmt.Println("Realizando conexion con el Relay")
+
+				server := selectPeer(rendezvous)
+				fmt.Print("servidor seleccionad: ", server, "")
+
+				connectRelay(failed, getPeerInfo(server))
+			} else {
+				fmt.Println("No server found")
+			}
 
 		case cmd == "clear":
-			DisconnectAll()
+			disconnectAll()
 
 		case cmd == "text":
 
-			SendTextHandler(param2, rendezvous)
+			sendTextHandler(param2, rendezvous)
 
 		case cmd == "file":
 
@@ -331,7 +371,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		case cmd == "call":
 
 			initAudio(ctxmalgo)
-			SendAudioHandler(rendezvous)
+			sendAudioHandler(rendezvous)
 
 		case cmd == "stopcall":
 			quitAudio(ctxmalgo)
@@ -385,7 +425,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			benchTCPQUIC(ctx, rendezvous, times, nBytes, nMess)
 
 		default:
-			fmt.Printf("Comnad %s not valid \n", cmd)
+			fmt.Printf("Command %s not valid \n", cmd)
 			fmt.Print("Valid commands are: \n")
 			fmt.Print("mdns$rendezvous \n")
 			fmt.Print("dht$rendezvous \n")

@@ -6,34 +6,34 @@ import (
 )
 
 var pReceivedSamples = make(chan []byte)
-var RecvBuff = make(chan []byte, 500)
+var recvBuff = make(chan []byte, 500)
 var audioChan = make(chan []byte)
 
-var SampleRate int = 44100
+var sampleRate int = 44100
 var temp float32 = 2 //time in s to send
 
-type StreamConfig struct {
+type streamConfig struct {
 	Format     malgo.FormatType
 	Channels   int
 	SampleRate int
 }
 
-func SendAudioHandler(rendezvous string) {
+func sendAudioHandler(rendezvous string) {
 	for {
 		data := <-audioChan
-		WriteDataRend(data, "/audio/1.1.0", rendezvous, false)
+		writeDataRend(data, "/audio/1.1.0", rendezvous, false)
 	}
 
 }
 
-func ReceiveAudioHandler(stream network.Stream) {
+func receiveAudioHandler(stream network.Stream) {
 	count := len(<-audioChan)
-	reps := temp / float32(count) * float32(SampleRate) * 4
+	reps := temp / float32(count) * float32(sampleRate) * 4
 	length := (int(reps) * count)
 
 	go readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
 
-		RecvBuff <- buff
+		recvBuff <- buff
 
 	})
 
@@ -41,27 +41,27 @@ func ReceiveAudioHandler(stream network.Stream) {
 
 func initAudio(ctx *malgo.AllocatedContext) {
 
-	var config StreamConfig
+	var config streamConfig
 	config.Format = malgo.FormatS16
 	config.Channels = 2
-	config.SampleRate = SampleRate
+	config.SampleRate = sampleRate
 
 	var captureChan = make(chan []byte)
 
-	Capture(ctx, captureChan, config)
-	go Playback(ctx, RecvBuff, config)
+	capture(ctx, captureChan, config)
+	go playback(ctx, recvBuff, config)
 
-	go FrameChan(captureChan)
+	go frameChan(captureChan)
 
 }
 func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan bool) {
-	var config StreamConfig
+	var config streamConfig
 	config.Format = malgo.FormatS16
 	config.Channels = 2
-	config.SampleRate = SampleRate
+	config.SampleRate = sampleRate
 	var aux []byte
 	var captureChan = make(chan []byte)
-	Capture(ctx, captureChan, config)
+	capture(ctx, captureChan, config)
 	select {
 
 	case data := <-audioChan:
@@ -70,7 +70,7 @@ func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan b
 
 	case <-quitchan:
 
-		WriteDataRend(aux, "/audio/1.1.0", rendezvous, false)
+		writeDataRend(aux, "/audio/1.1.0", rendezvous, false)
 		break
 	}
 
@@ -80,12 +80,12 @@ func quitAudio(ctx *malgo.AllocatedContext) {
 }
 
 // write 20 ms of data into AudioChan variable a send audio data at 20 ms intervals to audio chan
-func FrameChan(channel chan []byte) {
+func frameChan(channel chan []byte) {
 
 	var count int
 
 	count = len(<-channel)
-	reps := temp / float32(count) * float32(SampleRate) * 4
+	reps := temp / float32(count) * float32(sampleRate) * 4
 
 	for {
 		var aux []byte
@@ -114,10 +114,10 @@ func stream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig, device
 	return err
 }
 
-// StreamConfig describes the parameters for an audio stream.
+// streamConfig describes the parameters for an audio stream.
 // Default values will pick the defaults of the default device.
 
-func (config StreamConfig) asDeviceConfig(deviceType malgo.DeviceType) malgo.DeviceConfig {
+func (config streamConfig) asDeviceConfig(deviceType malgo.DeviceType) malgo.DeviceConfig {
 	deviceConfig := malgo.DefaultDeviceConfig(deviceType)
 	if config.Format != malgo.FormatUnknown {
 		deviceConfig.Capture.Format = config.Format
@@ -139,7 +139,7 @@ func (config StreamConfig) asDeviceConfig(deviceType malgo.DeviceType) malgo.Dev
 // Capturing will commence writing the samples to the writer until either the
 // writer returns an error, or the context signals done.
 
-func Capture(ctx *malgo.AllocatedContext, samples chan []byte, config StreamConfig) error {
+func capture(ctx *malgo.AllocatedContext, samples chan []byte, config streamConfig) error {
 	deviceConfig := config.asDeviceConfig(malgo.Capture)
 
 	deviceCallbacks := malgo.DeviceCallbacks{
@@ -158,7 +158,7 @@ func Capture(ctx *malgo.AllocatedContext, samples chan []byte, config StreamConf
 // provide stream configuration.
 // Playback will commence playing the samples provided from the reader until either the
 // reader returns an error, or the context signals done.
-func Playback(ctx *malgo.AllocatedContext, samples chan []byte, config StreamConfig) error {
+func playback(ctx *malgo.AllocatedContext, samples chan []byte, config streamConfig) error {
 	deviceConfig := config.asDeviceConfig(malgo.Playback)
 
 	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))

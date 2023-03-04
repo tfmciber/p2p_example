@@ -18,7 +18,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 }
 
 // Initialize the MDNS service
-func FindPeersMDNS(rendezvous string) chan peer.AddrInfo {
+func findPeersMDNS(rendezvous string) chan peer.AddrInfo {
 
 	fmt.Println("FindPeersMDNS")
 	// register with service so that we get notified about peer discovery

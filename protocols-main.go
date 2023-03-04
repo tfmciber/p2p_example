@@ -9,7 +9,7 @@ import (
 )
 
 // func for removing and disconecting a peer
-func DisconnectHost(stream network.Stream, err error) {
+func disconnectHost(stream network.Stream, err error) {
 	fmt.Println("Disconnecting host:", err)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
 	//func to get all keys from a map
@@ -22,24 +22,24 @@ func handleStream(stream network.Stream) {
 
 	//add peer to the map of peers if it is not already there
 	if _, ok := Peers[stream.Conn().RemotePeer()]; !ok {
-		Peers[stream.Conn().RemotePeer()] = Peer{online: true, peer: GetPeerInfo(stream.Conn().RemotePeer())}
+		Peers[stream.Conn().RemotePeer()] = peerStruct{online: true, peer: getPeerInfo(stream.Conn().RemotePeer())}
 	}
 
-	if GetStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
+	if getStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
 		switch stream.Protocol() {
 
 		case "/chat/1.1.0":
-			ReceiveTexthandler(stream)
+			receiveTexthandler(stream)
 		case "/audio/1.1.0":
 
-			ReceiveAudioHandler(stream)
+			receiveAudioHandler(stream)
 		case "/file/1.1.0":
 
-			ReceiveFilehandler(stream)
+			receiveFilehandler(stream)
 		case "/bench/1.1.0":
 
-			ReceiveBenchhandler(stream)
+			receiveBenchhandler(stream)
 
 		}
 	} else {
@@ -57,7 +57,7 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 		if err != nil {
 
-			DisconnectHost(stream, err)
+			disconnectHost(stream, err)
 			return
 
 		}
@@ -66,7 +66,7 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 	}
 }
 
-func WriteDataRend(data []byte, ProtocolID string, rendezvous string, verbose bool) {
+func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bool) {
 
 	for _, v := range Ren[rendezvous] {
 		if verbose {
@@ -111,7 +111,7 @@ func WriteDataRend(data []byte, ProtocolID string, rendezvous string, verbose bo
 //function to send data over a stream
 
 // Function that reads data from stdin and sends it to the cmd channel
-func ReadStdin() {
+func readStdin() {
 
 	for {
 
@@ -125,10 +125,5 @@ func ReadStdin() {
 		cmdChan <- Data
 
 	}
-
-}
-
-// func to change stream connection transport to tcp or quic
-func ChangeTransport(stream network.Stream, transport string) {
 
 }

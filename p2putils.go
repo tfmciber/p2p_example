@@ -3,12 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/multiformats/go-multiaddr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func listCons() {
@@ -44,17 +52,17 @@ func listStreams() {
 }
 
 // func to get peer.Addrinfo from peer.ID
-func GetPeerInfo(id peer.ID) peer.AddrInfo {
+func getPeerInfo(id peer.ID) peer.AddrInfo {
 	return Host.Network().Peerstore().PeerInfo(id)
 }
 
 // func t o notify on disconection
 
-func Notifyonconnect() {
+func notifyonConnect() {
 	Host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
 
-			Peers[conn.RemotePeer()] = Peer{peer: net.Peerstore().PeerInfo(conn.RemotePeer()), online: true}
+			Peers[conn.RemotePeer()] = peerStruct{peer: net.Peerstore().PeerInfo(conn.RemotePeer()), online: true}
 
 		},
 	})
@@ -81,7 +89,7 @@ func listallUSers() {
 	}
 
 }
-func SetPeersTRansport(ctx context.Context, preferQUIC bool) bool {
+func setPeersTRansport(ctx context.Context, preferQUIC bool) bool {
 	//if anyone is succesfully changed, return true
 	ret := false
 	for _, v := range Peers {
@@ -97,19 +105,19 @@ func SetPeersTRansport(ctx context.Context, preferQUIC bool) bool {
 
 func startStreams(rendezvous string, peeraddr peer.AddrInfo, stream network.Stream) {
 
-	go ReceiveTexthandler(stream)
+	go receiveTexthandler(stream)
 	stream2 := streamStart(hostctx, peeraddr.ID, "/audio/1.1.0")
-	go ReceiveAudioHandler(stream2)
+	go receiveAudioHandler(stream2)
 
 }
-func CloseConns(ID peer.ID) {
+func closeConns(ID peer.ID) {
 	for _, v := range Host.Network().ConnsToPeer(ID) {
 		v.Close()
 	}
 }
 
 // func to see if a rendevous has online peers
-func HasPeers(rendezvous string) bool {
+func hasPeers(rendezvous string) bool {
 	rendezvousPeers := Ren[rendezvous]
 	for _, v := range rendezvousPeers {
 		if Peers[v].online {
@@ -118,7 +126,7 @@ func HasPeers(rendezvous string) bool {
 	}
 	return false
 }
-func OnlinePeers(rendezvous string) []peer.ID {
+func onlinePeers(rendezvous string) []peer.ID {
 	var peers []peer.ID
 	rendezvousPeers := Ren[rendezvous]
 	for _, v := range rendezvousPeers {
@@ -130,7 +138,7 @@ func OnlinePeers(rendezvous string) []peer.ID {
 }
 
 // func to get all streams with a peer of a given protcol
-func GetStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
+func getStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
 
 	for _, v := range Host.Network().Conns() {
 		if v.RemotePeer() == peerID {
@@ -170,7 +178,7 @@ func selectAddrs(peeraddrs []multiaddr.Multiaddr, preferQUIC bool, preferTCP boo
 	return addrs
 
 }
-func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, preferTCP bool) {
+func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, preferTCP bool) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -195,7 +203,7 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 					fmt.Println("Error connecting to peer:", err)
 				}
 				//in peer.ID not in Ren[rendezvous] add to Ren[rendezvous]
-				if !Contains(Ren[rendezvous], peer.ID) {
+				if !contains(Ren[rendezvous], peer.ID) {
 
 					Ren[rendezvous] = append(Ren[rendezvous], peer.ID)
 				}
@@ -209,7 +217,7 @@ func ConnecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 }
 
 // func to disconnect from all peers and close connections
-func DisconnectAll() {
+func disconnectAll() {
 	for _, v := range Host.Network().Conns() {
 
 		for _, s := range v.GetStreams() {
@@ -223,12 +231,12 @@ func DisconnectAll() {
 	//clear Ren
 	Ren = make(map[string][]peer.ID)
 	//clear Peers
-	Peers = make(map[peer.ID]Peer)
+	Peers = make(map[peer.ID]peerStruct)
 
 }
 
 // func for getting all streams from host of a given protocol
-func GetStreamsFromProtocol(protocol string) []network.Stream {
+func getStreamsFromProtocol(protocol string) []network.Stream {
 	var streams []network.Stream
 	for _, c := range Host.Network().Conns() {
 		for _, s := range c.GetStreams() {
@@ -243,7 +251,7 @@ func GetStreamsFromProtocol(protocol string) []network.Stream {
 }
 
 // func for checking if host has any stream open of a protocol
-func HasStreamOfProtocol(protocol string) bool {
+func hasStreamOfProtocol(protocol string) bool {
 	for _, c := range Host.Network().Conns() {
 		for _, s := range c.GetStreams() {
 
@@ -256,7 +264,7 @@ func HasStreamOfProtocol(protocol string) bool {
 }
 
 // func for checking if host has any connection open
-func HasConnection() bool {
+func hasConnection() bool {
 	for _, c := range Host.Network().Conns() {
 		if c != nil {
 			return true
@@ -268,7 +276,7 @@ func HasConnection() bool {
 // func to start a stream with a peer only if there is no stream open and return the stream in any cases
 func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
 
-	stream := GetStreamsFromPeerProto(peerid, ProtocolID)
+	stream := getStreamsFromPeerProto(peerid, ProtocolID)
 
 	if stream == nil {
 		var err error
@@ -284,4 +292,102 @@ func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network
 	}
 	return stream
 
+}
+
+func interrupts() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-quit
+		fmt.Println("\r- Exiting Program")
+		disconnectAll()
+		Host.Close()
+		os.Exit(0)
+	}()
+}
+
+// func to connect to input peers using relay server
+func connectRelay(peers []peer.AddrInfo, server peer.AddrInfo) {
+	//check if server is already connected
+	if !containsPeer(Host.Network().Peers(), server.ID) {
+		//connect to server
+		err := Host.Connect(hostctx, server)
+		if err != nil {
+			fmt.Println("Error connecting to relay server:", err)
+		}
+	}
+	_, err := client.Reserve(context.Background(), Host, server)
+	if err != nil {
+		fmt.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+		return
+	}
+	for _, v := range peers {
+		if v.ID == Host.ID() {
+			continue
+		}
+		//check if peer is already connected
+		if containsPeer(Host.Network().Peers(), v.ID) {
+			continue
+		}
+		relayaddr, err := ma.NewMultiaddr("/p2p/" + server.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// Since we just tried and failed to dial, the dialer system will, by default
+		// prevent us from redialing again so quickly. Since we know what we're doing, we
+		// can use this ugly hack (it's on our TODO list to make it a little cleaner)
+		// to tell the dialer "no, its okay, let's try this again"
+		Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
+
+		log.Println("Now let's attempt to connect the hosts via the relay node")
+
+		// Open a connection to the previously unreachable host via the relay address
+		peerrelayinfo := peer.AddrInfo{
+			ID:    v.ID,
+			Addrs: []ma.Multiaddr{relayaddr},
+		}
+		if err := Host.Connect(context.Background(), peerrelayinfo); err != nil {
+			log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
+			return
+		}
+
+	}
+}
+
+// func to select a peer from all the ones connected to the host at a given rendezvous and online whose IDs last 2 numbers are the lowest
+func selectPeer(rendezvous string) peer.ID {
+	var peers []peer.ID
+	for _, v := range Ren[rendezvous] {
+		if containsPeer(Host.Network().Peers(), v) {
+			peers = append(peers, v)
+		}
+	}
+	if len(peers) == 0 {
+		return ""
+	}
+	sort.Slice(peers, func(i, j int) bool {
+		return peers[i].String()[len(peers[i].String())-2:] < peers[j].String()[len(peers[j].String())-2:]
+	})
+	return peers[0]
+}
+
+func containsPeer(peers []peer.ID, peer peer.ID) bool {
+	for _, v := range peers {
+		if v == peer {
+			return true
+		}
+	}
+	return false
+}
+
+// func to check if there are any peers online at a given rendezvous
+func hasPeer(rendezvous string) bool {
+	for _, v := range Ren[rendezvous] {
+		if containsPeer(Host.Network().Peers(), v) {
+			return true
+		}
+	}
+	return false
 }

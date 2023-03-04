@@ -9,7 +9,7 @@ import (
 )
 
 // func to get the default download directory os independent
-func GetDefaultDownloadDir() string {
+func getDefaultDownloadDir() string {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("USERPROFILE") // windows
@@ -51,8 +51,10 @@ func appendToCSV(file string, data []string) {
 	defer f.Close()
 	writer := csv.NewWriter(f)
 	e := writer.Write(data)
+	if e != nil {
+		fmt.Println(e)
+	}
 	writer.Flush()
-
 	if e != nil {
 		fmt.Println(e)
 	}
@@ -60,7 +62,7 @@ func appendToCSV(file string, data []string) {
 }
 
 // func to add to a map of slices of peers if not already there else set peer to online
-func Add(Map map[string][]Peer, Peeraddr peer.AddrInfo, rendezvous string) map[string][]Peer {
+func add(Map map[string][]peerStruct, Peeraddr peer.AddrInfo, rendezvous string) map[string][]peerStruct {
 
 	found := false
 	var addr peer.AddrInfo
@@ -72,13 +74,13 @@ func Add(Map map[string][]Peer, Peeraddr peer.AddrInfo, rendezvous string) map[s
 
 		}
 
-		Map[rendezvous][i] = Peer{addr, true}
+		Map[rendezvous][i] = peerStruct{addr, true}
 
 	}
 
 	if found == false {
 
-		Map[rendezvous] = append(Map[rendezvous], Peer{Peeraddr, true})
+		Map[rendezvous] = append(Map[rendezvous], peerStruct{Peeraddr, true})
 
 	}
 
@@ -87,7 +89,7 @@ func Add(Map map[string][]Peer, Peeraddr peer.AddrInfo, rendezvous string) map[s
 }
 
 // func to check if slice contains a value
-func Contains(s []peer.ID, e peer.ID) bool {
+func contains(s []peer.ID, e peer.ID) bool {
 	for _, a := range s {
 		if a == e {
 			return true

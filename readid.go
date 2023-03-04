@@ -21,14 +21,14 @@ import (
 
 // The data struct for the decoded data
 // Notice that all fields must be exportable!
-type Identity struct {
+type identity struct {
 
 	// defining struct variables
 	PrivObj []byte
 	Public  string
 }
 
-func SetId() ([]byte, string) {
+func setID() ([]byte, string) {
 	priv, pub, err := crypto.GenerateKeyPair(
 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
 		-1,             // Select key length when possible (i.e. RSA).
@@ -47,6 +47,7 @@ func SetId() ([]byte, string) {
 
 func initPriv(filename string) crypto.PrivKey {
 
+	fmt.Println("[*] Init Private Identity")
 	_, err := os.ReadFile(filename)
 
 	var pub string
@@ -58,10 +59,10 @@ func initPriv(filename string) crypto.PrivKey {
 		if err != nil {
 			fmt.Print(err)
 		}
-		key := hex.EncodeToString(NewSHA256([]byte(bytePassword)))
-		pObj, pub = SetId()
+		key := hex.EncodeToString(newSHA256([]byte(bytePassword)))
+		pObj, pub = setID()
 
-		write_keys(filename, pObj, pub, key)
+		writeKeys(filename, pObj, pub, key)
 	} else {
 		fmt.Println("Using values from profile file ", filename)
 
@@ -70,8 +71,8 @@ func initPriv(filename string) crypto.PrivKey {
 			if err != nil {
 				fmt.Print(err)
 			}
-			key := hex.EncodeToString(NewSHA256([]byte(bytePassword)))
-			pObj, pub, err = read_keys(filename, key)
+			key := hex.EncodeToString(newSHA256([]byte(bytePassword)))
+			pObj, pub, err = readKeys(filename, key)
 			if err == nil {
 				break
 			}
@@ -87,33 +88,33 @@ func initPriv(filename string) crypto.PrivKey {
 
 func requestPwd(ver bool) ([]byte, error) {
 
-	var bytePassword_1 []byte
-	var bytePassword_2 []byte
+	var bytePassword1 []byte
+	var bytePassword2 []byte
 	var err error
 	for {
 		fmt.Println("Enter password")
-		bytePassword_1, err = term.ReadPassword(int(syscall.Stdin))
+		bytePassword1, err = term.ReadPassword(int(syscall.Stdin))
 
 		if err != nil {
 			return nil, err
 		}
 		if ver {
-			return bytePassword_1, err
+			return bytePassword1, err
 		}
 		fmt.Println("Confirm password")
-		bytePassword_2, err = term.ReadPassword(int(syscall.Stdin))
+		bytePassword2, err = term.ReadPassword(int(syscall.Stdin))
 
 		if err != nil {
 			return nil, err
 		}
-		if bytes.Compare(bytePassword_1, bytePassword_2) == 0 {
-			return bytePassword_1, err
+		if bytes.Compare(bytePassword1, bytePassword2) == 0 {
+			return bytePassword1, err
 		}
 
 	}
 
 }
-func read_keys(filename string, key string) ([]byte, string, error) {
+func readKeys(filename string, key string) ([]byte, string, error) {
 	// Let's first read the `config.json` file
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -121,7 +122,7 @@ func read_keys(filename string, key string) ([]byte, string, error) {
 	}
 
 	// Now let's unmarshall the data into `payload`
-	var payload Identity
+	var payload identity
 	err = json.Unmarshal(content, &payload)
 	if err != nil {
 		log.Fatal("Error during Unmarshal(): ", err)
@@ -133,9 +134,9 @@ func read_keys(filename string, key string) ([]byte, string, error) {
 
 }
 
-func write_keys(filename string, PrivObj []byte, public string, key string) {
+func writeKeys(filename string, PrivObj []byte, public string, key string) {
 
-	id := Identity{encrypt(PrivObj, key), public}
+	id := identity{encrypt(PrivObj, key), public}
 	file, err := json.Marshal(id)
 	if err != nil {
 		log.Fatal("Error during Unmarshal(): ", err)
@@ -204,7 +205,7 @@ func decrypt(ciphertext []byte, keyString string) ([]byte, error) {
 	return plaintext, nil
 }
 
-func NewSHA256(data []byte) []byte {
+func newSHA256(data []byte) []byte {
 	hash := sha256.Sum256(data)
 	return hash[:]
 }

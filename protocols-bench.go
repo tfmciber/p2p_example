@@ -17,18 +17,18 @@ func sendBench(numMessages int, messageSize int, rendezvous string) {
 	protocol := "/bench/1.1.0"
 	numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 	messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
-	WriteDataRend([]byte(numMessagesStr), protocol, rendezvous, false)
-	WriteDataRend([]byte(messageSizeStr), protocol, rendezvous, false)
+	writeDataRend([]byte(numMessagesStr), protocol, rendezvous, false)
+	writeDataRend([]byte(messageSizeStr), protocol, rendezvous, false)
 	sendBuffer := make([]byte, messageSize)
 	sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 	for i := 0; i < numMessages; i++ {
 
-		WriteDataRend(sendBuffer, protocol, rendezvous, false)
+		writeDataRend(sendBuffer, protocol, rendezvous, false)
 	}
 	closeStreams(protocol)
 }
 
-func ReceiveBenchhandler(stream network.Stream) {
+func receiveBenchhandler(stream network.Stream) {
 
 	numMessages := make([]byte, 32)
 	stream.Read(numMessages)
@@ -67,15 +67,19 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
 
-	if !HasPeers(rendezvous) {
+	if !hasPeers(rendezvous) {
 		fmt.Println("No online peers found")
 		return
-	} else {
-		fmt.Println(OnlinePeers(rendezvous))
 	}
+
+	fmt.Println(onlinePeers(rendezvous))
+
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
-	SetPeersTRansport(ctx, true)
+	if !setPeersTRansport(ctx, true) {
+		fmt.Println("Error Changing Peers Transport")
+		return
+	}
 	total := 0
 	last := 0
 	//sucesion aritemtica
@@ -98,7 +102,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 
 	fmt.Println("\t[*] Starting TCP Benchmark")
 
-	if !SetPeersTRansport(ctx, false) {
+	if !setPeersTRansport(ctx, false) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}

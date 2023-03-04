@@ -31,8 +31,8 @@ func sendFile(rendezvous string, path string) {
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 
-	WriteDataRend([]byte(fileSize), "/file/1.1.0", rendezvous, false)
-	WriteDataRend([]byte(fileName), "/file/1.1.0", rendezvous, false)
+	writeDataRend([]byte(fileSize), "/file/1.1.0", rendezvous, false)
+	writeDataRend([]byte(fileName), "/file/1.1.0", rendezvous, false)
 
 	start := time.Now()
 	bar := progressbar.Default(100)
@@ -50,7 +50,7 @@ func sendFile(rendezvous string, path string) {
 			break
 		} else {
 
-			WriteDataRend(sendBuffer, "/file/1.1.0", rendezvous, false)
+			writeDataRend(sendBuffer, "/file/1.1.0", rendezvous, false)
 		}
 		//progress bar indicating download progress aproximately every 10 % of the file
 		aux := (float64(totalSend)) / (float64(fileInfo.Size()))
@@ -78,9 +78,9 @@ func fillString(retunString string, toLength int) string {
 	return retunString
 }
 
-func ReceiveFilehandler(stream network.Stream) {
+func receiveFilehandler(stream network.Stream) {
 
-	downloadDir := GetDefaultDownloadDir()
+	downloadDir := getDefaultDownloadDir()
 	createDirIfNotExist(downloadDir) //create download dir if it does not exist
 
 	fileSizeBuffer := make([]byte, 10)

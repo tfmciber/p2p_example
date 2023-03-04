@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -45,16 +46,19 @@ func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-
 	kademliaDHT := initDHT(ctx, h)
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 
-	// Advertise this node, so that it will be found by others but only once
-	dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 	// Look for others who have announced and attempt to connect to them
 
 	fmt.Println("\t [*] Searching for peers in DHT [", RendezvousString, "]")
 
-	peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
+	//context with 10 seconds timeout
+	timeoutctx, _ := context.WithTimeout(ctx, 10*time.Second)
+
+	peers, err := routingDiscovery.FindPeers(timeoutctx, RendezvousString)
 	if err != nil {
 		panic(err)
 	}
+	// Advertise this node, so that it will be found by others but only once
+	dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 
 	return peers
 
