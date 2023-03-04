@@ -316,6 +316,7 @@ func connectRelay(peers []peer.AddrInfo, server peer.AddrInfo) {
 			fmt.Println("Error connecting to relay server:", err)
 		}
 	}
+
 	_, err := client.Reserve(context.Background(), Host, server)
 	if err != nil {
 		fmt.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)

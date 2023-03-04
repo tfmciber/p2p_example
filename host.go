@@ -11,13 +11,15 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
+
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-
+	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/multiformats/go-multiaddr"
 
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
@@ -35,7 +37,7 @@ import (
 var Host host.Host
 var cmdChan = make(chan string)
 var hostctx context.Context
-var kademliaDHT = initDHT(hostctx, Host)
+var kademliaDHT *dht.IpfsDHT
 
 type peerStruct struct {
 	peer   peer.AddrInfo
@@ -101,7 +103,7 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 
 	}
 
-	//var idht *dht.IpfsDHT
+	var idht *dht.IpfsDHT
 
 	if err != nil {
 		panic(err)
@@ -122,7 +124,14 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		DefaultTransports,
 		libp2p.ResourceManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
+		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
+			idht, err = dht.New(ctx, h)
+			if err = idht.Bootstrap(ctx); err != nil {
+				panic(err)
+			}
 
+			return idht, err
+		}),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
@@ -142,13 +151,16 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 	}
 	fmt.Print("host listening on: ", h.Addrs())
-	fmt.Print("Iniciando sistema de relay")
+	fmt.Println("[*] Iniciando sistema de relay")
 
 	_, err = relay.New(h)
 	if err != nil {
 		log.Printf("Failed to instantiate the relay: %v", err)
 
 	}
+	kademliaDHT = idht
+	fmt.Println("[*] Connectimg to DHT")
+	initDHT(ctx, h)
 	return h, rcm
 }
 
@@ -213,7 +225,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
 			}
 			Peers[peeraddr.ID] = peerStruct{peer: peeraddr, online: true}
-			setTransport(ctx, peeraddr.ID, preferQUIC) // da error al usar varios peers
+			setTransport(ctx, peeraddr.ID, preferQUIC)
 			if start {
 				startStreams(rendezvous, peeraddr, stream)
 			}
