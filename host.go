@@ -120,6 +120,7 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
 		libp2p.ResourceManager(rcm),
+		libp2p.UserAgent("P2P_Example"),
 
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
@@ -190,26 +191,19 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			continue
 		}
 		//check if peer has addresses commented for debugging
-		/*
-			if len(peer.Addrs) > 0 {
-				peersFound = append(peersFound, peer)
-				fmt.Println("found:", peer.ID)
-			}*/
 
-		peersFound = append(peersFound, peer)
-		fmt.Println("found:", peer.ID)
+		if len(peer.Addrs) > 0 {
+			peersFound = append(peersFound, peer)
+			fmt.Println("found:", peer.ID)
+		}
 
 	}
 	fmt.Print("Bootstrap finished\n")
 
 	for _, peeraddr := range peersFound {
+		fmt.Println("[*] Connecting to: ", peeraddr.ID)
 		err := Host.Connect(ctx, peeraddr)
 		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
-		if err1 != nil {
-			fmt.Println("Error connecting to ", peeraddr.Addrs, err1)
-			failed = append(failed, peeraddr)
-		}
-
 		if err1 == nil {
 			stream.Write([]byte("/cmd/" + rendezvous + "/"))
 			fmt.Println("Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
@@ -224,6 +218,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 		} else {
 			fmt.Println("Error connecting to ", peeraddr.Addrs, err)
+			failed = append(failed, peeraddr)
 		}
 
 	}
@@ -351,8 +346,9 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 				server := selectPeer(rendezvous)
 				fmt.Print("servidor seleccionad: ", server, "")
-
-				connectRelay(failed, getPeerInfo(server))
+				if len(failed) > 0 {
+					connectRelay(failed, getPeerInfo(server))
+				}
 			} else {
 				fmt.Println("No server found")
 			}
