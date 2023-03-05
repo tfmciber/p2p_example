@@ -44,6 +44,7 @@ func main() {
 		mctx.Free()
 	}()
 	Host, _ = newHost(hostctx, priv, *debug)
+	kademliaDHT := initDHT(hostctx, Host)
 
 	fmt.Println("Host created. We are:", Host.ID())
 
@@ -61,7 +62,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go execCommnad(ctx, mctx, priv)
+	go execCommnad(ctx, mctx, priv, kademliaDHT)
 
 	select {}
 }

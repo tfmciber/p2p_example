@@ -11,15 +11,14 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
-
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+
 	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/multiformats/go-multiaddr"
 
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
@@ -37,7 +36,6 @@ import (
 var Host host.Host
 var cmdChan = make(chan string)
 var hostctx context.Context
-var kademliaDHT *dht.IpfsDHT
 
 type peerStruct struct {
 	peer   peer.AddrInfo
@@ -102,13 +100,10 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		addr = libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0")
 
 	}
-
-	var idht *dht.IpfsDHT
-
 	if err != nil {
 		panic(err)
 	}
-
+	fmt.Println("[*] Creating Host")
 	h, err := libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(priv),
@@ -124,14 +119,6 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		DefaultTransports,
 		libp2p.ResourceManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
-		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			idht, err = dht.New(ctx, h)
-			if err = idht.Bootstrap(ctx); err != nil {
-				panic(err)
-			}
-
-			return idht, err
-		}),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
@@ -150,17 +137,16 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 
 		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
 	}
-	fmt.Print("host listening on: ", h.Addrs())
-	fmt.Println("[*] Iniciando sistema de relay")
+	fmt.Println("\t[*] Host listening on: ", h.Addrs())
+	fmt.Println("\t[*] Starting Relay system")
 
 	_, err = relay.New(h)
 	if err != nil {
 		log.Printf("Failed to instantiate the relay: %v", err)
 
 	}
-	kademliaDHT = idht
-	fmt.Println("[*] Connectimg to DHT")
-	initDHT(ctx, h)
+
+	fmt.Println("[*] Host Created")
 	return h, rcm
 }
 
@@ -194,10 +180,10 @@ func checkCoon() {
 
 // func to connect to peers found in rendezvous
 func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.AddrInfo {
-
+	fmt.Println("[*] Connecting to peers")
 	var peersFound []peer.AddrInfo
 	var failed []peer.AddrInfo
-
+	fmt.Println("\t[*] Receiving peers")
 	for peer := range peerChan {
 
 		if peer.ID == Host.ID() {
@@ -207,20 +193,21 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 
 		if len(peer.Addrs) > 0 {
 			peersFound = append(peersFound, peer)
-			fmt.Println("found:", peer.ID)
+			fmt.Println("\t\t[*] Found:", peer.ID)
 		}
 
 	}
-	fmt.Print("Bootstrap finished\n")
+	fmt.Println("\t[*] Receiving peers finished")
+	fmt.Println("\t[*] Connecting to peers")
 
 	for _, peeraddr := range peersFound {
-		fmt.Println("[*] Connecting to: ", peeraddr.ID)
+		fmt.Println("\t\t[*] Connecting to: ", peeraddr.ID)
 
 		err := Host.Connect(ctx, peeraddr)
 		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
 		if err1 == nil {
 			stream.Write([]byte("/cmd/" + rendezvous + "/"))
-			fmt.Println("Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
+			fmt.Println("\t\t\t Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
 			if !contains(Ren[rendezvous], peeraddr.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
 			}
@@ -231,12 +218,12 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			}
 
 		} else {
-			fmt.Println("Error connecting to ", peeraddr.Addrs, err)
+			fmt.Println("\t\t\tError connecting to ", peeraddr.Addrs, err)
 			failed = append(failed, peeraddr)
 		}
 
 	}
-	fmt.Println("\t [*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren[rendezvous]), " peers connected")
+	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren[rendezvous]), " peers connected")
 	return failed
 
 }
@@ -315,7 +302,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 }
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey, kademliaDHT *dht.IpfsDHT) {
 	var quitchan chan bool
 
 	for {
@@ -352,7 +339,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 		case cmd == "dht":
 
-			FoundPeersDHT := discoverPeers(ctx, Host, rendezvous)
+			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, rendezvous)
 			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
 
 			if hasPeer(rendezvous) {

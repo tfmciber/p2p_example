@@ -12,12 +12,20 @@ import (
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
-func initDHT(ctx context.Context, h host.Host) {
+func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 	// Start a DHT, for use in peer discovery. We can't just make a new DHT
 	// client because we want each peer to maintain its own local copy of the
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
+	kademliaDHT, err := dht.New(ctx, h)
 
+	if err != nil {
+		panic(err)
+	}
+
+	if err = kademliaDHT.Bootstrap(ctx); err != nil {
+		panic(err)
+	}
 	var wg sync.WaitGroup
 	for _, peerAddr := range dht.DefaultBootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
@@ -30,18 +38,17 @@ func initDHT(ctx context.Context, h host.Host) {
 		}()
 	}
 	wg.Wait()
+	return kademliaDHT
 
 }
 
-func discoverPeers(ctx context.Context, h host.Host, RendezvousString string) <-chan peer.AddrInfo {
-
-	//get current DHT in host
+func discoverPeers(ctx context.Context, kademliaDHT *dht.IpfsDHT, h host.Host, RendezvousString string) <-chan peer.AddrInfo {
 
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 
 	// Look for others who have announced and attempt to connect to them
 
-	fmt.Println("\t [*] Searching for peers in DHT [", RendezvousString, "]")
+	fmt.Println("[*] Searching for peers in DHT [", RendezvousString, "]")
 
 	peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
 	if err != nil {
