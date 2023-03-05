@@ -1,0 +1,6 @@
+#ignore all executable windows
+*.exe
+#ignore all executable linux
+p2p
+#ignore config.json
+config.json
