@@ -24,6 +24,7 @@ func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT {
 	}
 
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
+		fmt.Print("rfwrewrwe")
 		panic(err)
 	}
 	var wg sync.WaitGroup
