@@ -306,10 +306,13 @@ func interrupts() {
 }
 
 // func to connect to input peers using relay server
-func connectthrougRelays(peers []peer.AddrInfo, servers []peer.ID) {
+func connectthrougRelays(peers []peer.AddrInfo, rendezvous string) {
 
-	for _, server := range servers {
+	for _, server := range Ren[rendezvous] {
 		serverpeerinfo := getPeerInfo(server)
+		if serverpeerinfo.Addrs == nil {
+			continue
+		}
 		for _, v := range peers {
 
 			//check if peer is already connected or is self
@@ -339,9 +342,10 @@ func connectthrougRelays(peers []peer.AddrInfo, servers []peer.ID) {
 }
 
 // func to reserve circuit with relay server and return all successful connections
-func connectRelay(rendezvous string) []peer.ID {
+func connectRelay(rendezvous string) {
 
-	var conns []peer.ID
+	fmt.Println("[*] Reserving circuit with connected hosts...")
+
 	for _, v := range Ren[rendezvous] {
 		if !containsPeer(Host.Network().Peers(), v) {
 			err := Host.Connect(hostctx, getPeerInfo(v))
@@ -349,16 +353,17 @@ func connectRelay(rendezvous string) []peer.ID {
 				fmt.Println("Error connecting to relay server:", err)
 			}
 		}
+		// check if reservation is already made
 
 		_, err := client.Reserve(context.Background(), Host, getPeerInfo(v))
 
 		if err == nil {
-			conns = append(conns, v)
+			fmt.Println("\t[*] Reserved circuit with:", v.String())
 
 		}
 
 	}
-	return conns
+	fmt.Println("[*] Reservation finished.")
 
 }
 

@@ -343,7 +343,8 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, rendezvous)
 			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
-			connectthrougRelays(failed, connectRelay(rendezvous))
+			connectRelay(rendezvous)
+			connectthrougRelays(failed, rendezvous)
 
 		case cmd == "clear":
 			disconnectAll()

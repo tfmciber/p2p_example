@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 )
 
 // func for removing and disconecting a peer
@@ -23,6 +25,7 @@ func handleStream(stream network.Stream) {
 	//add peer to the map of peers if it is not already there
 	if _, ok := Peers[stream.Conn().RemotePeer()]; !ok {
 		Peers[stream.Conn().RemotePeer()] = peerStruct{online: true, peer: getPeerInfo(stream.Conn().RemotePeer())}
+		client.Reserve(context.Background(), Host, Peers[stream.Conn().RemotePeer()].peer)
 	}
 
 	if getStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
