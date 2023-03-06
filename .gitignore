@@ -1,5 +1,5 @@
 #ignore all executable windows
-*.exe
+*.exe*
 #ignore all executable linux
 p2p
 #ignore config.json
