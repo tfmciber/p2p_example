@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -51,14 +50,6 @@ func main() {
 	// Go routines
 
 	go readStdin()
-
-	// call CheckCoon every 5 seconds
-	go func() {
-		for {
-			checkCoon()
-			time.Sleep(5 * time.Second)
-		}
-	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

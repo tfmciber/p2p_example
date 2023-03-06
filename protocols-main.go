@@ -20,13 +20,7 @@ func disconnectHost(stream network.Stream, err error) {
 
 func handleStream(stream network.Stream) {
 
-	// check if a stream with the same protocol and peer is already open
-
-	//add peer to the map of peers if it is not already there
-	if _, ok := Peers[stream.Conn().RemotePeer()]; !ok {
-		Peers[stream.Conn().RemotePeer()] = peerStruct{online: true, peer: getPeerInfo(stream.Conn().RemotePeer())}
-		client.Reserve(context.Background(), Host, Peers[stream.Conn().RemotePeer()].peer)
-	}
+	client.Reserve(context.Background(), Host, getPeerInfo(stream.Conn().RemotePeer()))
 
 	if getStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
@@ -75,17 +69,13 @@ func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bo
 		if verbose {
 			fmt.Println("Sending data to:", v)
 		}
+		if Host.Network().Connectedness(v) == network.Connected {
 
-		aux := Peers[v]
-		if aux.online == true {
 		restart:
-
 			stream := streamStart(hostctx, v, ProtocolID)
 
 			if stream == nil {
 				fmt.Println("stream is nil")
-				aux.online = false
-				Peers[v] = aux
 
 			} else {
 
@@ -106,7 +96,6 @@ func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bo
 				}
 			}
 		}
-
 	}
 
 }

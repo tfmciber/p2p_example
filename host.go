@@ -37,15 +37,8 @@ var Host host.Host
 var cmdChan = make(chan string)
 var hostctx context.Context
 
-type peerStruct struct {
-	peer   peer.AddrInfo
-	online bool
-}
-
 // Ren variable to store the rendezvous string and the peers associated to it
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
-// Peers variable to store the peers, their addresses and their online status
-var Peers = make(map[peer.ID]peerStruct) //map of peers
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.Host, network.ResourceManager) {
@@ -150,34 +143,6 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 	return h, rcm
 }
 
-// func to see if var Peers is in Host conn
-func checkCoon() {
-	found := false
-	for _, v := range Ren {
-		for _, p := range v {
-
-			for _, c := range Host.Network().Conns() {
-				if c.RemotePeer() == p {
-					if !Peers[c.RemotePeer()].online {
-						fmt.Println("User ", c.RemotePeer(), " connected")
-						Peers[c.RemotePeer()] = peerStruct{peer: Host.Network().Peerstore().PeerInfo(c.RemotePeer()), online: true}
-						fmt.Println("found", c.RemotePeer())
-					}
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				if Peers[p].online {
-					fmt.Println("User ", p, " disconnected")
-					Peers[p] = peerStruct{peer: Host.Network().Peerstore().PeerInfo(p), online: false}
-				}
-			}
-		}
-	}
-}
-
 //func to notify if  an new peer has connected using the rendezvous string
 
 // func to connect to peers found in rendezvous
@@ -213,7 +178,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			if !contains(Ren[rendezvous], peeraddr.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
 			}
-			Peers[peeraddr.ID] = peerStruct{peer: peeraddr, online: true}
+
 			setTransport(ctx, peeraddr.ID, preferQUIC)
 			stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
 			if err1 != nil {
@@ -376,9 +341,6 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			recordAudio(ctxmalgo, rendezvous, quitchan)
 		case cmd == "stopaudio": //para audio y enviar
 			quitchan <- true
-		case cmd == "users":
-
-			listUSers()
 		case cmd == "allusers":
 
 			listallUSers()
@@ -432,7 +394,6 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			fmt.Print("stopcall \n")
 			fmt.Print("audio$rendezvous \n")
 			fmt.Print("stopaudio \n")
-			fmt.Print("users$rendezvous \n")
 			fmt.Print("allusers \n")
 			fmt.Print("conns \n")
 			fmt.Print("streams \n")

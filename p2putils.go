@@ -55,35 +55,19 @@ func getPeerInfo(id peer.ID) peer.AddrInfo {
 	return Host.Network().Peerstore().PeerInfo(id)
 }
 
-// func t o notify on disconection
-
-func notifyonConnect() {
-	Host.Network().Notify(&network.NotifyBundle{
-		ConnectedF: func(net network.Network, conn network.Conn) {
-
-			Peers[conn.RemotePeer()] = peerStruct{peer: net.Peerstore().PeerInfo(conn.RemotePeer()), online: true}
-
-		},
-	})
-}
-
-// funct to list all curennt users in rendezvous
-func listUSers() {
-
-	fmt.Println("Users connected:")
-	for _, v := range Peers {
-		fmt.Println(v)
-	}
-
-}
-
 // funct to list all curennt users
 func listallUSers() {
 
 	fmt.Println("Users connected:")
 	for str, peerr := range Ren {
 		for _, p := range peerr {
-			fmt.Printf("Rendezvous %s peer ID %s ", str, p)
+
+			//check if users is connected
+			online := false
+			if Host.Network().Connectedness(p) == network.Connected {
+				online = true
+			}
+			fmt.Printf("Rendezvous %s peer ID %s ", str, p, " online: ", online)
 		}
 	}
 
@@ -91,8 +75,12 @@ func listallUSers() {
 func setPeersTRansport(ctx context.Context, preferQUIC bool) bool {
 	//if anyone is succesfully changed, return true
 	ret := false
+	//get all peers connected using rendezvous
+
+	Peers := getPeersFromRendezvous()
+
 	for _, v := range Peers {
-		aux := setTransport(ctx, v.peer.ID, preferQUIC)
+		aux := setTransport(ctx, v, preferQUIC)
 		if aux {
 			ret = true
 		}
@@ -100,6 +88,21 @@ func setPeersTRansport(ctx context.Context, preferQUIC bool) bool {
 	}
 	return ret
 
+}
+
+//get all unique peers connected to a rendezvous that are online
+func getPeersFromRendezvous() []peer.ID {
+	var Peers []peer.ID
+	for _, v := range Ren {
+		for _, p := range v {
+			if Host.Network().Connectedness(p) == network.Connected && !containsPeer(Peers, p) {
+				if !containsPeer(Peers, p) {
+					Peers = append(Peers, p)
+				}
+			}
+		}
+	}
+	return Peers
 }
 
 func startStreams(rendezvous string, peeraddr peer.AddrInfo, stream network.Stream) {
@@ -115,22 +118,13 @@ func closeConns(ID peer.ID) {
 	}
 }
 
-// func to see if a rendevous has online peers
-func hasPeers(rendezvous string) bool {
-	rendezvousPeers := Ren[rendezvous]
-	for _, v := range rendezvousPeers {
-		if Peers[v].online {
-			return true
-		}
-	}
-	return false
-}
 func onlinePeers(rendezvous string) []peer.ID {
 	var peers []peer.ID
 	rendezvousPeers := Ren[rendezvous]
 	for _, v := range rendezvousPeers {
-		if Peers[v].online {
+		if Host.Network().Connectedness(v) == network.Connected {
 			peers = append(peers, v)
+
 		}
 	}
 	return peers
@@ -229,8 +223,6 @@ func disconnectAll() {
 	}
 	//clear Ren
 	Ren = make(map[string][]peer.ID)
-	//clear Peers
-	Peers = make(map[peer.ID]peerStruct)
 
 }
 

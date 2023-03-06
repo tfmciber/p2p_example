@@ -61,33 +61,6 @@ func appendToCSV(file string, data []string) {
 
 }
 
-// func to add to a map of slices of peers if not already there else set peer to online
-func add(Map map[string][]peerStruct, Peeraddr peer.AddrInfo, rendezvous string) map[string][]peerStruct {
-
-	found := false
-	var addr peer.AddrInfo
-	for i, v := range Map[rendezvous] {
-
-		if v.peer.ID == Peeraddr.ID {
-			addr = v.peer
-			found = true
-
-		}
-
-		Map[rendezvous][i] = peerStruct{addr, true}
-
-	}
-
-	if found == false {
-
-		Map[rendezvous] = append(Map[rendezvous], peerStruct{Peeraddr, true})
-
-	}
-
-	return Map
-
-}
-
 // func to check if slice contains a value
 func contains(s []peer.ID, e peer.ID) bool {
 	for _, a := range s {
