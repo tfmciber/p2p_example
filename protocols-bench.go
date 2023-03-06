@@ -125,6 +125,6 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 
 	}
 
-	fmt.Println("\t[*] Benchmark finished")
+	fmt.Println("[*] Benchmark finished")
 
 }

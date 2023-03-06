@@ -341,7 +341,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			recordAudio(ctxmalgo, rendezvous, quitchan)
 		case cmd == "stopaudio": //para audio y enviar
 			quitchan <- true
-		case cmd == "allusers":
+		case cmd == "users":
 
 			listallUSers()
 

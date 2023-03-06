@@ -67,7 +67,7 @@ func listallUSers() {
 			if Host.Network().Connectedness(p) == network.Connected {
 				online = true
 			}
-			fmt.Printf("Rendezvous %s peer ID %s ", str, p, " online: ", online)
+			fmt.Printf("Rendezvous %s peer ID %s, online %t", str, p, online)
 		}
 	}
 
