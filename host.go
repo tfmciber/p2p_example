@@ -206,18 +206,26 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		fmt.Println("\t\t[*] Connecting to: ", peeraddr.ID)
 
 		err := Host.Connect(ctx, peeraddr)
-		stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
-		if err1 == nil {
-			stream.Write([]byte("/cmd/" + rendezvous + "/"))
+
+		if err == nil {
+
 			fmt.Println("\t\t\t Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
 			if !contains(Ren[rendezvous], peeraddr.ID) {
 				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
 			}
 			Peers[peeraddr.ID] = peerStruct{peer: peeraddr, online: true}
 			setTransport(ctx, peeraddr.ID, preferQUIC)
+			stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
+			if err1 != nil {
+				fmt.Println("Error creating stream: ", err1)
+				continue
+			}
 			if start {
 				startStreams(rendezvous, peeraddr, stream)
 			}
+
+			n, err := stream.Write([]byte("/cmd/" + rendezvous + "/"))
+			fmt.Println("Wrote ", n, " bytes to stream, err: ", err)
 
 		} else {
 			fmt.Println("\t\t\tError connecting to ", peeraddr.Addrs, err)

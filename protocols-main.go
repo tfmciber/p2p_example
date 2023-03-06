@@ -12,7 +12,7 @@ import (
 
 // func for removing and disconecting a peer
 func disconnectHost(stream network.Stream, err error) {
-	fmt.Println("Disconnecting host:", err)
+	fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
 	//func to get all keys from a map
 

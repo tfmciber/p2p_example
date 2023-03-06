@@ -19,6 +19,7 @@ func receiveTexthandler(stream network.Stream) {
 	readData(stream, 2000, func(buff []byte, stream network.Stream) {
 
 		//if buff starts with /cmd/ then it is a command
+		fmt.Println(string(buff[:]))
 		if string(buff[:5]) == "/cmd/" {
 			//rest of the string until / is the command
 
