@@ -178,6 +178,8 @@ func checkCoon() {
 	}
 }
 
+//func to notify if  an new peer has connected using the rendezvous string
+
 // func to connect to peers found in rendezvous
 func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.AddrInfo {
 	fmt.Println("[*] Connecting to peers")
@@ -341,18 +343,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, rendezvous)
 			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
-
-			if hasPeer(rendezvous) {
-				fmt.Println("Realizando conexion con el Relay")
-
-				server := selectPeer(rendezvous)
-				fmt.Print("servidor seleccionad: ", server, "")
-				if len(failed) > 0 {
-					connectRelay(failed, getPeerInfo(server))
-				}
-			} else {
-				fmt.Println("No server found")
-			}
+			connectthrougRelays(failed, connectRelay(rendezvous))
 
 		case cmd == "clear":
 			disconnectAll()

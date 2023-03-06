@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"syscall"
 
@@ -307,71 +306,60 @@ func interrupts() {
 }
 
 // func to connect to input peers using relay server
-func connectRelay(peers []peer.AddrInfo, server peer.AddrInfo) {
-	//check if server is already connected
-	if !containsPeer(Host.Network().Peers(), server.ID) {
-		//connect to server
-		err := Host.Connect(hostctx, server)
-		if err != nil {
-			fmt.Println("Error connecting to relay server:", err)
+func connectthrougRelays(peers []peer.AddrInfo, servers []peer.ID) {
+
+	for _, server := range servers {
+		serverpeerinfo := getPeerInfo(server)
+		for _, v := range peers {
+
+			//check if peer is already connected or is self
+			if containsPeer(Host.Network().Peers(), v.ID) || v.ID == Host.ID() {
+				continue
+			}
+			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			// Since we just tried and failed to dial, the dialer system will, by default
+			// prevent us from redialing again so quickly. Since we know what we're doing, we
+			// can use this ugly hack (it's on our TODO list to make it a little cleaner)
+			// to tell the dialer "no, its okay, let's try this again"
+			Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
+			// Open a connection to the previously unreachable host via the relay address
+			peerrelayinfo := peer.AddrInfo{ID: v.ID, Addrs: []ma.Multiaddr{relayaddr}}
+			if err := Host.Connect(context.Background(), peerrelayinfo); err != nil {
+				log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
+				return
+			}
 		}
 	}
 
-	_, err := client.Reserve(context.Background(), Host, server)
-	if err != nil {
-		fmt.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
-		return
-	}
-	for _, v := range peers {
-		if v.ID == Host.ID() {
-			continue
-		}
-		//check if peer is already connected
-		if containsPeer(Host.Network().Peers(), v.ID) {
-			continue
-		}
-		relayaddr, err := ma.NewMultiaddr("/p2p/" + server.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		// Since we just tried and failed to dial, the dialer system will, by default
-		// prevent us from redialing again so quickly. Since we know what we're doing, we
-		// can use this ugly hack (it's on our TODO list to make it a little cleaner)
-		// to tell the dialer "no, its okay, let's try this again"
-		Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
-
-		log.Println("Now let's attempt to connect the hosts via the relay node")
-
-		// Open a connection to the previously unreachable host via the relay address
-		peerrelayinfo := peer.AddrInfo{
-			ID:    v.ID,
-			Addrs: []ma.Multiaddr{relayaddr},
-		}
-		if err := Host.Connect(context.Background(), peerrelayinfo); err != nil {
-			log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
-			return
-		}
-
-	}
 }
 
-// func to select a peer from all the ones connected to the host at a given rendezvous and online whose IDs last 2 numbers are the lowest
-func selectPeer(rendezvous string) peer.ID {
-	var peers []peer.ID
+// func to reserve circuit with relay server and return all successful connections
+func connectRelay(rendezvous string) []peer.ID {
+
+	var conns []peer.ID
 	for _, v := range Ren[rendezvous] {
-		if containsPeer(Host.Network().Peers(), v) {
-			peers = append(peers, v)
+		if !containsPeer(Host.Network().Peers(), v) {
+			err := Host.Connect(hostctx, getPeerInfo(v))
+			if err != nil {
+				fmt.Println("Error connecting to relay server:", err)
+			}
 		}
+
+		_, err := client.Reserve(context.Background(), Host, getPeerInfo(v))
+
+		if err == nil {
+			conns = append(conns, v)
+
+		}
+
 	}
-	if len(peers) == 0 {
-		return ""
-	}
-	sort.Slice(peers, func(i, j int) bool {
-		return peers[i].String()[len(peers[i].String())-2:] < peers[j].String()[len(peers[j].String())-2:]
-	})
-	return peers[0]
+	return conns
+
 }
 
 func containsPeer(peers []peer.ID, peer peer.ID) bool {
