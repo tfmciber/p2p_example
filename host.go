@@ -313,11 +313,12 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			go connecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic, false)
 
 		case cmd == "dht":
-
+			rendezvousS = append(rendezvousS, rendezvous)
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, rendezvous)
 			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
 			connectRelay(rendezvous)
 			connectthrougRelays(failed, rendezvous)
+			//auto update every 5 minutes
 
 		case cmd == "clear":
 			disconnectAll()

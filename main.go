@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
+
+var rendezvousS chan string
 
 func main() {
 
@@ -49,6 +52,18 @@ func main() {
 
 	// Go routines
 
+	// connecting to peers every 5 min or when chan rendezvousS is writted
+
+	go func() {
+		for {
+			select {
+			case <-time.After(5 * time.Minute):
+				connectToPeers(hostctx, Host, kademliaDHT)
+			case <-rendezvousS:
+				connectToPeers(hostctx, Host, kademliaDHT)
+			}
+		}
+	}()
 	go readStdin()
 
 	ctx, cancel := context.WithCancel(context.Background())
