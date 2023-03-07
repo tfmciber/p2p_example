@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/network"
 )
 
 func main() {
@@ -42,7 +44,8 @@ func main() {
 		_ = mctx.Uninit()
 		mctx.Free()
 	}()
-	Host, _ = newHost(hostctx, priv, *debug)
+	var rcm network.ResourceManager
+	Host, rcm = newHost(hostctx, priv, *debug)
 	kademliaDHT := initDHT(hostctx, Host)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,6 +58,34 @@ func main() {
 	go readStdin()
 
 	go execCommnad(ctx, mctx, priv)
+	go func() {
+		for {
+			<-time.After(1 * time.Minute)
+			rcm.ViewSystem(func(scope network.ResourceScope) error {
+				stat := scope.Stat()
+				fmt.Println("System:",
+					"\n\t memory", stat.Memory,
+					"\n\t numFD", stat.NumFD,
+					"\n\t connsIn", stat.NumConnsInbound,
+					"\n\t connsOut", stat.NumConnsOutbound,
+					"\n\t streamIn", stat.NumStreamsInbound,
+					"\n\t streamOut", stat.NumStreamsOutbound)
+				return nil
+			})
+			rcm.ViewTransient(func(scope network.ResourceScope) error {
+				stat := scope.Stat()
+				fmt.Println("Transient:",
+					"\n\t memory:", stat.Memory,
+					"\n\t numFD:", stat.NumFD,
+					"\n\t connsIn:", stat.NumConnsInbound,
+					"\n\t connsOut:", stat.NumConnsOutbound,
+					"\n\t streamIn:", stat.NumStreamsInbound,
+					"\n\t streamOut:", stat.NumStreamsOutbound)
+				return nil
+			})
+
+		}
+	}()
 
 	select {}
 }

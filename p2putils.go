@@ -276,10 +276,18 @@ func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network
 	if stream == nil {
 		var err error
 		stream, err = Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
+		if err != nil {
+			fmt.Println(err.Error())
+			if err.Error() == "transient connection to peer" {
+				stream, err = Host.NewStream(network.WithUseTransient(context.Background(), "relay"), peerid, protocol.ID(ProtocolID))
+
+			}
+		}
 
 		if err != nil {
 			fmt.Println("stream to ", peerid, "failed", ProtocolID)
 			fmt.Println("Stream failed:", err)
+
 			return nil
 
 		}
@@ -302,17 +310,19 @@ func interrupts() {
 }
 
 // func to connect to input peers using relay server
-func connectthrougRelays(peers []peer.AddrInfo, rendezvous string) {
-
+func connectthrougRelays(peers []peer.AddrInfo, rendezvous string, preferQUIC bool) {
+	fmt.Println("[*] Connecting to peers through Relays")
 	for _, server := range Ren[rendezvous] {
 		serverpeerinfo := getPeerInfo(server)
 		if serverpeerinfo.Addrs == nil {
 			continue
 		}
+		fmt.Println("\t[*] Connecting using relay server:", serverpeerinfo.ID.String(), " ", serverpeerinfo.Addrs)
+
 		for _, v := range peers {
 
-			//check if peer is already connected or is self
-			if containsPeer(Host.Network().Peers(), v.ID) || v.ID == Host.ID() {
+			//check if peer is already connected
+			if Host.Network().Connectedness(v.ID) == network.Connected {
 				continue
 			}
 			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
@@ -320,17 +330,47 @@ func connectthrougRelays(peers []peer.AddrInfo, rendezvous string) {
 				fmt.Println(err)
 
 			}
+			fmt.Println("\t\t[*] Connecting to:", v.ID.String(), " ", relayaddr)
+
 			// Clear the backoff for the unreachable host
 			Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
 			// Open a connection to the previously unreachable host via the relay address
 			peerrelayinfo := peer.AddrInfo{ID: v.ID, Addrs: []ma.Multiaddr{relayaddr}}
-			if err := Host.Connect(context.Background(), peerrelayinfo); err != nil {
+			err = Host.Connect(context.Background(), peerrelayinfo)
+			if err != nil {
 				fmt.Println(err)
+
+			} else {
+				fmt.Println("\t\t[*] Connected to:", v.ID.String(), " ", v.Addrs)
+				//3 tries to open stream
+				var s network.Stream
+				for i := 0; i < 3; i++ {
+					s, err = Host.NewStream(network.WithUseTransient(context.Background(), "relay"), v.ID, "/chat/1.1.0")
+					if err != nil {
+						fmt.Println(err)
+
+					} else {
+						break
+					}
+				}
+				if err == nil {
+
+					if !contains(Ren[rendezvous], v.ID) {
+						Ren[rendezvous] = append(Ren[rendezvous], v.ID)
+					}
+
+					setTransport(context.Background(), v.ID, preferQUIC)
+					_, err = s.Write([]byte("/cmd/" + rendezvous + "/"))
+
+					if err != nil {
+						fmt.Println(err)
+					}
+				}
 
 			}
 		}
 	}
-
+	fmt.Println("[*] Connecting using Relays finished.")
 }
 
 // func to reserve circuit with relay server and return all successful connections
@@ -396,7 +436,7 @@ func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.I
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
 			failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
 			connectRelay(aux)
-			connectthrougRelays(failed, aux)
+			connectthrougRelays(failed, aux, quic)
 			allRedenzvous[aux] = 5
 
 		case aux := <-deleteRendezvous:

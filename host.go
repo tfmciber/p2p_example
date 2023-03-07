@@ -42,43 +42,12 @@ var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous s
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.Host, network.ResourceManager) {
 
-	limiterCfg := `{
-    "System":  {
-      "StreamsInbound": 4096,
-      "StreamsOutbound": 32768,
-      "Conns": 64000,
-      "ConnsInbound": 512,
-      "ConnsOutbound": 32768,
-      "FD": 64000
-    },
-    "Transient": {
-      "StreamsInbound": 4096,
-      "StreamsOutbound": 32768,
-      "ConnsInbound": 512,
-      "ConnsOutbound": 32768,
-      "FD": 64000
-    },
+	limiter := rcmgr.InfiniteLimits
 
-    "ProtocolDefault":{
-      "StreamsInbound": 1024,
-      "StreamsOutbound": 32768
-    },
-
-    "ServiceDefault":{
-      "StreamsInbound": 2048,
-      "StreamsOutbound": 32768
-    }
-  }`
-
-	limiter, err := rcmgr.NewDefaultLimiterFromJSON(strings.NewReader(limiterCfg))
+	rcm, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limiter))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	rcm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		panic(err)
-	}
-
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(tcp.NewTCPTransport),
@@ -92,9 +61,7 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		addr = libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0")
 
 	}
-	if err != nil {
-		panic(err)
-	}
+
 	fmt.Println("[*] Creating Host")
 	h, err := libp2p.New(
 		// Use the keypair we generated
@@ -109,9 +76,10 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
+		libp2p.DefaultConnectionManager,
 		libp2p.ResourceManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
-		//libp2p.NATPortMap(),
+		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
 		libp2p.EnableNATService(),
