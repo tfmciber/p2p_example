@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
-
-var rendezvousS = make(chan string, 1)
 
 func main() {
 	quic := true
@@ -54,35 +51,7 @@ func main() {
 
 	// Go routines
 
-	//go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
-	// for all the values in the list that wherent run in the last 5 minutes
-
-	go func() {
-		var allRedenzvous = map[string]int{}
-		for {
-			select {
-			case <-time.After(1 * time.Minute):
-
-				for rendezvous, time := range allRedenzvous {
-					if time == 0 {
-						rendezvousS <- rendezvous
-					} else {
-						allRedenzvous[rendezvous]--
-						fmt.Println("Rendezvous", rendezvous, "restarting in ", allRedenzvous[rendezvous])
-					}
-				}
-
-			case aux := <-rendezvousS:
-
-				FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
-				failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
-				connectRelay(aux)
-				connectthrougRelays(failed, aux)
-				allRedenzvous[aux] = 5
-			}
-		}
-	}()
-
+	go dhtRoutine(ctx, rendezvousS, kademliaDHT, quic)
 	go readStdin()
 
 	go execCommnad(ctx, mctx, priv)

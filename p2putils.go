@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -17,6 +18,9 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+var rendezvousS = make(chan string, 1)
+var deleteRendezvous = make(chan string, 1)
 
 func listCons() {
 	fmt.Println("Conns open:")
@@ -67,7 +71,7 @@ func listallUSers() {
 			if Host.Network().Connectedness(p) == network.Connected {
 				online = true
 			}
-			fmt.Printf("Rendezvous %s peer ID %s, online %t", str, p, online)
+			fmt.Printf("Rendezvous %s peer ID %s, online %t \n", str, p, online)
 		}
 	}
 
@@ -90,7 +94,7 @@ func setPeersTRansport(ctx context.Context, preferQUIC bool) bool {
 
 }
 
-//get all unique peers connected to a rendezvous that are online
+// get all unique peers connected to a rendezvous that are online
 func getPeersFromRendezvous() []peer.ID {
 	var Peers []peer.ID
 	for _, v := range Ren {
@@ -313,20 +317,16 @@ func connectthrougRelays(peers []peer.AddrInfo, rendezvous string) {
 			}
 			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
 			if err != nil {
-				log.Println(err)
-				return
-			}
+				fmt.Println(err)
 
-			// Since we just tried and failed to dial, the dialer system will, by default
-			// prevent us from redialing again so quickly. Since we know what we're doing, we
-			// can use this ugly hack (it's on our TODO list to make it a little cleaner)
-			// to tell the dialer "no, its okay, let's try this again"
+			}
+			// Clear the backoff for the unreachable host
 			Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
 			// Open a connection to the previously unreachable host via the relay address
 			peerrelayinfo := peer.AddrInfo{ID: v.ID, Addrs: []ma.Multiaddr{relayaddr}}
 			if err := Host.Connect(context.Background(), peerrelayinfo); err != nil {
-				log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
-				return
+				fmt.Println(err)
+
 			}
 		}
 	}
@@ -339,19 +339,15 @@ func connectRelay(rendezvous string) {
 	fmt.Println("[*] Reserving circuit with connected hosts...")
 
 	for _, v := range Ren[rendezvous] {
-		if !containsPeer(Host.Network().Peers(), v) {
-			err := Host.Connect(hostctx, getPeerInfo(v))
-			if err != nil {
-				fmt.Println("Error connecting to relay server:", err)
+
+		// check if peer is  connected
+		if containsPeer(Host.Network().Peers(), v) {
+
+			_, err := client.Reserve(context.Background(), Host, getPeerInfo(v))
+			if err == nil {
+				fmt.Println("\t[*] Reserved circuit with:", v.String())
+
 			}
-		}
-		// check if reservation is already made
-
-		_, err := client.Reserve(context.Background(), Host, getPeerInfo(v))
-
-		if err == nil {
-			fmt.Println("\t[*] Reserved circuit with:", v.String())
-
 		}
 
 	}
@@ -376,4 +372,35 @@ func hasPeer(rendezvous string) bool {
 		}
 	}
 	return false
+}
+
+// go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
+// for all the values in the list that wherent run in the last 5 minutes
+func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool) {
+	var allRedenzvous = map[string]int{}
+	for {
+		select {
+		case <-time.After(1 * time.Minute):
+
+			for rendezvous, time := range allRedenzvous {
+				if time == 0 {
+					rendezvousS <- rendezvous
+				} else {
+					allRedenzvous[rendezvous]--
+					fmt.Println("Rendezvous", rendezvous, "restarting in ", allRedenzvous[rendezvous])
+				}
+			}
+
+		case aux := <-rendezvousS:
+
+			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
+			failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
+			connectRelay(aux)
+			connectthrougRelays(failed, aux)
+			allRedenzvous[aux] = 5
+
+		case aux := <-deleteRendezvous:
+			delete(allRedenzvous, aux)
+		}
+	}
 }

@@ -111,7 +111,7 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 		DefaultTransports,
 		libp2p.ResourceManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
-		libp2p.NATPortMap(),
+		//libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
 		libp2p.EnableNATService(),
@@ -132,8 +132,8 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 	fmt.Println("\t[*] Host listening on: ", h.Addrs())
 	fmt.Println("\t[*] Starting Relay system")
 
-	_, err = relay.New(h)
-	if err != nil {
+	_, err1 := relay.New(h)
+	if err1 != nil {
 		log.Printf("Failed to instantiate the relay: %v", err)
 
 	}
@@ -155,14 +155,13 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		if peer.ID == Host.ID() {
 			continue
 		}
-		if len(peer.Addrs) > 0 {
-			//check if peer is already connected
-			if Host.Network().Connectedness(peer.ID) == network.Connected {
-				continue
-			}
-			peersFound = append(peersFound, peer)
-			fmt.Println("\t\t[*] New peer Found:", peer.ID)
+
+		//check if peer is already connected
+		if Host.Network().Connectedness(peer.ID) == network.Connected {
+			continue
 		}
+		peersFound = append(peersFound, peer)
+		fmt.Println("\t\t[*] New peer Found:", peer.ID)
 
 	}
 	fmt.Println("\t[*] Receiving peers finished")
@@ -195,7 +194,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			fmt.Println("Wrote ", n, " bytes to stream, err: ", err)
 
 		} else {
-			fmt.Println("\t\t\tError connecting to ", peeraddr.Addrs, err)
+			fmt.Println("\t\t\tError connecting to ", peeraddr.ID)
 			failed = append(failed, peeraddr)
 		}
 
@@ -316,6 +315,8 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		case cmd == "dht":
 
 			rendezvousS <- rendezvous
+		case cmd == "remove":
+			deleteRendezvous <- rendezvous
 
 		case cmd == "clear":
 			disconnectAll()
