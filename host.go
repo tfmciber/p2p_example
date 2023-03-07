@@ -11,7 +11,6 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 
 	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -156,11 +155,13 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 		if peer.ID == Host.ID() {
 			continue
 		}
-		//check if peer has addresses commented for debugging
-
 		if len(peer.Addrs) > 0 {
+			//check if peer is already connected
+			if Host.Network().Connectedness(peer.ID) == network.Connected {
+				continue
+			}
 			peersFound = append(peersFound, peer)
-			fmt.Println("\t\t[*] Found:", peer.ID)
+			fmt.Println("\t\t[*] New peer Found:", peer.ID)
 		}
 
 	}
@@ -168,6 +169,7 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 	fmt.Println("\t[*] Connecting to peers")
 
 	for _, peeraddr := range peersFound {
+
 		fmt.Println("\t\t[*] Connecting to: ", peeraddr.ID)
 
 		err := Host.Connect(ctx, peeraddr)
@@ -277,7 +279,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 }
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey, kademliaDHT *dht.IpfsDHT) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey) {
 	var quitchan chan bool
 
 	for {
@@ -302,7 +304,6 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		if len(cmds) > 4 {
 			param4 = cmds[4]
 		}
-
 		quic := true
 		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
 		switch {
@@ -313,12 +314,8 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 			go connecToPeersMDNS(ctx, FoundPeersMDNS, rendezvous, quic, false)
 
 		case cmd == "dht":
-			rendezvousS = append(rendezvousS, rendezvous)
-			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, rendezvous)
-			failed := connecToPeers(ctx, FoundPeersDHT, rendezvous, quic, true)
-			connectRelay(rendezvous)
-			connectthrougRelays(failed, rendezvous)
-			//auto update every 5 minutes
+
+			rendezvousS <- rendezvous
 
 		case cmd == "clear":
 			disconnectAll()

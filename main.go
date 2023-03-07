@@ -12,10 +12,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
-var rendezvousS chan string
+var rendezvousS = make(chan string, 1)
 
 func main() {
-
+	quic := true
 	debug := flag.Bool("debug", false, "debug mode, generate new identity and no listen address")
 	flag.Parse()
 	fmt.Println("[*] Starting Application [*]")
@@ -47,28 +47,45 @@ func main() {
 	}()
 	Host, _ = newHost(hostctx, priv, *debug)
 	kademliaDHT := initDHT(hostctx, Host)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	fmt.Println("Host created. We are:", Host.ID())
 
 	// Go routines
 
-	// connecting to peers every 5 min or when chan rendezvousS is writted
+	//go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
+	// for all the values in the list that wherent run in the last 5 minutes
 
 	go func() {
+		var allRedenzvous = map[string]int{}
 		for {
 			select {
-			case <-time.After(5 * time.Minute):
-				connectToPeers(hostctx, Host, kademliaDHT)
-			case <-rendezvousS:
-				connectToPeers(hostctx, Host, kademliaDHT)
+			case <-time.After(1 * time.Minute):
+
+				for rendezvous, time := range allRedenzvous {
+					if time == 0 {
+						rendezvousS <- rendezvous
+					} else {
+						allRedenzvous[rendezvous]--
+						fmt.Println("Rendezvous", rendezvous, "restarting in ", allRedenzvous[rendezvous])
+					}
+				}
+
+			case aux := <-rendezvousS:
+
+				FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
+				failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
+				connectRelay(aux)
+				connectthrougRelays(failed, aux)
+				allRedenzvous[aux] = 5
 			}
 		}
 	}()
+
 	go readStdin()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go execCommnad(ctx, mctx, priv, kademliaDHT)
+	go execCommnad(ctx, mctx, priv)
 
 	select {}
 }
