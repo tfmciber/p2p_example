@@ -54,11 +54,6 @@ func listStreams() {
 	}
 }
 
-// func to get peer.Addrinfo from peer.ID
-func getPeerInfo(id peer.ID) peer.AddrInfo {
-	return Host.Network().Peerstore().PeerInfo(id)
-}
-
 // funct to list all curennt users
 func listallUSers() {
 
@@ -230,44 +225,6 @@ func disconnectAll() {
 
 }
 
-// func for getting all streams from host of a given protocol
-func getStreamsFromProtocol(protocol string) []network.Stream {
-	var streams []network.Stream
-	for _, c := range Host.Network().Conns() {
-		for _, s := range c.GetStreams() {
-			if string(s.Protocol()) == protocol {
-				streams = append(streams, s)
-			}
-
-		}
-
-	}
-	return streams
-}
-
-// func for checking if host has any stream open of a protocol
-func hasStreamOfProtocol(protocol string) bool {
-	for _, c := range Host.Network().Conns() {
-		for _, s := range c.GetStreams() {
-
-			if string(s.Protocol()) == protocol {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// func for checking if host has any connection open
-func hasConnection() bool {
-	for _, c := range Host.Network().Conns() {
-		if c != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // func to start a stream with a peer only if there is no stream open and return the stream in any cases
 func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
 
@@ -313,7 +270,7 @@ func interrupts() {
 func connectthrougRelays(peers []peer.AddrInfo, rendezvous string, preferQUIC bool) {
 	fmt.Println("[*] Connecting to peers through Relays")
 	for _, server := range Ren[rendezvous] {
-		serverpeerinfo := getPeerInfo(server)
+		serverpeerinfo := Host.Network().Peerstore().PeerInfo(server)
 		if serverpeerinfo.Addrs == nil {
 			continue
 		}
@@ -359,7 +316,6 @@ func connectthrougRelays(peers []peer.AddrInfo, rendezvous string, preferQUIC bo
 						Ren[rendezvous] = append(Ren[rendezvous], v.ID)
 					}
 
-					setTransport(context.Background(), v.ID, preferQUIC)
 					_, err = s.Write([]byte("/cmd/" + rendezvous + "/"))
 
 					if err != nil {
@@ -383,7 +339,7 @@ func connectRelay(rendezvous string) {
 		// check if peer is  connected
 		if containsPeer(Host.Network().Peers(), v) {
 
-			_, err := client.Reserve(context.Background(), Host, getPeerInfo(v))
+			_, err := client.Reserve(context.Background(), Host, Host.Network().Peerstore().PeerInfo(v))
 			if err == nil {
 				fmt.Println("\t[*] Reserved circuit with:", v.String())
 
@@ -416,8 +372,8 @@ func hasPeer(rendezvous string) bool {
 
 // go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
 // for all the values in the list that wherent run in the last 5 minutes
-func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool) {
-	var allRedenzvous = map[string]int{}
+func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool, refresh uint) {
+	var allRedenzvous = map[string]uint{}
 	for {
 		select {
 		case <-time.After(1 * time.Minute):
@@ -427,19 +383,20 @@ func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.I
 					rendezvousS <- rendezvous
 				} else {
 					allRedenzvous[rendezvous]--
-					fmt.Println("Rendezvous", rendezvous, "restarting in ", allRedenzvous[rendezvous])
 				}
 			}
 
 		case aux := <-rendezvousS:
 
+			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
 			failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
 			connectRelay(aux)
 			connectthrougRelays(failed, aux, quic)
-			allRedenzvous[aux] = 5
+			allRedenzvous[aux] = refresh
 
 		case aux := <-deleteRendezvous:
+			fmt.Println("[*] Deleting rendezvous:", aux, "...")
 			delete(allRedenzvous, aux)
 		}
 	}

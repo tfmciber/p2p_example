@@ -12,7 +12,6 @@ import (
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
 
-	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -40,7 +39,7 @@ var hostctx context.Context
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
-func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.Host, network.ResourceManager) {
+func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
 
 	limiter := rcmgr.InfiniteLimits
 
@@ -54,26 +53,17 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 
 		libp2p.Transport(quic.NewTransport),
 	)
-	var addr config.Option
-	if nolisteners {
-		addr = libp2p.NoListenAddrs
-	} else {
-		addr = libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0")
-
-	}
 
 	fmt.Println("[*] Creating Host")
 	h, err := libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(priv),
-
-		addr,
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0"),
 
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
-
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
 		libp2p.DefaultConnectionManager,
@@ -109,8 +99,6 @@ func newHost(ctx context.Context, priv crypto.PrivKey, nolisteners bool) (host.H
 	fmt.Println("[*] Host Created")
 	return h, rcm
 }
-
-//func to notify if  an new peer has connected using the rendezvous string
 
 // func to connect to peers found in rendezvous
 func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.AddrInfo {
@@ -216,7 +204,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 	Host.Peerstore().ClearAddrs(peeraddr.ID)
-	Host.Peerstore().AddAddrs(peeraddr.ID, addrs, time.Hour*1)
+	//Host.Peerstore().AddAddrs(peeraddr.ID, addrs, time.Hour*1)
 	closeConns(peeraddr.ID)
 
 	var NewPeer peer.AddrInfo
@@ -246,7 +234,7 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 }
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv crypto.PrivKey) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 	var quitchan chan bool
 
 	for {
@@ -309,21 +297,14 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		case cmd == "stopaudio": //para audio y enviar
 			quitchan <- true
 		case cmd == "users":
-
 			listallUSers()
-
 		case cmd == "conns":
-
 			listCons()
-
 		case cmd == "streams":
-
 			listStreams()
 		case cmd == "bench":
 			sendBench(1000, 1000, rendezvous)
-
 		case cmd == "benchmark":
-
 			nMess := 2048
 			nBytes := 1024
 			times := 100
@@ -353,20 +334,51 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, priv cry
 		default:
 			fmt.Printf("Command %s not valid \n", cmd)
 			fmt.Print("Valid commands are: \n")
-			fmt.Print("mdns$rendezvous \n")
-			fmt.Print("dht$rendezvous \n")
-			fmt.Print("text$rendezvous:text \n")
-			fmt.Print("file$rendezvous$absolutepath \n")
-			fmt.Print("call$rendezvous \n")
-			fmt.Print("stopcall \n")
-			fmt.Print("audio$rendezvous \n")
-			fmt.Print("stopaudio \n")
-			fmt.Print("allusers \n")
-			fmt.Print("conns \n")
-			fmt.Print("streams \n")
-			fmt.Print("bench$rendezvous \n")
-			fmt.Print("benchmark$rendezvous$times$number of messages$number of bytes \n")
+			fmt.Print("mdns $rendezvous: search for peers in the local network using mdns \n")
+			fmt.Print("dht $rendezvous: search for peers in the DHT \n")
+			fmt.Print("remove $rendezvous: remove rendezvous from the DHT \n")
+			fmt.Print("clear: disconnect from all peers \n")
+			fmt.Print("text $message $rendezvous: send a text message to a peer \n")
+			fmt.Print("file $path $rendezvous: send a file to a peer \n")
+			fmt.Print("call $rendezvous: call a peer \n")
+			fmt.Print("stopcall: stop the call \n")
+			fmt.Print("audio $rendezvous: send audio to a peer \n")
+			fmt.Print("stopaudio: stop sending audio \n")
+			fmt.Print("users: list all users \n")
+			fmt.Print("conns: list all connections \n")
+			fmt.Print("streams: list all streams \n")
+			fmt.Print("bench $rendezvous: send a simple benchmark using current protocol to a peer \n")
+			fmt.Print("benchmark $times $nMess $nBytes: Start TCP/QUIC benchmark  \n")
 
 		}
+	}
+}
+
+func hostStats(rcm network.ResourceManager) {
+	for {
+		<-time.After(1 * time.Minute)
+		rcm.ViewSystem(func(scope network.ResourceScope) error {
+			stat := scope.Stat()
+			fmt.Println("System:",
+				"\n\t memory", stat.Memory,
+				"\n\t numFD", stat.NumFD,
+				"\n\t connsIn", stat.NumConnsInbound,
+				"\n\t connsOut", stat.NumConnsOutbound,
+				"\n\t streamIn", stat.NumStreamsInbound,
+				"\n\t streamOut", stat.NumStreamsOutbound)
+			return nil
+		})
+		rcm.ViewTransient(func(scope network.ResourceScope) error {
+			stat := scope.Stat()
+			fmt.Println("Transient:",
+				"\n\t memory:", stat.Memory,
+				"\n\t numFD:", stat.NumFD,
+				"\n\t connsIn:", stat.NumConnsInbound,
+				"\n\t connsOut:", stat.NumConnsOutbound,
+				"\n\t streamIn:", stat.NumStreamsInbound,
+				"\n\t streamOut:", stat.NumStreamsOutbound)
+			return nil
+		})
+
 	}
 }

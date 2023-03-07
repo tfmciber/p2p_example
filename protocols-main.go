@@ -2,12 +2,10 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 )
 
 // func for removing and disconecting a peer
@@ -19,8 +17,6 @@ func disconnectHost(stream network.Stream, err error) {
 }
 
 func handleStream(stream network.Stream) {
-
-	client.Reserve(context.Background(), Host, getPeerInfo(stream.Conn().RemotePeer()))
 
 	if getStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
 
