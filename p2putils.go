@@ -106,9 +106,9 @@ func getPeersFromRendezvous() []peer.ID {
 
 func startStreams(rendezvous string, peerid peer.ID) {
 
-	stream1 := streamStart(hostctx, peerid, string(textproto))
+	stream1 := streamStart(context.Background(), peerid, string(textproto))
 	go receiveTexthandler(stream1)
-	stream2 := streamStart(hostctx, peerid, string(audioproto))
+	stream2 := streamStart(context.Background(), peerid, string(audioproto))
 	go receiveAudioHandler(stream2)
 
 }
@@ -190,7 +190,7 @@ func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 				if len(addrs) > 0 {
 					peer.Addrs = addrs
 				}
-				err := Host.Connect(hostctx, peer)
+				err := Host.Connect(context.Background(), peer)
 				fmt.Println("Connected to:", peer.ID.String(), " ", peer.Addrs)
 				if err != nil {
 					fmt.Println("Error connecting to peer:", err)

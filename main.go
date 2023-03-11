@@ -33,7 +33,7 @@ func main() {
 		priv = initPriv(*filename)
 	}
 
-	hostctx = context.Background()
+	mainctx := context.Background()
 
 	interrupts()
 
@@ -49,19 +49,20 @@ func main() {
 		mctx.Free()
 	}()
 
-	Host, _ = newHost(hostctx, priv)
-	kademliaDHT := initDHT(hostctx, Host)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	Host, _ = newHost(mainctx, priv)
+	kademliaDHT := initDHT(mainctx, Host)
 
 	fmt.Println("Host created. We are:", Host.ID())
 
 	// Go routines
+	var cmdChan = make(chan string)
 
-	go dhtRoutine(ctx, rendezvousS, kademliaDHT, *quic, *refreshTime)
-	go readStdin()
+	go dhtRoutine(mainctx, rendezvousS, kademliaDHT, *quic, *refreshTime)
+	go readStdin(cmdChan)
 
-	go execCommnad(ctx, mctx, *quic)
+	go execCommnad(mainctx, mctx, *quic, cmdChan)
+
+	cmdChan <- "dht$llkñ"
 
 	select {}
 }

@@ -31,8 +31,6 @@ import (
 
 // Host is the libp2p host
 var Host host.Host
-var cmdChan = make(chan string)
-var hostctx context.Context
 
 // Ren variable to store the rendezvous string and the peers associated to it
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
@@ -253,7 +251,7 @@ func disconnectPeer(peerid string) {
 
 }
 
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic bool) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
 	var quitchan chan bool
 
 	for {

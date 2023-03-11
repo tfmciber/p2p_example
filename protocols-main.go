@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
@@ -72,7 +73,7 @@ func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bo
 			}
 
 		restart:
-			stream := streamStart(hostctx, v, ProtocolID)
+			stream := streamStart(context.Background(), v, ProtocolID)
 
 			if stream == nil {
 				fmt.Println("stream is nil")
@@ -103,7 +104,7 @@ func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bo
 //function to send data over a stream
 
 // Function that reads data from stdin and sends it to the cmd channel
-func readStdin() {
+func readStdin(cmdChan chan string) {
 
 	for {
 
