@@ -70,3 +70,17 @@ func contains(s []peer.ID, e peer.ID) bool {
 	}
 	return false
 }
+
+func intersect(a, b []peer.ID) []peer.ID {
+	m := make(map[peer.ID]bool)
+	for _, item := range a {
+		m[item] = true
+	}
+	var result []peer.ID
+	for _, item := range b {
+		if m[item] {
+			result = append(result, item)
+		}
+	}
+	return result
+}

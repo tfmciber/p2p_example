@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"strings"
@@ -37,6 +36,12 @@ var hostctx context.Context
 
 // Ren variable to store the rendezvous string and the peers associated to it
 var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
+
+var textproto = protocol.ID("/text/1.0.0")
+var audioproto = protocol.ID("/audio/1.0.0")
+var benchproto = protocol.ID("/bench/1.0.0")
+var cmdproto = protocol.ID("/cmd/1.0.0")
+var fileproto = protocol.ID("/file/1.0.0")
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.ResourceManager) {
@@ -82,10 +87,10 @@ func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 	if err != nil {
 		panic(err)
 	}
-	var protocols = []string{"/audio/1.1.0", "/chat/1.1.0", "/file/1.1.0", "/bench/1.1.0"}
+	var protocols = []protocol.ID{audioproto, textproto, fileproto, benchproto, cmdproto}
 	for _, ProtocolID := range protocols {
 
-		h.SetStreamHandler(protocol.ID(ProtocolID), handleStream)
+		h.SetStreamHandler(ProtocolID, handleStream)
 	}
 	fmt.Println("\t[*] Host listening on: ", h.Addrs())
 	fmt.Println("\t[*] Starting Relay system")
@@ -101,10 +106,10 @@ func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 }
 
 // func to connect to peers found in rendezvous
-func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.AddrInfo {
+func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.ID {
 	fmt.Println("[*] Connecting to peers")
 	var peersFound []peer.AddrInfo
-	var failed []peer.AddrInfo
+	var failed []peer.ID
 	fmt.Println("\t[*] Receiving peers")
 	for peer := range peerChan {
 
@@ -137,21 +142,21 @@ func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvou
 			}
 
 			setTransport(ctx, peeraddr.ID, preferQUIC)
-			stream, err1 := Host.NewStream(ctx, peeraddr.ID, "/chat/1.1.0")
+			stream, err1 := Host.NewStream(ctx, peeraddr.ID, cmdproto)
 			if err1 != nil {
 				fmt.Println("Error creating stream: ", err1)
 				continue
 			}
 			if start {
-				startStreams(rendezvous, peeraddr, stream)
+				startStreams(rendezvous, peeraddr.ID)
 			}
 
-			n, err := stream.Write([]byte("/cmd/" + rendezvous + "/"))
+			n, err := stream.Write([]byte("rendezvous/" + rendezvous))
 			fmt.Println("Wrote ", n, " bytes to stream, err: ", err)
 
 		} else {
 			fmt.Println("\t\t\tError connecting to ", peeraddr.ID)
-			failed = append(failed, peeraddr)
+			failed = append(failed, peeraddr.ID)
 		}
 
 	}
@@ -234,7 +239,21 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 }
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
+func disconnectPeer(peerid string) {
+
+	for _, conn := range Host.Network().ConnsToPeer(peer.ID(peerid)) {
+		for _, stream := range conn.GetStreams() {
+			fmt.Println("Closing stream", stream, stream.Protocol())
+			stream.Close()
+			stream.Reset()
+		}
+		conn.Close()
+
+	}
+
+}
+
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic bool) {
 	var quitchan chan bool
 
 	for {
@@ -242,7 +261,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 		cmds := strings.SplitN(<-cmdChan, "$", 5)
 		var cmd string
 		var rendezvous string
-		var param2, param3, param4 string
+		var param2 string
 
 		if len(cmds) > 0 {
 			cmd = cmds[0]
@@ -253,14 +272,7 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 		if len(cmds) > 2 {
 			param2 = cmds[2]
 		}
-		if len(cmds) > 3 {
-			param3 = cmds[3]
-		}
-		if len(cmds) > 4 {
-			param4 = cmds[4]
-		}
-		quic := true
-		//crear/llamar a las funciones para iniciar texto/audio/listar usuarios conectados/desactivar mic/sileciar/salir
+
 		switch {
 
 		case cmd == "mdns":
@@ -273,23 +285,15 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 			rendezvousS <- rendezvous
 		case cmd == "remove":
 			deleteRendezvous <- rendezvous
-
 		case cmd == "clear":
-			disconnectAll()
-
+			clear()
 		case cmd == "text":
-
 			sendTextHandler(param2, rendezvous)
-
 		case cmd == "file":
-
 			go sendFile(rendezvous, param2)
-
 		case cmd == "call":
-
 			initAudio(ctxmalgo)
 			sendAudioHandler(rendezvous)
-
 		case cmd == "stopcall":
 			quitAudio(ctxmalgo)
 		case cmd == "audio": //iniciar audio
@@ -302,53 +306,19 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext) {
 			listCons()
 		case cmd == "streams":
 			listStreams()
-		case cmd == "bench":
-			sendBench(1000, 1000, rendezvous)
+		case cmd == "disconn":
+			disconnectPeer(param2)
+		case cmd == "id":
+			fmt.Println("ID: ", Host.ID())
 		case cmd == "benchmark":
 			nMess := 2048
 			nBytes := 1024
 			times := 100
-
-			if param2 != "" {
-				times, _ = strconv.Atoi(param2)
-
-			}
-			if param3 != "" {
-				nMess, _ = strconv.Atoi(param3)
-			}
-			if param4 != "" {
-				nBytes, _ = strconv.Atoi(param4)
-
-			}
-			if times < 1 {
-				times = 1
-			}
-			if nMess < 1 {
-				nMess = 1
-			}
-			if nBytes < 1 {
-				nBytes = 1
-			}
 			benchTCPQUIC(ctx, rendezvous, times, nBytes, nMess)
-
+		case cmd == "help":
+			fmt.Println("Commands:  \n mdns$rendezvous : Discover peers using Multicast DNS \n dht$rendezvous : Discover peers using DHT \n remove$rendezvous : Remove rendezvous from DHT \n clear : Disconnect all peers \n text$rendezvous$text : Send text to peers \n file$rendezvous$filepath : Send file to peers \n call$rendezvous : Call peers \n stopcall : Stop call \n audio$rendezvous : Record audio and send to peer \n stopaudio : Stop recording audio \n users : List all users \n conns : List all connections \n streams : List all streams \n disconn$peerid : Disconnect peer \n benchmark$times$nMessages$nBytes : Benchmark TCP/QUIC \n help : Show this help")
 		default:
-			fmt.Printf("Command %s not valid \n", cmd)
-			fmt.Print("Valid commands are: \n")
-			fmt.Print("mdns $rendezvous: search for peers in the local network using mdns \n")
-			fmt.Print("dht $rendezvous: search for peers in the DHT \n")
-			fmt.Print("remove $rendezvous: remove rendezvous from the DHT \n")
-			fmt.Print("clear: disconnect from all peers \n")
-			fmt.Print("text $message $rendezvous: send a text message to a peer \n")
-			fmt.Print("file $path $rendezvous: send a file to a peer \n")
-			fmt.Print("call $rendezvous: call a peer \n")
-			fmt.Print("stopcall: stop the call \n")
-			fmt.Print("audio $rendezvous: send audio to a peer \n")
-			fmt.Print("stopaudio: stop sending audio \n")
-			fmt.Print("users: list all users \n")
-			fmt.Print("conns: list all connections \n")
-			fmt.Print("streams: list all streams \n")
-			fmt.Print("bench $rendezvous: send a simple benchmark using current protocol to a peer \n")
-			fmt.Print("benchmark $times $nMess $nBytes: Start TCP/QUIC benchmark  \n")
+			fmt.Printf("Command %s not valid, see help for valid commands \n", cmd)
 
 		}
 	}

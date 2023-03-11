@@ -14,18 +14,17 @@ import (
 
 func sendBench(numMessages int, messageSize int, rendezvous string) {
 
-	protocol := "/bench/1.1.0"
 	numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 	messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
-	writeDataRend([]byte(numMessagesStr), protocol, rendezvous, false)
-	writeDataRend([]byte(messageSizeStr), protocol, rendezvous, false)
+	writeDataRend([]byte(numMessagesStr), string(benchproto), rendezvous, false)
+	writeDataRend([]byte(messageSizeStr), string(benchproto), rendezvous, false)
 	sendBuffer := make([]byte, messageSize)
 	sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 	for i := 0; i < numMessages; i++ {
 
-		writeDataRend(sendBuffer, protocol, rendezvous, false)
+		writeDataRend(sendBuffer, string(benchproto), rendezvous, false)
 	}
-	closeStreams(protocol)
+	closeStreams(string(benchproto))
 }
 
 func receiveBenchhandler(stream network.Stream) {

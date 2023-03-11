@@ -104,10 +104,11 @@ func getPeersFromRendezvous() []peer.ID {
 	return Peers
 }
 
-func startStreams(rendezvous string, peeraddr peer.AddrInfo, stream network.Stream) {
+func startStreams(rendezvous string, peerid peer.ID) {
 
-	go receiveTexthandler(stream)
-	stream2 := streamStart(hostctx, peeraddr.ID, "/audio/1.1.0")
+	stream1 := streamStart(hostctx, peerid, string(textproto))
+	go receiveTexthandler(stream1)
+	stream2 := streamStart(hostctx, peerid, string(audioproto))
 	go receiveAudioHandler(stream2)
 
 }
@@ -209,7 +210,7 @@ func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 }
 
 // func to disconnect from all peers and close connections
-func disconnectAll() {
+func clear() {
 	for _, v := range Host.Network().Conns() {
 
 		for _, s := range v.GetStreams() {
@@ -260,7 +261,7 @@ func interrupts() {
 	go func() {
 		<-quit
 		fmt.Println("\r- Exiting Program")
-		disconnectAll()
+		clear()
 		Host.Close()
 		os.Exit(0)
 	}()
@@ -391,9 +392,17 @@ func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.I
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
 			failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
-			connectRelay(aux)
-			connectthrougRelays(failed, aux, quic)
-			allRedenzvous[aux] = refresh
+
+			failed = requestConnection(failed, aux, quic)
+
+			fmt.Println("finished request connection")
+
+			if len(failed) > 0 {
+				/*connectRelay(aux)
+				connectthrougRelays(failed, aux, quic)
+				allRedenzvous[aux] = refresh
+				*/
+			}
 
 		case aux := <-deleteRendezvous:
 			fmt.Println("[*] Deleting rendezvous:", aux, "...")

@@ -5,26 +5,33 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	mrand "math/rand"
 	"os"
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/network"
 )
 
 func main() {
 
 	debug := flag.Bool("debug", false, "debug mode, Prints host stats")
-	refreshTime := flag.Uint("refresh", 5, "Minutes to refresh the DHT")
+	seed := flag.Int("seed", 0, "Seed for the random number generator for debug mode")
+	refreshTime := flag.Uint("refresh", 50, "Minutes to refresh the DHT")
 	quic := flag.Bool("quic", false, "Use QUIC transport")
 	filename := flag.String("config", "./config.json", "Config file")
 	flag.Parse()
 	fmt.Println("[*] Starting Application [*]")
+
 	fmt.Println("\t[*] Debug mode:", *debug, "Refresh time:", *refreshTime, "QUIC:", *quic, "Config file:", *filename)
 
 	var priv crypto.PrivKey
+	if *debug {
 
-	priv = initPriv(*filename)
+		seed := mrand.New(mrand.NewSource(int64(*seed)))
+		priv, _, _ = crypto.GenerateECDSAKeyPair(seed)
+	} else {
+		priv = initPriv(*filename)
+	}
 
 	hostctx = context.Background()
 
@@ -41,8 +48,8 @@ func main() {
 		_ = mctx.Uninit()
 		mctx.Free()
 	}()
-	var rcm network.ResourceManager
-	Host, rcm = newHost(hostctx, priv)
+
+	Host, _ = newHost(hostctx, priv)
 	kademliaDHT := initDHT(hostctx, Host)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -54,10 +61,7 @@ func main() {
 	go dhtRoutine(ctx, rendezvousS, kademliaDHT, *quic, *refreshTime)
 	go readStdin()
 
-	go execCommnad(ctx, mctx)
-	if *debug {
-		go hostStats(rcm)
-	}
+	go execCommnad(ctx, mctx, *quic)
 
 	select {}
 }

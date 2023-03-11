@@ -31,8 +31,8 @@ func sendFile(rendezvous string, path string) {
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 
-	writeDataRend([]byte(fileSize), "/file/1.1.0", rendezvous, false)
-	writeDataRend([]byte(fileName), "/file/1.1.0", rendezvous, false)
+	writeDataRend([]byte(fileSize), string(fileproto), rendezvous, false)
+	writeDataRend([]byte(fileName), string(fileproto), rendezvous, false)
 
 	start := time.Now()
 	bar := progressbar.Default(100)
@@ -50,7 +50,7 @@ func sendFile(rendezvous string, path string) {
 			break
 		} else {
 
-			writeDataRend(sendBuffer, "/file/1.1.0", rendezvous, false)
+			writeDataRend(sendBuffer, string(fileproto), rendezvous, false)
 		}
 		//progress bar indicating download progress aproximately every 10 % of the file
 		aux := (float64(totalSend)) / (float64(fileInfo.Size()))

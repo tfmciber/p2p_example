@@ -9,8 +9,8 @@ import (
 )
 
 // func for removing and disconecting a peer
-func disconnectHost(stream network.Stream, err error) {
-	fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err)
+func disconnectHost(stream network.Stream, err error, protocol string) {
+	fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err, protocol)
 	Host.Network().ClosePeer(stream.Conn().RemotePeer())
 	//func to get all keys from a map
 
@@ -22,17 +22,20 @@ func handleStream(stream network.Stream) {
 
 		switch stream.Protocol() {
 
-		case "/chat/1.1.0":
+		case textproto:
 			receiveTexthandler(stream)
-		case "/audio/1.1.0":
+		case audioproto:
 
 			receiveAudioHandler(stream)
-		case "/file/1.1.0":
+		case fileproto:
 
 			receiveFilehandler(stream)
-		case "/bench/1.1.0":
+		case benchproto:
 
 			receiveBenchhandler(stream)
+
+		case cmdproto:
+			receiveCommandhandler(stream)
 
 		}
 	} else {
@@ -50,7 +53,7 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 		if err != nil {
 
-			disconnectHost(stream, err)
+			disconnectHost(stream, err, string(stream.Protocol()))
 			return
 
 		}
