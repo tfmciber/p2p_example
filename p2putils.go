@@ -66,7 +66,7 @@ func listallUSers() {
 			if Host.Network().Connectedness(p) == network.Connected {
 				online = true
 			}
-			fmt.Printf("Rendezvous %s peer ID %s, online %t \n", str, p, online)
+			fmt.Printf("Rendezvous %s peer ID %s, online %t \n", str, p.String(), online)
 		}
 	}
 
@@ -268,7 +268,7 @@ func interrupts() {
 }
 
 // func to connect to input peers using relay server
-func connectthrougRelays(peers []peer.AddrInfo, rendezvous string, preferQUIC bool) {
+func connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) {
 	fmt.Println("[*] Connecting to peers through Relays")
 	for _, server := range Ren[rendezvous] {
 		serverpeerinfo := Host.Network().Peerstore().PeerInfo(server)
@@ -277,55 +277,35 @@ func connectthrougRelays(peers []peer.AddrInfo, rendezvous string, preferQUIC bo
 		}
 		fmt.Println("\t[*] Connecting using relay server:", serverpeerinfo.ID.String(), " ", serverpeerinfo.Addrs)
 
-		for _, v := range peers {
+		for _, v := range peersid {
 
 			//check if peer is already connected
-			if Host.Network().Connectedness(v.ID) == network.Connected {
+			if Host.Network().Connectedness(v) == network.Connected {
 				continue
 			}
-			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.ID.String())
+			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.String())
 			if err != nil {
 				fmt.Println(err)
+				continue
 
 			}
-			fmt.Println("\t\t[*] Connecting to:", v.ID.String(), " ", relayaddr)
+			fmt.Println("\t\t[*] Connecting to:", v.String(), " ", relayaddr)
 
 			// Clear the backoff for the unreachable host
-			Host.Network().(*swarm.Swarm).Backoff().Clear(v.ID)
+			Host.Network().(*swarm.Swarm).Backoff().Clear(v)
 			// Open a connection to the previously unreachable host via the relay address
-			peerrelayinfo := peer.AddrInfo{ID: v.ID, Addrs: []ma.Multiaddr{relayaddr}}
-			err = Host.Connect(context.Background(), peerrelayinfo)
-			if err != nil {
-				fmt.Println(err)
+			peerrelayinfo := peer.AddrInfo{ID: v, Addrs: []ma.Multiaddr{relayaddr}}
+			if connectToPeer(network.WithUseTransient(context.Background(), "relay"), peerrelayinfo, rendezvous, preferQUIC, true) {
 
-			} else {
-				fmt.Println("\t\t[*] Connected to:", v.ID.String(), " ", v.Addrs)
-				//3 tries to open stream
-				var s network.Stream
-				for i := 0; i < 3; i++ {
-					s, err = Host.NewStream(network.WithUseTransient(context.Background(), "relay"), v.ID, "/chat/1.1.0")
-					if err != nil {
-						fmt.Println(err)
-
-					} else {
-						break
+				//delete peer from peers
+				for i, p := range peersid {
+					if p == v {
+						peersid = append(peersid[:i], peersid[i+1:]...)
 					}
 				}
-				if err == nil {
-
-					if !contains(Ren[rendezvous], v.ID) {
-						Ren[rendezvous] = append(Ren[rendezvous], v.ID)
-					}
-
-					_, err = s.Write([]byte("/cmd/" + rendezvous + "/"))
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-
 			}
 		}
+
 	}
 	fmt.Println("[*] Connecting using Relays finished.")
 }
@@ -373,7 +353,7 @@ func hasPeer(rendezvous string) bool {
 
 // go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
 // for all the values in the list that wherent run in the last 5 minutes
-func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool, refresh uint) {
+func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool, refresh uint, typem bool) {
 	var allRedenzvous = map[string]uint{}
 	for {
 		select {
@@ -391,17 +371,34 @@ func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.I
 
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
-			failed := connecToPeers(ctx, FoundPeersDHT, aux, quic, true)
+			Received := receivePeersDHT(ctx, FoundPeersDHT, aux)
+			failed := connectToPeers(ctx, Received, aux, quic, true)
+			var failed2 []peer.ID
 
-			failed = requestConnection(failed, aux, quic)
+			if typem {
+
+				peerid, _ := peer.Decode("QmXtW5fXrrvmHWPhq3FLHdm4zKnC5FZdhTRynSQT57Yrmd")
+				fmt.Println("peerid: ", peerid)
+				listallUSers()
+				fmt.Println("peerid: ", peerid)
+				time.Sleep(5 * time.Second)
+				disconnectPeer("QmXtW5fXrrvmHWPhq3FLHdm4zKnC5FZdhTRynSQT57Yrmd")
+				failed2 = append(failed2, peer.ID(peerid))
+				listallUSers()
+
+				//remove peerid from failed
+
+				fmt.Println("failed2: ", failed2)
+				failed = requestConnection(failed2, aux, quic)
+			}
 
 			fmt.Println("finished request connection")
 
 			if len(failed) > 0 {
-				/*connectRelay(aux)
+				connectRelay(aux)
 				connectthrougRelays(failed, aux, quic)
 				allRedenzvous[aux] = refresh
-				*/
+
 			}
 
 		case aux := <-deleteRendezvous:

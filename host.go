@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"strings"
 
@@ -104,65 +103,75 @@ func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 }
 
 // func to connect to peers found in rendezvous
-func connecToPeers(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.ID {
+func receivePeersDHT(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string) []peer.AddrInfo {
 	fmt.Println("[*] Connecting to peers")
 	var peersFound []peer.AddrInfo
-	var failed []peer.ID
 	fmt.Println("\t[*] Receiving peers")
-	for peer := range peerChan {
+	for peerr := range peerChan {
 
-		if peer.ID == Host.ID() {
+		if peerr.ID == Host.ID() {
 			continue
 		}
 
 		//check if peer is already connected
-		if Host.Network().Connectedness(peer.ID) == network.Connected {
-			continue
-		}
-		peersFound = append(peersFound, peer)
-		fmt.Println("\t\t[*] New peer Found:", peer.ID)
+
+		peersFound = append(peersFound, peerr)
+		fmt.Println("\t\t[*] New peer Found:", peer.Encode(peerr.ID))
 
 	}
-	fmt.Println("\t[*] Receiving peers finished")
-	fmt.Println("\t[*] Connecting to peers")
 
-	for _, peeraddr := range peersFound {
-
-		fmt.Println("\t\t[*] Connecting to: ", peeraddr.ID)
-
-		err := Host.Connect(ctx, peeraddr)
-
-		if err == nil {
-
-			fmt.Println("\t\t\t Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
-			if !contains(Ren[rendezvous], peeraddr.ID) {
-				Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
-			}
-
-			setTransport(ctx, peeraddr.ID, preferQUIC)
-			stream, err1 := Host.NewStream(ctx, peeraddr.ID, cmdproto)
-			if err1 != nil {
-				fmt.Println("Error creating stream: ", err1)
-				continue
-			}
-			if start {
-				startStreams(rendezvous, peeraddr.ID)
-			}
-
-			n, err := stream.Write([]byte("rendezvous/" + rendezvous))
-			fmt.Println("Wrote ", n, " bytes to stream, err: ", err)
-
-		} else {
-			fmt.Println("\t\t\tError connecting to ", peeraddr.ID)
-			failed = append(failed, peeraddr.ID)
-		}
-
-	}
 	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren[rendezvous]), " peers connected")
-	return failed
+	return peersFound
+
+}
+func connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) bool {
+
+	if Host.Network().Connectedness(peeraddr.ID) == network.Connected {
+		return true
+	}
+
+	fmt.Println("\t\t[*] Connecting to: ", peeraddr.ID)
+
+	err := Host.Connect(ctx, peeraddr)
+
+	if err == nil {
+
+		fmt.Println("\t\t\t Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
+		if !contains(Ren[rendezvous], peeraddr.ID) {
+			Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
+		}
+
+		setTransport(ctx, peeraddr.ID, preferQUIC)
+		stream, err1 := Host.NewStream(ctx, peeraddr.ID, cmdproto)
+		if err1 != nil {
+			fmt.Println("\t\t\t\t Failed to create stream to ", peeraddr.ID, err1)
+			return false
+		}
+		fmt.Println("\t\t\t\t Successfully created stream to ", peeraddr.ID)
+		ms := "rendezvous$" + rendezvous
+		stream.Write([]byte(ms))
+		if start {
+			startStreams(rendezvous, peeraddr.ID)
+		}
+		return true
+	}
+	fmt.Println("\t\t\t Failed to connect to ", peeraddr.ID, err)
+	return false
 
 }
 
+func connectToPeers(ctx context.Context, peeraddrs []peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.ID {
+
+	var failed []peer.ID
+	for _, peeraddr := range peeraddrs {
+
+		if !connectToPeer(ctx, peeraddr, rendezvous, preferQUIC, start) {
+			failed = append(failed, peeraddr.ID)
+		}
+	}
+	return failed
+
+}
 func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 
 	// get peer addrinfo from id
@@ -239,19 +248,24 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 }
 func disconnectPeer(peerid string) {
 
-	for _, conn := range Host.Network().ConnsToPeer(peer.ID(peerid)) {
-		for _, stream := range conn.GetStreams() {
-			fmt.Println("Closing stream", stream, stream.Protocol())
-			stream.Close()
-			stream.Reset()
-		}
-		conn.Close()
+	fmt.Println("[*] Disconnecting peer ", peerid)
 
+	for _, v := range Host.Network().Conns() {
+
+		if v.RemotePeer().String() == peerid {
+
+			for _, stream := range v.GetStreams() {
+
+				stream.Close()
+				stream.Reset()
+			}
+			v.Close()
+		}
 	}
 
 }
 
-func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
+func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, rcm network.ResourceManager, quic bool, cmdChan chan string) {
 	var quitchan chan bool
 
 	for {
@@ -300,12 +314,14 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic boo
 			quitchan <- true
 		case cmd == "users":
 			listallUSers()
+		case cmd == "stats":
+			hostStats(rcm)
 		case cmd == "conns":
 			listCons()
 		case cmd == "streams":
 			listStreams()
 		case cmd == "disconn":
-			disconnectPeer(param2)
+			disconnectPeer(rendezvous)
 		case cmd == "id":
 			fmt.Println("ID: ", Host.ID())
 		case cmd == "benchmark":
@@ -323,30 +339,28 @@ func execCommnad(ctx context.Context, ctxmalgo *malgo.AllocatedContext, quic boo
 }
 
 func hostStats(rcm network.ResourceManager) {
-	for {
-		<-time.After(1 * time.Minute)
-		rcm.ViewSystem(func(scope network.ResourceScope) error {
-			stat := scope.Stat()
-			fmt.Println("System:",
-				"\n\t memory", stat.Memory,
-				"\n\t numFD", stat.NumFD,
-				"\n\t connsIn", stat.NumConnsInbound,
-				"\n\t connsOut", stat.NumConnsOutbound,
-				"\n\t streamIn", stat.NumStreamsInbound,
-				"\n\t streamOut", stat.NumStreamsOutbound)
-			return nil
-		})
-		rcm.ViewTransient(func(scope network.ResourceScope) error {
-			stat := scope.Stat()
-			fmt.Println("Transient:",
-				"\n\t memory:", stat.Memory,
-				"\n\t numFD:", stat.NumFD,
-				"\n\t connsIn:", stat.NumConnsInbound,
-				"\n\t connsOut:", stat.NumConnsOutbound,
-				"\n\t streamIn:", stat.NumStreamsInbound,
-				"\n\t streamOut:", stat.NumStreamsOutbound)
-			return nil
-		})
 
-	}
+	rcm.ViewSystem(func(scope network.ResourceScope) error {
+		stat := scope.Stat()
+		fmt.Println("System:",
+			"\n\t memory", stat.Memory,
+			"\n\t numFD", stat.NumFD,
+			"\n\t connsIn", stat.NumConnsInbound,
+			"\n\t connsOut", stat.NumConnsOutbound,
+			"\n\t streamIn", stat.NumStreamsInbound,
+			"\n\t streamOut", stat.NumStreamsOutbound)
+		return nil
+	})
+	rcm.ViewTransient(func(scope network.ResourceScope) error {
+		stat := scope.Stat()
+		fmt.Println("Transient:",
+			"\n\t memory:", stat.Memory,
+			"\n\t numFD:", stat.NumFD,
+			"\n\t connsIn:", stat.NumConnsInbound,
+			"\n\t connsOut:", stat.NumConnsOutbound,
+			"\n\t streamIn:", stat.NumStreamsInbound,
+			"\n\t streamOut:", stat.NumStreamsOutbound)
+		return nil
+	})
+
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/network"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 	refreshTime := flag.Uint("refresh", 50, "Minutes to refresh the DHT")
 	quic := flag.Bool("quic", false, "Use QUIC transport")
 	filename := flag.String("config", "./config.json", "Config file")
+	mtype := flag.Bool("req", false, "debug mode, Prints host stats")
 	flag.Parse()
 	fmt.Println("[*] Starting Application [*]")
 
@@ -48,8 +50,8 @@ func main() {
 		_ = mctx.Uninit()
 		mctx.Free()
 	}()
-
-	Host, _ = newHost(mainctx, priv)
+	var rcm network.ResourceManager
+	Host, rcm = newHost(mainctx, priv)
 	kademliaDHT := initDHT(mainctx, Host)
 
 	fmt.Println("Host created. We are:", Host.ID())
@@ -57,12 +59,12 @@ func main() {
 	// Go routines
 	var cmdChan = make(chan string)
 
-	go dhtRoutine(mainctx, rendezvousS, kademliaDHT, *quic, *refreshTime)
+	go dhtRoutine(mainctx, rendezvousS, kademliaDHT, *quic, *refreshTime, *mtype)
 	go readStdin(cmdChan)
 
-	go execCommnad(mainctx, mctx, *quic, cmdChan)
+	go execCommnad(mainctx, mctx, rcm, *quic, cmdChan)
 
-	cmdChan <- "dht$llkñ"
+	cmdChan <- "dht$llkhkjhkñ"
 
 	select {}
 }

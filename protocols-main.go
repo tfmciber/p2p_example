@@ -19,29 +19,25 @@ func disconnectHost(stream network.Stream, err error, protocol string) {
 
 func handleStream(stream network.Stream) {
 
-	if getStreamsFromPeerProto(stream.Conn().RemotePeer(), string(stream.Protocol())) != nil {
+	switch stream.Protocol() {
 
-		switch stream.Protocol() {
+	case textproto:
+		receiveTexthandler(stream)
+	case audioproto:
 
-		case textproto:
-			receiveTexthandler(stream)
-		case audioproto:
+		receiveAudioHandler(stream)
+	case fileproto:
 
-			receiveAudioHandler(stream)
-		case fileproto:
+		receiveFilehandler(stream)
+	case benchproto:
 
-			receiveFilehandler(stream)
-		case benchproto:
+		receiveBenchhandler(stream)
 
-			receiveBenchhandler(stream)
+	case cmdproto:
+		receiveCommandhandler(stream)
 
-		case cmdproto:
-			receiveCommandhandler(stream)
-
-		}
-	} else {
-		stream.Close()
 	}
+
 }
 
 // Function that reads data of size n from stream and calls f funcion
