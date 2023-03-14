@@ -32,43 +32,69 @@ import (
 
 // Host is the libp2p host
 
-// Ren variable to store the rendezvous string and the peers associated to it
-// map of peers associated to a rendezvous string
-
 type P2Papp struct {
-	Host       host.Host
-	mu         sync.Mutex
-	ctx        context.Context
-	priv       crypto.PrivKey
-	kdht       *dht.IpfsDHT
-	data       map[string][]peer.ID
-	textproto  protocol.ID
-	audioproto protocol.ID
-	benchproto protocol.ID
-	cmdproto   protocol.ID
-	fileproto  protocol.ID
+	Host host.Host
+	mu   sync.Mutex
+	ctx  context.Context
+	priv crypto.PrivKey
+	kdht *dht.IpfsDHT
+	data map[string]struct {
+		peers []peer.ID
+		timer uint
+	}
+
+	rendezvousS chan string
+	textproto   protocol.ID
+	audioproto  protocol.ID
+	benchproto  protocol.ID
+	cmdproto    protocol.ID
+	fileproto   protocol.ID
 }
 
 func (c *P2Papp) Add(key string, value peer.ID) {
 	c.mu.Lock()
-	for _, a := range c.data[key] {
+	aux := c.data[key].peers
+	for _, a := range aux {
 		if a == value {
 			return
 		}
 	}
-	c.data[key] = append(c.data[key], value)
+	aux = append(aux, value)
+	c.data[key] = struct {
+		peers []peer.ID
+		timer uint
+	}{peers: aux, timer: c.data[key].timer}
 
 	c.mu.Unlock()
 }
 func (c *P2Papp) Clear() {
 	c.mu.Lock()
-	c.data = make(map[string][]peer.ID)
+	c.data = make(map[string]struct {
+		peers []peer.ID
+		timer uint
+	})
 	c.mu.Unlock()
 }
 func (c *P2Papp) Get(key string) []peer.ID {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.data[key]
+	return c.data[key].peers
+}
+func (c *P2Papp) GetTimer(key string) uint {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.data[key].timer
+}
+func (c *P2Papp) SetTimer(key string, value uint) {
+	c.mu.Lock()
+	aux := c.data[key]
+	c.data[key] = struct {
+		peers []peer.ID
+		timer uint
+	}{peers: aux.peers, timer: value}
+
+	c.mu.Unlock()
+
 }
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
@@ -320,10 +346,8 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			go c.connecToPeersMDNS(FoundPeersMDNS, rendezvous, quic, false)
 
 		case cmd == "dht":
+			c.rendezvousS <- rendezvous
 
-			rendezvousS <- rendezvous
-		case cmd == "remove":
-			deleteRendezvous <- rendezvous
 		case cmd == "clear":
 			c.clear()
 		case cmd == "text":

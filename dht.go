@@ -23,7 +23,7 @@ func (c *P2Papp) initDHT() {
 	}
 
 	if err = c.kdht.Bootstrap(c.ctx); err != nil {
-		fmt.Print("rfwrewrwe")
+
 		panic(err)
 	}
 	var wg sync.WaitGroup

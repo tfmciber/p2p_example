@@ -18,7 +18,7 @@ func main() {
 
 	debug := flag.Bool("debug", false, "debug mode, Prints host stats")
 	seed := flag.Int("seed", 0, "Seed for the random number generator for debug mode")
-	refreshTime := flag.Uint("refresh", 50, "Minutes to refresh the DHT")
+	refreshTime := flag.Uint("refresh", 15, "Minutes to refresh the DHT")
 	quic := flag.Bool("quic", false, "Use QUIC transport")
 	filename := flag.String("config", "./config.json", "Config file")
 	mtype := flag.Bool("req", false, "debug mode, Prints host stats")
@@ -56,10 +56,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	P := P2Papp{data: make(map[string][]peer.ID), ctx: ctx, priv: priv, textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
-
-	P.newHost()
-	P.initDHT()
+	P := P2Papp{data: make(map[string]struct {
+		peers []peer.ID
+		timer uint
+	}), ctx: ctx, rendezvousS: make(chan string, 1), priv: priv, textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
 
 	P.newHost()
 	P.initDHT()
@@ -70,7 +70,8 @@ func main() {
 	// Go routines
 	var cmdChan = make(chan string)
 
-	go P.dhtRoutine(rendezvousS, *quic, *refreshTime, *mtype)
+	go P.dhtRoutine(*quic, *refreshTime, *mtype)
+
 	go readStdin(cmdChan)
 
 	go P.execCommnad(mctx, *quic, cmdChan)

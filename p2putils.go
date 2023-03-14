@@ -18,9 +18,6 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-var rendezvousS = make(chan string, 1)
-var deleteRendezvous = make(chan string, 1)
-
 func (c *P2Papp) listCons() {
 	fmt.Println("Conns open:")
 	for _, v := range c.Host.Network().Conns() {
@@ -58,7 +55,7 @@ func (c *P2Papp) listallUSers() {
 
 	fmt.Println("Users connected:")
 	for str, peerr := range c.data {
-		for _, p := range peerr {
+		for _, p := range peerr.peers {
 
 			//check if users is connected
 			online := false
@@ -315,21 +312,23 @@ func (c *P2Papp) connectRelay(rendezvous string) {
 
 // go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
 // for all the values in the list that wherent run in the last 5 minutes
-func (c *P2Papp) dhtRoutine(rendezvousS chan string, quic bool, refresh uint, typem bool) {
-	var allRedenzvous = map[string]uint{}
+func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
+
 	for {
 		select {
-		case <-time.After(1 * time.Minute):
-
-			for rendezvous, time := range allRedenzvous {
-				if time == 0 {
-					rendezvousS <- rendezvous
+		case <-time.After(60 * time.Second):
+			fmt.Println("[*] Checking timers...", c.data)
+			for rendezvous, s := range c.data {
+				fmt.Println("[*] Timer for rendezvous:", rendezvous, "is:", s.timer, "minutes")
+				if s.timer == 0 {
+					c.rendezvousS <- rendezvous
 				} else {
-					allRedenzvous[rendezvous]--
+					c.SetTimer(rendezvous, s.timer-1)
+
 				}
 			}
 
-		case aux := <-rendezvousS:
+		case aux := <-c.rendezvousS:
 
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := c.discoverPeers(aux)
@@ -340,12 +339,10 @@ func (c *P2Papp) dhtRoutine(rendezvousS chan string, quic bool, refresh uint, ty
 			c.connectRelay(aux)
 			if len(failed) > 0 {
 				c.connectthrougRelays(failed, aux, quic)
-				allRedenzvous[aux] = refresh
-			}
 
-		case aux := <-deleteRendezvous:
-			fmt.Println("[*] Deleting rendezvous:", aux, "...")
-			delete(allRedenzvous, aux)
+			}
+			c.SetTimer(aux, refresh)
+
 		}
 	}
 }
