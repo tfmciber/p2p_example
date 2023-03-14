@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -67,10 +66,7 @@ func receiveCommandhandler(stream network.Stream) {
 
 	case "rendezvous":
 
-		if !contains(Ren[message[1]], stream.Conn().RemotePeer()) {
-			log.Println("New peer:", stream.Conn().RemotePeer(), "added to rendezvous in cmd:", message[1])
-			Ren[message[1]] = append(Ren[message[1]], stream.Conn().RemotePeer())
-		}
+		Ren.Add(message[1], stream.Conn().RemotePeer())
 		client.Reserve(context.Background(), Host, Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
 	case "request":
 		if len(message) < 4 {
@@ -151,8 +147,8 @@ sendresponse:
 func requestConnection(failed []peer.ID, rendezvous string, quic bool) []peer.ID {
 
 	// get random peer from rendezvous that is connected
-
-	Connectedpeers := Ren[rendezvous]
+	fmt.Println("[*] Starting connection request")
+	Connectedpeers := Ren.Get(rendezvous)
 
 	peers := make([]peer.AddrInfo, 0)
 	for _, peer := range Connectedpeers {
@@ -164,7 +160,7 @@ func requestConnection(failed []peer.ID, rendezvous string, quic bool) []peer.ID
 	if len(peers) == 0 {
 		return nil
 	}
-	fmt.Println("[*] Starting connection request")
+
 	index := 0
 selectpeer:
 

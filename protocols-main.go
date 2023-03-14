@@ -61,7 +61,7 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bool) {
 
-	for _, v := range Ren[rendezvous] {
+	for _, v := range Ren.Get(rendezvous) {
 
 		if Host.Network().Connectedness(v) == network.Connected {
 			if verbose {

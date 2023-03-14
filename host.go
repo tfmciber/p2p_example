@@ -32,7 +32,7 @@ import (
 var Host host.Host
 
 // Ren variable to store the rendezvous string and the peers associated to it
-var Ren = make(map[string][]peer.ID) //map of peers associated to a rendezvous string
+//map of peers associated to a rendezvous string
 
 var textproto = protocol.ID("/text/1.0.0")
 var audioproto = protocol.ID("/audio/1.0.0")
@@ -84,6 +84,7 @@ func newHost(ctx context.Context, priv crypto.PrivKey) (host.Host, network.Resou
 	if err != nil {
 		panic(err)
 	}
+
 	var protocols = []protocol.ID{audioproto, textproto, fileproto, benchproto, cmdproto}
 	for _, ProtocolID := range protocols {
 
@@ -112,15 +113,12 @@ func receivePeersDHT(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezv
 		if peerr.ID == Host.ID() {
 			continue
 		}
-
-		//check if peer is already connected
-
 		peersFound = append(peersFound, peerr)
-		fmt.Println("\t\t[*] New peer Found:", peer.Encode(peerr.ID))
+		fmt.Println("\t\t[*] Peer Found:", peer.Encode(peerr.ID))
 
 	}
 
-	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren[rendezvous]), " peers connected")
+	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found, ", len(Ren.Get(rendezvous)), " peers connected")
 	return peersFound
 
 }
@@ -137,9 +135,7 @@ func connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rendezvous strin
 	if err == nil {
 
 		fmt.Println("\t\t\t Successfully connected to ", peeraddr.ID, peeraddr.Addrs)
-		if !contains(Ren[rendezvous], peeraddr.ID) {
-			Ren[rendezvous] = append(Ren[rendezvous], peeraddr.ID)
-		}
+		Ren.Add(rendezvous, peeraddr.ID)
 
 		setTransport(ctx, peeraddr.ID, preferQUIC)
 		stream, err1 := Host.NewStream(ctx, peeraddr.ID, cmdproto)
@@ -216,7 +212,6 @@ func setTransport(ctx context.Context, peerid peer.ID, preferQUIC bool) bool {
 	}
 
 	Host.Peerstore().ClearAddrs(peeraddr.ID)
-	//Host.Peerstore().AddAddrs(peeraddr.ID, addrs, time.Hour*1)
 	closeConns(peeraddr.ID)
 
 	var NewPeer peer.AddrInfo

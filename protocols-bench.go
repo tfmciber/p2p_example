@@ -75,7 +75,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Benchmark with ", len(peers), " peers: ", peers)
 	fmt.Println("\t[*] Starting QUIC Benchmark")
-	if !setPeersTRansport(ctx, true) {
+	if !setPeersTRansport(ctx, rendezvous, true) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}
@@ -101,7 +101,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 
 	fmt.Println("\t[*] Starting TCP Benchmark")
 
-	if !setPeersTRansport(ctx, false) {
+	if !setPeersTRansport(ctx, rendezvous, false) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}

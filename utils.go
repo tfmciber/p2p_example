@@ -4,8 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
-
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // func to get the default download directory os independent
@@ -59,28 +57,4 @@ func appendToCSV(file string, data []string) {
 		fmt.Println(e)
 	}
 
-}
-
-// func to check if slice contains a value
-func contains(s []peer.ID, e peer.ID) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-func intersect(a, b []peer.ID) []peer.ID {
-	m := make(map[peer.ID]bool)
-	for _, item := range a {
-		m[item] = true
-	}
-	var result []peer.ID
-	for _, item := range b {
-		if m[item] {
-			result = append(result, item)
-		}
-	}
-	return result
 }
