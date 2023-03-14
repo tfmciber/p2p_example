@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,22 +11,22 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func sendBench(numMessages int, messageSize int, rendezvous string) {
+func (c *P2Papp) sendBench(numMessages int, messageSize int, rendezvous string) {
 
 	numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 	messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
-	writeDataRend([]byte(numMessagesStr), string(benchproto), rendezvous, false)
-	writeDataRend([]byte(messageSizeStr), string(benchproto), rendezvous, false)
+	c.writeDataRend([]byte(numMessagesStr), c.benchproto, rendezvous, false)
+	c.writeDataRend([]byte(messageSizeStr), c.benchproto, rendezvous, false)
 	sendBuffer := make([]byte, messageSize)
 	sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 	for i := 0; i < numMessages; i++ {
 
-		writeDataRend(sendBuffer, string(benchproto), rendezvous, false)
+		c.writeDataRend(sendBuffer, c.benchproto, rendezvous, false)
 	}
-	closeStreams(string(benchproto))
+	c.closeStreams(string(c.benchproto))
 }
 
-func receiveBenchhandler(stream network.Stream) {
+func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 	numMessages := make([]byte, 32)
 	stream.Read(numMessages)
@@ -61,12 +60,12 @@ func receiveBenchhandler(stream network.Stream) {
 
 }
 
-func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMess int) {
+func (c *P2Papp) benchTCPQUIC(rendezvous string, times, nBytes int, nMess int) {
 
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Starting QUIC Benchmark")
 
-	peers := onlinePeers(rendezvous)
+	peers := c.onlinePeers(rendezvous)
 	if len(peers) == 0 {
 		fmt.Println("No online peers found")
 		return
@@ -75,7 +74,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
 	fmt.Println("\t[*] Benchmark with ", len(peers), " peers: ", peers)
 	fmt.Println("\t[*] Starting QUIC Benchmark")
-	if !setPeersTRansport(ctx, rendezvous, true) {
+	if !c.setPeersTRansport(c.ctx, rendezvous, true) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}
@@ -87,7 +86,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	bar := progressbar.Default(100)
 	for j := 64; j < nBytes+1; j += 64 {
 		for i := 0; i < times; i++ {
-			sendBench(nMess, j, rendezvous)
+			c.sendBench(nMess, j, rendezvous)
 			total += j
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -101,7 +100,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 
 	fmt.Println("\t[*] Starting TCP Benchmark")
 
-	if !setPeersTRansport(ctx, rendezvous, false) {
+	if !c.setPeersTRansport(c.ctx, rendezvous, false) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}
@@ -111,7 +110,7 @@ func benchTCPQUIC(ctx context.Context, rendezvous string, times, nBytes int, nMe
 	bar = progressbar.Default(100)
 	for j := 64; j < nBytes+1; j += 64 {
 		for i := 0; i < times; i++ {
-			sendBench(nMess, j, rendezvous)
+			c.sendBench(nMess, j, rendezvous)
 			total += j
 			time.Sleep(10 * time.Millisecond)
 		}

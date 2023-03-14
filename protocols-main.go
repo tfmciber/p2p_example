@@ -2,46 +2,23 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
 // func for removing and disconecting a peer
-func disconnectHost(stream network.Stream, err error, protocol string) {
+func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol string) {
 	fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err, protocol)
-	Host.Network().ClosePeer(stream.Conn().RemotePeer())
+	c.Host.Network().ClosePeer(stream.Conn().RemotePeer())
 	//func to get all keys from a map
 
 }
 
-func handleStream(stream network.Stream) {
-
-	switch stream.Protocol() {
-
-	case textproto:
-		receiveTexthandler(stream)
-	case audioproto:
-
-		receiveAudioHandler(stream)
-	case fileproto:
-
-		receiveFilehandler(stream)
-	case benchproto:
-
-		receiveBenchhandler(stream)
-
-	case cmdproto:
-		receiveCommandhandler(stream)
-
-	}
-
-}
-
 // Function that reads data of size n from stream and calls f funcion
-func readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
+func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
 
 	for {
 		buff := make([]byte, size)
@@ -50,7 +27,7 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 
 		if err != nil {
 
-			disconnectHost(stream, err, string(stream.Protocol()))
+			c.disconnectHost(stream, err, string(stream.Protocol()))
 			return
 
 		}
@@ -59,17 +36,17 @@ func readData(stream network.Stream, size uint16, f func(buff []byte, stream net
 	}
 }
 
-func writeDataRend(data []byte, ProtocolID string, rendezvous string, verbose bool) {
+func (c *P2Papp) writeDataRend(data []byte, ProtocolID protocol.ID, rendezvous string, verbose bool) {
 
-	for _, v := range Ren.Get(rendezvous) {
+	for _, v := range c.Get(rendezvous) {
 
-		if Host.Network().Connectedness(v) == network.Connected {
+		if c.Host.Network().Connectedness(v) == network.Connected {
 			if verbose {
 				fmt.Println("Sending data to:", v)
 			}
 
 		restart:
-			stream := streamStart(context.Background(), v, ProtocolID)
+			stream := c.streamStart(v, ProtocolID)
 
 			if stream == nil {
 				fmt.Println("stream is nil")

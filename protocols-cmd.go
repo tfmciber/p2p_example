@@ -13,7 +13,7 @@ import (
 
 //function that receives a peer addrinfo and tries to connect to it, and writes to stream if it is successful or not
 
-func receiveCommandhandler(stream network.Stream) {
+func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 
 	buff := make([]byte, 2000)
 	n, err := stream.Read(buff)
@@ -56,7 +56,7 @@ func receiveCommandhandler(stream network.Stream) {
 
 			fmt.Println("[*] Connecting to peer: ", addrinf.ID)
 
-			ok := connectToPeer(context.Background(), addrinf, rendezvous, quic, true)
+			ok := c.connectToPeer(c.ctx, addrinf, rendezvous, quic, true)
 			if ok {
 				fmt.Println("\t [*] Connected to peer: ", addrinf.ID)
 			} else {
@@ -66,15 +66,13 @@ func receiveCommandhandler(stream network.Stream) {
 
 	case "rendezvous":
 
-		Ren.Add(message[1], stream.Conn().RemotePeer())
-		client.Reserve(context.Background(), Host, Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
+		c.Add(message[1], stream.Conn().RemotePeer())
+		client.Reserve(context.Background(), c.Host, c.Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
 	case "request":
 		if len(message) < 4 {
 			fmt.Println("Invalid connect command")
 			return
 		}
-		fmt.Println("Request")
-		fmt.Println("Received message: ", string(buff[:n]))
 		peers := strings.Split(string(message[1]), ",")
 		rendezvous := message[2]
 		quic, err := strconv.ParseBool(message[3])
@@ -82,7 +80,7 @@ func receiveCommandhandler(stream network.Stream) {
 			fmt.Println("Error parsing quic bool: ", err)
 			return
 		}
-		receiveReqhandler(peers, rendezvous, quic, stream)
+		c.receiveReqhandler(peers, rendezvous, quic, stream)
 	default:
 		fmt.Println("Invalid command")
 
@@ -92,13 +90,13 @@ func receiveCommandhandler(stream network.Stream) {
 
 }
 
-func receiveReqhandler(peers []string, rendezvous string, quic bool, stream network.Stream) {
+func (c *P2Papp) receiveReqhandler(peers []string, rendezvous string, quic bool, stream network.Stream) {
 
 	// read message from stream
 
 	fmt.Println("[*] Received request for connection to: ", peers[:len(peers)-1], "using quic: ", quic)
-	listallUSers()
-	addrinfostr, _ := Host.Peerstore().PeerInfo(stream.Conn().RemotePeer()).MarshalJSON()
+	c.listallUSers()
+	addrinfostr, _ := c.Host.Peerstore().PeerInfo(stream.Conn().RemotePeer()).MarshalJSON()
 	message := "connect$" + string(addrinfostr) + "$" + rendezvous + "$" + strconv.FormatBool(quic)
 
 	conns := ""
@@ -109,10 +107,10 @@ func receiveReqhandler(peers []string, rendezvous string, quic bool, stream netw
 			goto sendresponse
 		}
 
-		if Host.Network().Connectedness(peerID) == network.Connected {
+		if c.Host.Network().Connectedness(peerID) == network.Connected {
 			fmt.Println("\t[*] Starting connection to: ", p)
 
-			stream, err := Host.NewStream(context.Background(), peerID, cmdproto)
+			stream, err := c.Host.NewStream(context.Background(), peerID, c.cmdproto)
 			if err != nil {
 				fmt.Println("Error creating stream: ", err)
 				goto sendresponse
@@ -144,16 +142,16 @@ sendresponse:
 
 // func to select a random peer that is connected to the rendezvous and send a message with
 // list of the peer ID from failed var and the quic bool
-func requestConnection(failed []peer.ID, rendezvous string, quic bool) []peer.ID {
+func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic bool) []peer.ID {
 
 	// get random peer from rendezvous that is connected
 	fmt.Println("[*] Starting connection request")
-	Connectedpeers := Ren.Get(rendezvous)
+	Connectedpeers := c.Get(rendezvous)
 
 	peers := make([]peer.AddrInfo, 0)
 	for _, peer := range Connectedpeers {
-		if Host.Network().Connectedness(peer) == network.Connected {
-			peers = append(peers, Host.Peerstore().PeerInfo(peer))
+		if c.Host.Network().Connectedness(peer) == network.Connected {
+			peers = append(peers, c.Host.Peerstore().PeerInfo(peer))
 		}
 	}
 
@@ -173,7 +171,7 @@ selectpeer:
 
 	fmt.Println("\t[*] Selected peer: ", selpeer)
 	// create stream to random peer
-	stream, err := Host.NewStream(context.Background(), selpeer.ID, cmdproto)
+	stream, err := c.Host.NewStream(context.Background(), selpeer.ID, c.cmdproto)
 	if err != nil {
 		fmt.Println("Error creating stream: ", err)
 		return nil

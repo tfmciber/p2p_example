@@ -18,20 +18,20 @@ type streamConfig struct {
 	SampleRate int
 }
 
-func sendAudioHandler(rendezvous string) {
+func (c *P2Papp) sendAudioHandler(rendezvous string) {
 	for {
 		data := <-audioChan
-		writeDataRend(data, string(audioproto), rendezvous, false)
+		c.writeDataRend(data, c.audioproto, rendezvous, false)
 	}
 
 }
 
-func receiveAudioHandler(stream network.Stream) {
+func (c *P2Papp) receiveAudioHandler(stream network.Stream) {
 	count := len(<-audioChan)
 	reps := temp / float32(count) * float32(sampleRate) * 4
 	length := (int(reps) * count)
 
-	go readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
+	go c.readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
 
 		recvBuff <- buff
 
@@ -54,7 +54,7 @@ func initAudio(ctx *malgo.AllocatedContext) {
 	go frameChan(captureChan)
 
 }
-func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan bool) {
+func (c *P2Papp) recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan bool) {
 	var config streamConfig
 	config.Format = malgo.FormatS16
 	config.Channels = 2
@@ -70,7 +70,7 @@ func recordAudio(ctx *malgo.AllocatedContext, rendezvous string, quitchan chan b
 
 	case <-quitchan:
 
-		writeDataRend(aux, string(audioproto), rendezvous, false)
+		c.writeDataRend(aux, c.audioproto, rendezvous, false)
 		break
 	}
 

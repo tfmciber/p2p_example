@@ -13,7 +13,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func sendFile(rendezvous string, path string) {
+func (c *P2Papp) sendFile(rendezvous string, path string) {
 
 	log.Println("sendFile ", path)
 	file, err := os.Open(path)
@@ -31,8 +31,8 @@ func sendFile(rendezvous string, path string) {
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 
-	writeDataRend([]byte(fileSize), string(fileproto), rendezvous, false)
-	writeDataRend([]byte(fileName), string(fileproto), rendezvous, false)
+	c.writeDataRend([]byte(fileSize), c.fileproto, rendezvous, false)
+	c.writeDataRend([]byte(fileName), c.fileproto, rendezvous, false)
 
 	start := time.Now()
 	bar := progressbar.Default(100)
@@ -50,7 +50,7 @@ func sendFile(rendezvous string, path string) {
 			break
 		} else {
 
-			writeDataRend(sendBuffer, string(fileproto), rendezvous, false)
+			c.writeDataRend(sendBuffer, c.fileproto, rendezvous, false)
 		}
 		//progress bar indicating download progress aproximately every 10 % of the file
 		aux := (float64(totalSend)) / (float64(fileInfo.Size()))
@@ -78,7 +78,8 @@ func fillString(retunString string, toLength int) string {
 	return retunString
 }
 
-func receiveFilehandler(stream network.Stream) {
+// falta añadir desde que rendezvous se ha recibido
+func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 
 	downloadDir := getDefaultDownloadDir()
 	createDirIfNotExist(downloadDir) //create download dir if it does not exist

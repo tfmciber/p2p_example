@@ -18,7 +18,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 }
 
 // Initialize the MDNS service
-func findPeersMDNS(rendezvous string) chan peer.AddrInfo {
+func (c *P2Papp) findPeersMDNS(rendezvous string) chan peer.AddrInfo {
 
 	fmt.Println("FindPeersMDNS")
 	// register with service so that we get notified about peer discovery
@@ -26,9 +26,10 @@ func findPeersMDNS(rendezvous string) chan peer.AddrInfo {
 	n.PeerChan = make(chan peer.AddrInfo)
 
 	// An hour might be a long long period in practical applications. But this is fine for us
-	ser := mdns.NewMdnsService(Host, rendezvous, n)
+	ser := mdns.NewMdnsService(c.Host, rendezvous, n)
 	if err := ser.Start(); err != nil {
 		panic(err)
 	}
+
 	return n.PeerChan
 }

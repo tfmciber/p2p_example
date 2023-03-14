@@ -10,7 +10,8 @@ import (
 
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
 func main() {
@@ -35,10 +36,6 @@ func main() {
 		priv = initPriv(*filename)
 	}
 
-	mainctx := context.Background()
-
-	interrupts()
-
 	mctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 
 	})
@@ -50,19 +47,33 @@ func main() {
 		_ = mctx.Uninit()
 		mctx.Free()
 	}()
-	var rcm network.ResourceManager
-	Host, rcm = newHost(mainctx, priv)
-	kademliaDHT := initDHT(mainctx, Host)
 
-	fmt.Println("Host created. We are:", Host.ID())
+	var textproto = protocol.ID("/text/1.0.0")
+	var audioproto = protocol.ID("/audio/1.0.0")
+	var benchproto = protocol.ID("/bench/1.0.0")
+	var cmdproto = protocol.ID("/cmd/1.0.0")
+	var fileproto = protocol.ID("/file/1.0.0")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	P := P2Papp{data: make(map[string][]peer.ID), ctx: ctx, priv: priv, textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
+
+	P.newHost()
+	P.initDHT()
+
+	P.newHost()
+	P.initDHT()
+	P.interrupts()
+
+	fmt.Println("Host created. We are:", P.Host.ID())
 
 	// Go routines
 	var cmdChan = make(chan string)
 
-	go dhtRoutine(mainctx, rendezvousS, kademliaDHT, *quic, *refreshTime, *mtype)
+	go P.dhtRoutine(rendezvousS, *quic, *refreshTime, *mtype)
 	go readStdin(cmdChan)
 
-	go execCommnad(mainctx, mctx, rcm, *quic, cmdChan)
+	go P.execCommnad(mctx, *quic, cmdChan)
 
 	cmdChan <- "dht$llkhkjhkñ"
 

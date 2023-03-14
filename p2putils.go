@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -22,16 +21,16 @@ import (
 var rendezvousS = make(chan string, 1)
 var deleteRendezvous = make(chan string, 1)
 
-func listCons() {
+func (c *P2Papp) listCons() {
 	fmt.Println("Conns open:")
-	for _, v := range Host.Network().Conns() {
+	for _, v := range c.Host.Network().Conns() {
 		fmt.Println(v)
 	}
 }
 
 // func to close all streams of a given protocol
-func closeStreams(protocol string) {
-	for _, v := range Host.Network().Conns() {
+func (c *P2Papp) closeStreams(protocol string) {
+	for _, v := range c.Host.Network().Conns() {
 		//list all streams for the connection
 		for _, s := range v.GetStreams() {
 			if string(s.Protocol()) == protocol {
@@ -43,9 +42,9 @@ func closeStreams(protocol string) {
 }
 
 // func to list all streams open
-func listStreams() {
+func (c *P2Papp) listStreams() {
 	fmt.Println("Streams open:")
-	for _, v := range Host.Network().Conns() {
+	for _, v := range c.Host.Network().Conns() {
 		//list all streams for the connection
 		for _, s := range v.GetStreams() {
 			fmt.Println(s.ID(), " ", s.Protocol())
@@ -55,15 +54,15 @@ func listStreams() {
 }
 
 // funct to list all curennt users
-func listallUSers() {
+func (c *P2Papp) listallUSers() {
 
 	fmt.Println("Users connected:")
-	for str, peerr := range Ren.data {
+	for str, peerr := range c.data {
 		for _, p := range peerr {
 
 			//check if users is connected
 			online := false
-			if Host.Network().Connectedness(p) == network.Connected {
+			if c.Host.Network().Connectedness(p) == network.Connected {
 				online = true
 			}
 			fmt.Printf("Rendezvous %s peer ID %s, online %t \n", str, p.String(), online)
@@ -71,15 +70,15 @@ func listallUSers() {
 	}
 
 }
-func setPeersTRansport(ctx context.Context, rendezvous string, preferQUIC bool) bool {
+func (c *P2Papp) setPeersTRansport(ctx context.Context, rendezvous string, preferQUIC bool) bool {
 	//if anyone is succesfully changed, return true
 	ret := false
 	//get all peers connected using rendezvous
 
-	Peers := Ren.Get(rendezvous)
+	Peers := c.Get(rendezvous)
 
 	for _, v := range Peers {
-		aux := setTransport(ctx, v, preferQUIC)
+		aux := c.setTransport(v, preferQUIC)
 		if aux {
 			ret = true
 		}
@@ -89,25 +88,25 @@ func setPeersTRansport(ctx context.Context, rendezvous string, preferQUIC bool) 
 
 }
 
-func startStreams(rendezvous string, peerid peer.ID) {
+func (c *P2Papp) startStreams(rendezvous string, peerid peer.ID) {
 
-	stream1 := streamStart(context.Background(), peerid, string(textproto))
-	go receiveTexthandler(stream1)
-	stream2 := streamStart(context.Background(), peerid, string(audioproto))
-	go receiveAudioHandler(stream2)
+	stream1 := c.streamStart(peerid, c.textproto)
+	go c.receiveTexthandler(stream1)
+	stream2 := c.streamStart(peerid, c.audioproto)
+	go c.receiveAudioHandler(stream2)
 
 }
-func closeConns(ID peer.ID) {
-	for _, v := range Host.Network().ConnsToPeer(ID) {
+func (c *P2Papp) closeConns(ID peer.ID) {
+	for _, v := range c.Host.Network().ConnsToPeer(ID) {
 		v.Close()
 	}
 }
 
-func onlinePeers(rendezvous string) []peer.ID {
+func (c *P2Papp) onlinePeers(rendezvous string) []peer.ID {
 	var peers []peer.ID
-	rendezvousPeers := Ren.Get(rendezvous)
+	rendezvousPeers := c.Get(rendezvous)
 	for _, v := range rendezvousPeers {
-		if Host.Network().Connectedness(v) == network.Connected {
+		if c.Host.Network().Connectedness(v) == network.Connected {
 			peers = append(peers, v)
 
 		}
@@ -116,13 +115,13 @@ func onlinePeers(rendezvous string) []peer.ID {
 }
 
 // func to get a stream with a peer of a given protcol
-func getStreamsFromPeerProto(peerID peer.ID, protocol string) network.Stream {
+func (c *P2Papp) getStreamsFromPeerProto(peerID peer.ID, protocol protocol.ID) network.Stream {
 
-	for _, v := range Host.Network().Conns() {
+	for _, v := range c.Host.Network().Conns() {
 		if v.RemotePeer() == peerID {
 			for _, s := range v.GetStreams() {
 
-				if string(s.Protocol()) == protocol {
+				if s.Protocol() == protocol {
 					return s
 				}
 			}
@@ -156,7 +155,10 @@ func selectAddrs(peeraddrs []multiaddr.Multiaddr, preferQUIC bool, preferTCP boo
 	return addrs
 
 }
-func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, preferTCP bool) {
+func (c *P2Papp) connecToPeersMDNS(peerChan <-chan peer.AddrInfo, rendezvous string, preferQUIC bool, preferTCP bool) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
@@ -165,7 +167,7 @@ func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 
 			for peer := range peerChan {
 
-				if peer.ID == Host.ID() {
+				if peer.ID == c.Host.ID() {
 					continue
 				}
 
@@ -175,13 +177,13 @@ func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 				if len(addrs) > 0 {
 					peer.Addrs = addrs
 				}
-				err := Host.Connect(context.Background(), peer)
+				err := c.Host.Connect(c.ctx, peer)
 				fmt.Println("Connected to:", peer.ID.String(), " ", peer.Addrs)
 				if err != nil {
 					fmt.Println("Error connecting to peer:", err)
 				}
 
-				Ren.Add(rendezvous, peer.ID)
+				c.Add(rendezvous, peer.ID)
 
 			}
 
@@ -190,8 +192,8 @@ func connecToPeersMDNS(ctx context.Context, peerChan <-chan peer.AddrInfo, rende
 }
 
 // func to disconnect from all peers and close connections
-func clear() {
-	for _, v := range Host.Network().Conns() {
+func (c *P2Papp) clear() {
+	for _, v := range c.Host.Network().Conns() {
 
 		for _, s := range v.GetStreams() {
 			s.Close()
@@ -201,22 +203,22 @@ func clear() {
 		v.Close()
 
 	}
-	//clear Ren
-	Ren.Clear()
+
+	c.Clear()
 }
 
 // func to start a stream with a peer only if there is no stream open and return the stream in any cases
-func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network.Stream {
+func (c *P2Papp) streamStart(peerid peer.ID, ProtocolID protocol.ID) network.Stream {
 
-	stream := getStreamsFromPeerProto(peerid, ProtocolID)
+	stream := c.getStreamsFromPeerProto(peerid, ProtocolID)
 
 	if stream == nil {
 		var err error
-		stream, err = Host.NewStream(ctx, peerid, protocol.ID(ProtocolID))
+		stream, err = c.Host.NewStream(c.ctx, peerid, ProtocolID)
 		if err != nil {
 			fmt.Println(err.Error())
 			if err.Error() == "transient connection to peer" {
-				stream, err = Host.NewStream(network.WithUseTransient(context.Background(), "relay"), peerid, protocol.ID(ProtocolID))
+				stream, err = c.Host.NewStream(network.WithUseTransient(context.Background(), "relay"), peerid, ProtocolID)
 
 			}
 		}
@@ -234,23 +236,23 @@ func streamStart(ctx context.Context, peerid peer.ID, ProtocolID string) network
 
 }
 
-func interrupts() {
+func (c *P2Papp) interrupts() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
 		fmt.Println("\r- Exiting Program")
-		clear()
-		Host.Close()
+		c.clear()
+		c.Host.Close()
 		os.Exit(0)
 	}()
 }
 
 // func to connect to input peers using relay server
-func connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) {
+func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) {
 	fmt.Println("[*] Connecting to peers through Relays")
-	for _, server := range Ren.Get(rendezvous) {
-		serverpeerinfo := Host.Network().Peerstore().PeerInfo(server)
+	for _, server := range c.Get(rendezvous) {
+		serverpeerinfo := c.Host.Network().Peerstore().PeerInfo(server)
 		if serverpeerinfo.Addrs == nil {
 			continue
 		}
@@ -259,7 +261,7 @@ func connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) 
 		for _, v := range peersid {
 
 			//check if peer is already connected
-			if Host.Network().Connectedness(v) == network.Connected {
+			if c.Host.Network().Connectedness(v) == network.Connected {
 				continue
 			}
 			relayaddr, err := ma.NewMultiaddr("/p2p/" + serverpeerinfo.ID.String() + "/p2p-circuit/p2p/" + v.String())
@@ -270,11 +272,11 @@ func connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) 
 			}
 			fmt.Println("\t\t[*] Connecting to:", v.String(), " ", relayaddr)
 
-			// Clear the backoff for the unreachable host
-			Host.Network().(*swarm.Swarm).Backoff().Clear(v)
-			// Open a connection to the previously unreachable host via the relay address
+			// Clear the backoff for the unreachable c.Host
+			c.Host.Network().(*swarm.Swarm).Backoff().Clear(v)
+			// Open a connection to the previously unreachable c.Host via the relay address
 			peerrelayinfo := peer.AddrInfo{ID: v, Addrs: []ma.Multiaddr{relayaddr}}
-			if connectToPeer(network.WithUseTransient(context.Background(), "relay"), peerrelayinfo, rendezvous, preferQUIC, true) {
+			if c.connectToPeer(network.WithUseTransient(context.Background(), "relay"), peerrelayinfo, rendezvous, preferQUIC, true) {
 
 				//delete peer from peers
 				for i, p := range peersid {
@@ -290,16 +292,16 @@ func connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) 
 }
 
 // func to reserve circuit with relay server and return all successful connections
-func connectRelay(rendezvous string) {
+func (c *P2Papp) connectRelay(rendezvous string) {
 
-	fmt.Println("[*] Reserving circuit with connected hosts...")
+	fmt.Println("[*] Reserving circuit with connected c.Hosts...")
 
-	for _, v := range Ren.Get(rendezvous) {
+	for _, v := range c.Get(rendezvous) {
 
 		// check if peer is  connected
-		if Host.Network().Connectedness(v) == network.Connected {
+		if c.Host.Network().Connectedness(v) == network.Connected {
 
-			_, err := client.Reserve(context.Background(), Host, Host.Network().Peerstore().PeerInfo(v))
+			_, err := client.Reserve(c.ctx, c.Host, c.Host.Network().Peerstore().PeerInfo(v))
 			if err == nil {
 				fmt.Println("\t[*] Reserved circuit with:", v.String())
 
@@ -313,7 +315,7 @@ func connectRelay(rendezvous string) {
 
 // go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
 // for all the values in the list that wherent run in the last 5 minutes
-func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.IpfsDHT, quic bool, refresh uint, typem bool) {
+func (c *P2Papp) dhtRoutine(rendezvousS chan string, quic bool, refresh uint, typem bool) {
 	var allRedenzvous = map[string]uint{}
 	for {
 		select {
@@ -330,14 +332,14 @@ func dhtRoutine(ctx context.Context, rendezvousS chan string, kademliaDHT *dht.I
 		case aux := <-rendezvousS:
 
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
-			FoundPeersDHT := discoverPeers(ctx, kademliaDHT, Host, aux)
-			Received := receivePeersDHT(ctx, FoundPeersDHT, aux)
-			failed := connectToPeers(ctx, Received, aux, quic, true)
-			failed = requestConnection(failed, aux, quic)
+			FoundPeersDHT := c.discoverPeers(aux)
+			Received := c.receivePeersDHT(FoundPeersDHT, aux)
+			failed := c.connectToPeers(Received, aux, quic, true)
+			failed = c.requestConnection(failed, aux, quic)
 			time.Sleep(5 * time.Second)
-			connectRelay(aux)
+			c.connectRelay(aux)
 			if len(failed) > 0 {
-				connectthrougRelays(failed, aux, quic)
+				c.connectthrougRelays(failed, aux, quic)
 				allRedenzvous[aux] = refresh
 			}
 
