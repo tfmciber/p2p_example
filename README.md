@@ -19,6 +19,8 @@ GOOS=windows GOARCH=386 \
 git ignore no va, hacer que si hay un error en el csv no se pare el bench
 al hacer benchmark si no están el otro online da erro
 limitar busqueda dht a 10 segundos --- hecho
+sudo iptables -A INPUT -p tcp --dport 5000 -m statistic --mode random --probability 0.03 -j DROP
+sudo iptables -D INPUT -p tcp --dport 5000 -m statistic --mode random --probability 0.03 -j DROP
 
 wget https://go.dev/dl/go1.18.10.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.18.10.linux-amd64.tar.gz
