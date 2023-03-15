@@ -317,9 +317,9 @@ func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
 	for {
 		select {
 		case <-time.After(60 * time.Second):
-			fmt.Println("[*] Checking timers...", c.data)
+
 			for rendezvous, s := range c.data {
-				fmt.Println("[*] Timer for rendezvous:", rendezvous, "is:", s.timer, "minutes")
+
 				if s.timer == 0 {
 					c.rendezvousS <- rendezvous
 				} else {

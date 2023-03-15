@@ -117,7 +117,7 @@ func (c *P2Papp) newHost() {
 	c.Host, err = libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(c.priv),
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0"),
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/5000/quic", "/ip4/0.0.0.0/tcp/5000"),
 
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
@@ -284,7 +284,14 @@ func (c *P2Papp) setTransport(peerid peer.ID, preferQUIC bool) bool {
 		return false
 	}
 
-	singleconn := c.Host.Network().ConnsToPeer(peeraddr.ID)[0]
+	connectionss := c.Host.Network().ConnsToPeer(peeraddr.ID)
+
+	if len(connectionss) == 0 {
+		fmt.Println("Error connecting to ", peeraddr.ID, connectionss)
+		return false
+	}
+	singleconn := connectionss[0]
+
 	if preferQUIC && singleconn.ConnState().Transport == "quic" {
 		fmt.Println("[*] Succesfully changed to QUIC")
 		return true
