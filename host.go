@@ -96,6 +96,17 @@ func (c *P2Papp) SetTimer(key string, value uint) {
 	c.mu.Unlock()
 
 }
+func (c *P2Papp) GetKeys() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	keys := make([]string, len(c.data))
+	i := 0
+	for k := range c.data {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
 
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func (c *P2Papp) newHost() {
@@ -385,7 +396,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "benchmark":
 			nMess := 2048
 			nBytes := 1024
-			times := 100
+			times := 10
 			c.benchTCPQUIC(rendezvous, times, nBytes, nMess)
 		case cmd == "help":
 			fmt.Println("Commands:  \n mdns$rendezvous : Discover peers using Multicast DNS \n dht$rendezvous : Discover peers using DHT \n remove$rendezvous : Remove rendezvous from DHT \n clear : Disconnect all peers \n text$rendezvous$text : Send text to peers \n file$rendezvous$filepath : Send file to peers \n call$rendezvous : Call peers \n stopcall : Stop call \n audio$rendezvous : Record audio and send to peer \n stopaudio : Stop recording audio \n users : List all users \n conns : List all connections \n streams : List all streams \n disconn$peerid : Disconnect peer \n benchmark$times$nMessages$nBytes : Benchmark TCP/QUIC \n help : Show this help")

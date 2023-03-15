@@ -63,7 +63,30 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 func (c *P2Papp) benchTCPQUIC(rendezvous string, times, nBytes int, nMess int) {
 
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
-	fmt.Println("\t[*] Starting QUIC Benchmark")
+
+	//Get all strings from the Host data
+
+	oldTimers := make(map[string]uint)
+	ren := c.GetKeys()
+
+	for _, r := range ren {
+		oldTimers[r] = c.GetTimer(r)
+		c.SetTimer(r, 9999999999999)
+	}
+	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
+	fmt.Println("\t[*] Starting TCP Benchmark")
+	c.benchProto(rendezvous, times, nBytes, nMess, false)
+	fmt.Println("\t[*] Starting UDP Benchmark")
+	c.benchProto(rendezvous, times, nBytes, nMess, true)
+
+	for _, r := range ren {
+		c.SetTimer(r, oldTimers[r])
+	}
+	fmt.Println("[*] Benchmark finished")
+
+}
+
+func (c *P2Papp) benchProto(rendezvous string, times, nBytes int, nMess int, udp_tcp bool) {
 
 	peers := c.onlinePeers(rendezvous)
 	if len(peers) == 0 {
@@ -71,10 +94,7 @@ func (c *P2Papp) benchTCPQUIC(rendezvous string, times, nBytes int, nMess int) {
 		return
 	}
 
-	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes", times, "times")
-	fmt.Println("\t[*] Benchmark with ", len(peers), " peers: ", peers)
-	fmt.Println("\t[*] Starting QUIC Benchmark")
-	if !c.setPeersTRansport(c.ctx, rendezvous, true) {
+	if !c.setPeersTRansport(c.ctx, rendezvous, udp_tcp) {
 		fmt.Println("Error Changing Peers Transport")
 		return
 	}
@@ -97,32 +117,6 @@ func (c *P2Papp) benchTCPQUIC(rendezvous string, times, nBytes int, nMess int) {
 		last = progress
 
 	}
-
-	fmt.Println("\t[*] Starting TCP Benchmark")
-
-	if !c.setPeersTRansport(c.ctx, rendezvous, false) {
-		fmt.Println("Error Changing Peers Transport")
-		return
-	}
-	total = 0
-
-	last = 0
-	bar = progressbar.Default(100)
-	for j := 64; j < nBytes+1; j += 64 {
-		for i := 0; i < times; i++ {
-			c.sendBench(nMess, j, rendezvous)
-			total += j
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		progress := int((float64(total)) / (float64(all)) * 100)
-		if progress%1 == 0 && progress != last {
-			bar.Add(progress - last)
-		}
-		last = progress
-
-	}
-
 	fmt.Println("[*] Benchmark finished")
 
 }
