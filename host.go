@@ -337,6 +337,16 @@ func (c *P2Papp) disconnectPeer(peerid string) {
 
 }
 
+func (c *P2Papp) Reconnect(rendezvous string) {
+
+	peerids := c.Get(rendezvous)
+	var peeraddrs []peer.AddrInfo
+	for _, peerid := range peerids {
+		peeraddrs = append(peeraddrs, c.Host.Peerstore().PeerInfo(peerid))
+	}
+	c.connectToPeers(peeraddrs, rendezvous, true, true)
+
+}
 func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
 	var quitchan chan bool
 
@@ -397,7 +407,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "benchmark":
 			nMess := 2048
 			nBytes := 1024
-			times := 100
+			times := 10
 			if param2 != "" {
 				times, _ = strconv.Atoi(param2)
 			}
