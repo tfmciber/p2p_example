@@ -51,6 +51,7 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 	timesnum, _ := strconv.Atoi(strings.Trim(string(times), ":"))
 
 	protocol := make([]byte, 32)
+	stream.Read(protocol)
 	protocolnum, _ := strconv.Atoi(strings.Trim(string(protocol), ":"))
 
 	if numMessagesnum == 0 || messageSizenum == 0 || timesnum == 0 || protocolnum == 0 {
@@ -149,7 +150,7 @@ func (c *P2Papp) benchProto(rendezvous string, times, nBytes int, nMess int, udp
 	bar := progressbar.Default(100)
 	for j := start; j < nBytes+1; j += step {
 
-		c.sendBench(nMess, j, times, prot, rendezvous)
+		c.sendBench(nMess, j, prot, times, rendezvous)
 		total += j * times
 		progress := int((float64(total)) / (float64(all)) * 100)
 		if progress%1 == 0 && progress != last {
