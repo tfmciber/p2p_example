@@ -75,6 +75,8 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 		}
 	}
+
+	fmt.Println("[*] Received Benchmark request with", numMessagesnum, "messages of", messageSizenum, "bytes", timesnum, "times")
 	receiveBuffer := make([]byte, messageSizenum)
 	for j := 0; j < timesnum; j++ {
 		start := time.Now()
