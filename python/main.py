@@ -77,11 +77,15 @@ def plot_benchs(files,titles):
     fig.legend([bp["boxes"][0] for bp in bps],labels)
     fig.tight_layout()
     plt.show()
-    plt.savefig(fname="bench_100.pdf",format="pdf")
+    #plt.savefig(fname="bench_100.pdf",format="pdf")
 
 
 def main():
     plot_benchs(["bench_azure.csv","bench_100.csv"],titles=["Global Internet Test","Local Network Test"])
+    plot_benchs(["bench_10_0drop.csv","bench_azure.csv"],titles=["Global Internet Test","DSAD"])
+
+
+
 
 if __name__ == "__main__":
     main()

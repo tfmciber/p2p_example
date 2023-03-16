@@ -82,7 +82,6 @@ func (c *P2Papp) benchTCPQUIC(rendezvous string, times, nBytes int, nMess int) {
 	for _, r := range ren {
 		c.SetTimer(r, oldTimers[r])
 	}
-	fmt.Println("[*] Benchmark finished")
 
 }
 
