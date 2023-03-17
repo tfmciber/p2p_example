@@ -43,11 +43,14 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 				fmt.Println("Write failed: restarting ", err)
 				stream.Reset()
 				stream = c.streamStart(peerid, c.benchproto)
-				j = j - 1
+
 			}
 
 		}
-		stream.Read(recvBuffer)
+		_, err := stream.Read(recvBuffer)
+		if err != nil {
+			fmt.Println("Read failed: restarting ", err)
+		}
 
 		numread, _ := strconv.Atoi(strings.Trim(string(recvBuffer), ":"))
 
@@ -110,12 +113,16 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 			fmt.Println("Error reading from stream", err)
 
 		}
+
 		total += n
 	}
 	//convert total to byte array
 
 	totalstr := fillString(fmt.Sprintf("%d", total), 32)
-	stream.Write([]byte(totalstr))
+	_, err := stream.Write([]byte(totalstr))
+	if err != nil {
+		fmt.Println("Error writing to stream", err)
+	}
 
 	stream.Reset()
 	stream.Close()
