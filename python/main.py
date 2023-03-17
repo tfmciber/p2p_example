@@ -11,9 +11,10 @@ def plot_benchs(files,titles):
     for file in files:
 
         df = pd.read_csv(file, header=None)
-        df.columns=["protocol","size","time"]
+        df.columns=["protocol","mss","time","size"]
         
         df["time"]=df["time"]/1000
+        df["size"]=df["size"]
         colors = {'quic':'red', 'tcp':'blue'}
     # colors=["red","blue"]
         #remove rows with 0 size and 0 time
