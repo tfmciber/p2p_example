@@ -417,7 +417,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			fmt.Println("Commands:  \n mdns$rendezvous : Discover peers using Multicast DNS \n dht$rendezvous : Discover peers using DHT \n remove$rendezvous : Remove rendezvous from DHT \n clear : Disconnect all peers \n text$rendezvous$text : Send text to peers \n file$rendezvous$filepath : Send file to peers \n call$rendezvous : Call peers \n stopcall : Stop call \n audio$rendezvous : Record audio and send to peer \n stopaudio : Stop recording audio \n users : List all users \n conns : List all connections \n streams : List all streams \n disconn$peerid : Disconnect peer \n benchmark$times$nMessages$nBytes : Benchmark TCP/QUIC \n help : Show this help")
 		case cmd == "exit":
 			fmt.Println("Exiting...")
-			c.clear()
+
 			c.Host.Close()
 			os.Exit(0)
 		default:

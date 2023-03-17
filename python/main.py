@@ -91,12 +91,12 @@ def plot_benchs(files,titles):
     fig.legend([bp["boxes"][0] for bp in bps],labels)
     fig.tight_layout()
     plt.show()
-    #plt.savefig(fname="bench_100.pdf",format="pdf")
+    plt.savefig(fname="bench_100.pdf",format="pdf")
 
 
 def main():
   
-    plot_benchs(["bench0drop.csv","bench_10_0drop.csv"],titles=["Test with 0% drop chance","Test with 1% drop chance"])
+    plot_benchs(["bench100_0drop.csv","bench.csv"],titles=["Test with 0% drop chance","Test with 0.5% drop chance"])
 
 
 

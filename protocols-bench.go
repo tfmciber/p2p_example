@@ -56,7 +56,7 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 	if numMessagesnum == 0 || messageSizenum == 0 || timesnum == 0 || protocolnum == 0 {
 		fmt.Println("Invalid message size or number of messages", numMessagesnum, messageSizenum, timesnum, protocolnum)
-		stream.Reset()
+		//stream.Reset()
 		stream.Close()
 		return
 	}
