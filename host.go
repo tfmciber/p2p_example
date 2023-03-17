@@ -347,6 +347,19 @@ func (c *P2Papp) Reconnect(rendezvous string) {
 	c.connectToPeers(peeraddrs, rendezvous, true, true)
 
 }
+func (c *P2Papp) GetPeerIDfromstring(peerid string) peer.ID {
+
+	for _, v := range c.Host.Network().Conns() {
+
+		if v.RemotePeer().String() == peerid {
+
+			return v.RemotePeer()
+		}
+
+	}
+	return peer.ID("")
+
+}
 func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
 	var quitchan chan bool
 
@@ -407,8 +420,11 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "benchmark":
 			nMess := 2048
 			nBytes := 1024
+			peerid := c.GetPeerIDfromstring(rendezvous)
+			if peerid != "" {
+				c.benchTCPQUIC(peerid, nBytes, nMess)
+			}
 
-			c.benchTCPQUIC(rendezvous, nBytes, nMess)
 		case cmd == "help":
 			fmt.Println("Commands:  \n mdns$rendezvous : Discover peers using Multicast DNS \n dht$rendezvous : Discover peers using DHT \n remove$rendezvous : Remove rendezvous from DHT \n clear : Disconnect all peers \n text$rendezvous$text : Send text to peers \n file$rendezvous$filepath : Send file to peers \n call$rendezvous : Call peers \n stopcall : Stop call \n audio$rendezvous : Record audio and send to peer \n stopaudio : Stop recording audio \n users : List all users \n conns : List all connections \n streams : List all streams \n disconn$peerid : Disconnect peer \n benchmark$times$nMessages$nBytes : Benchmark TCP/QUIC \n help : Show this help")
 		case cmd == "exit":
