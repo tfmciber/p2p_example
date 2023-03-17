@@ -420,7 +420,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "benchmark":
 			nMess := 1000
 			nBytes := 1024
-			times := 100
+			times := 10
 			peerid := c.GetPeerIDfromstring(rendezvous)
 			if peerid != "" {
 				c.benchTCPQUIC(peerid, nBytes, nMess, times)

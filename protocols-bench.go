@@ -61,7 +61,7 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 		} else {
 			fmt.Println("Invalid message size or number of messages", recvBuffer)
 		}
-		c.closeStreams(string(c.benchproto))
+		stream.Close()
 	}
 }
 
@@ -118,6 +118,7 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 	}
 	//convert total to byte array
 
+	fmt.Println("Total bytes received", total)
 	totalstr := fillString(fmt.Sprintf("%d", total), 32)
 	_, err := stream.Write([]byte(totalstr))
 	if err != nil {
