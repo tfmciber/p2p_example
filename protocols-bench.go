@@ -80,6 +80,7 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 	fmt.Println("[*] Received Benchmark request with", numMessagesnum, "messages of", messageSizenum, "bytes", timesnum, "times")
 	receiveBuffer := make([]byte, messageSizenum)
 	for j := 0; j < timesnum; j++ {
+		time.Sleep(10 * time.Millisecond)
 		start := time.Now()
 
 		for i := 0; i < numMessagesnum; i++ {
@@ -89,7 +90,7 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numMessagesnum), fmt.Sprintf("%d", messageSizenum), fmt.Sprintf("%d ", elapsed.Microseconds())})
 	}
-	fmt.Print(" \t [*] Benchmarked ", stream.Conn().ConnState().Transport, " Protocol (", stream.Conn().ConnState().Transport, ")", messageSizenum)
+	fmt.Println(" \t [*] Benchmarked ", stream.Conn().ConnState().Transport, " Protocol (", stream.Conn().ConnState().Transport, ")", messageSizenum)
 
 	stream.Reset()
 	stream.Close()

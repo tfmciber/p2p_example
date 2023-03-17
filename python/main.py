@@ -6,7 +6,7 @@ from matplotlib.ticker import MultipleLocator
 
 def plot_benchs(files,titles):
 
-    fig, ax = plt.subplots(1,len(files),sharex=True, sharey=True)
+    fig, ax = plt.subplots(1,len(files),sharex=True, sharey=False)
     i=0
     for file in files:
 
@@ -62,8 +62,22 @@ def plot_benchs(files,titles):
 
         #make y ticks every 50 ms
         start, end = ax[i].get_ylim()
+        
+        #yticks are from star to the next multiple of 5 of end
+        end=end+10-end%10
+        print(end)
+        ticks = np.arange(0, end+1, end/10)
+        
+
+
+        ax[i].set_yticks(ticks)
+
+        #each axes has a different y scale
+
+        ax[i].set_yscale
+
         print(start,end)
-        ax[i].yaxis.set_ticks(np.arange(0, end, 50))
+       # ax[i].yaxis.set_ticks(np.arange(0, end, 50))
         ax[i].set_title(titles[i])
         
   
@@ -81,8 +95,8 @@ def plot_benchs(files,titles):
 
 
 def main():
-    plot_benchs(["bench_azure.csv","bench_100.csv"],titles=["Global Internet Test","Local Network Test"])
-    plot_benchs(["bench_10_0drop.csv","bench_azure.csv"],titles=["Global Internet Test","DSAD"])
+  
+    plot_benchs(["bench0drop.csv","bench_10_0drop.csv"],titles=["Test with 0% drop chance","Test with 1% drop chance"])
 
 
 
