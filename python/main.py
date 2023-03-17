@@ -96,7 +96,7 @@ def plot_benchs(files,titles):
 
 def main():
   
-    plot_benchs(["bench100_0drop.csv","bench.csv"],titles=["Test with 0% drop chance","Test with 0.5% drop chance"])
+    plot_benchs(["bench100_0drop.csv","bench_100_0drop_input.csv"],titles=["Test with 0% drop chance","Test with 0.5% drop chance"])
 
 
 
