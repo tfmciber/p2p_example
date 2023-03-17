@@ -16,7 +16,7 @@ import (
 func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peerid peer.ID) {
 
 	if c.Host.Network().Connectedness(peerid) == network.Connected {
-		fmt.Println("Sending benchmark to", peerid)
+
 		numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 		messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
 		protocolstr := fillString(fmt.Sprintf("%d", protocol), 32)
@@ -36,12 +36,12 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 		sendBuffer = bytes.Repeat([]byte("a"), messageSize)
 
 		for j := 0; j < numMessages; j++ {
-			time.Sleep(10 * time.Millisecond)
+
 			start := time.Now()
 			stream.Write(sendBuffer)
 			n, _ := stream.Read(recvBuffer)
 			elapsed := time.Since(start)
-			appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numMessages), fmt.Sprintf("%d", n), fmt.Sprintf("%d ", elapsed.Microseconds())})
+			appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", n), fmt.Sprintf("%d ", elapsed.Microseconds())})
 
 		}
 
@@ -92,9 +92,11 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 	receiveBuffer := make([]byte, messageSizenum)
 
 	for i := 0; i < numMessagesnum; i++ {
-
+		start := time.Now()
 		stream.Read(receiveBuffer)
 		stream.Write(receiveBuffer)
+		end := time.Since(start)
+		fmt.Println(" \t [*] Message ", i, " of ", numMessagesnum, " took ", end.Microseconds(), " microseconds")
 	}
 
 	fmt.Println(" \t [*] Benchmarked ", stream.Conn().ConnState().Transport, " Protocol (", stream.Conn().ConnState().Transport, ")", messageSizenum)
@@ -112,13 +114,13 @@ func (c *P2Papp) benchTCPQUIC(peerid peer.ID, nBytes int, nMess int) {
 
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes")
 	fmt.Println("\t[*] Starting TCP Benchmark")
-	c.benchProto(peerid, nBytes, nMess, false, 64, 1024, 192)
+	c.benchProto(peerid, nMess, false, 1024, 65536, 1024)
 	fmt.Println("\t[*] Starting UDP Benchmark")
-	c.benchProto(peerid, nBytes, nMess, true, 64, 1024, 192)
+	c.benchProto(peerid, nMess, true, 1024, 65536, 1024)
 
 }
 
-func (c *P2Papp) benchProto(peerid peer.ID, nBytes int, nMess int, udp_tcp bool, start int, end int, step int) {
+func (c *P2Papp) benchProto(peerid peer.ID, nMess int, udp_tcp bool, start int, end int, step int) {
 
 	if !c.setTransport(peerid, udp_tcp) {
 		fmt.Println("Error Changing Peer Transport")
@@ -132,9 +134,9 @@ func (c *P2Papp) benchProto(peerid peer.ID, nBytes int, nMess int, udp_tcp bool,
 		prot = 2
 	}
 
-	all := (start + end) / 2 * int(nBytes/step)
+	all := (start + end) / 2 * int(end/step)
 	bar := progressbar.Default(100)
-	for j := start; j < nBytes+1; j += step {
+	for j := start; j < end+1; j += step {
 
 		c.sendBench(nMess, j, prot, peerid)
 		total += j
@@ -145,6 +147,7 @@ func (c *P2Papp) benchProto(peerid peer.ID, nBytes int, nMess int, udp_tcp bool,
 		last = progress
 
 	}
+
 	bar.Add(100 - last)
 	fmt.Println("[*] Benchmark finished")
 

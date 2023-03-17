@@ -418,7 +418,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "id":
 			fmt.Println("ID: ", c.Host.ID())
 		case cmd == "benchmark":
-			nMess := 2048
+			nMess := 100
 			nBytes := 1024
 			peerid := c.GetPeerIDfromstring(rendezvous)
 			if peerid != "" {

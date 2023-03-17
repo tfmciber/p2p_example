@@ -11,7 +11,7 @@ def plot_benchs(files,titles):
     for file in files:
 
         df = pd.read_csv(file, header=None)
-        df.columns=["protocol","messages","size","time"]
+        df.columns=["protocol","size","time"]
         
         df["time"]=df["time"]/1000
         colors = {'quic':'red', 'tcp':'blue'}
@@ -96,7 +96,7 @@ def plot_benchs(files,titles):
 
 def main():
   
-    plot_benchs(["bench100_0drop.csv","bench_100_0drop_input.csv"],titles=["Test with 0% drop chance","Test with 0.5% drop chance"])
+    plot_benchs(["bench.csv","bench.csv"],titles=["Test with 0% drop chance","Test with 0.5% drop chance"])
 
 
 
