@@ -75,10 +75,10 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 	for i := 0; i < numMessagesnum; i++ {
 		start := time.Now()
-		stream.Read(receiveBuffer)
+		n, _ := stream.Read(receiveBuffer)
 		elapsed := time.Since(start)
-		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numMessagesnum), fmt.Sprintf("%d", messageSizenum), fmt.Sprintf("%d ", elapsed.Microseconds())})
-
+		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numMessagesnum), fmt.Sprintf("%d", n), fmt.Sprintf("%d ", elapsed.Microseconds())})
+		fmt.Println(" \t [*] Received ", stream.Conn().ConnState().Transport, " Protocol (", stream.Conn().ConnState().Transport, ")", messageSizenum, "in", elapsed.Microseconds(), "microseconds")
 	}
 
 	fmt.Println(" \t [*] Benchmarked ", stream.Conn().ConnState().Transport, " Protocol (", stream.Conn().ConnState().Transport, ")", messageSizenum)
@@ -94,22 +94,11 @@ func (c *P2Papp) benchTCPQUIC(rendezvous string, nBytes int, nMess int) {
 
 	//Get all strings from the Host data
 
-	oldTimers := make(map[string]uint)
-	ren := c.GetKeys()
-
-	for _, r := range ren {
-		oldTimers[r] = c.GetTimer(r)
-		c.SetTimer(r, 9999999999999)
-	}
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes")
 	fmt.Println("\t[*] Starting TCP Benchmark")
 	c.benchProto(rendezvous, nBytes, nMess, false, 64, 1024, 192)
 	fmt.Println("\t[*] Starting UDP Benchmark")
 	c.benchProto(rendezvous, nBytes, nMess, true, 64, 1024, 192)
-
-	for _, r := range ren {
-		c.SetTimer(r, oldTimers[r])
-	}
 
 }
 
