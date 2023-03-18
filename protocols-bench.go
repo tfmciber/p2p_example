@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -17,60 +17,49 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 
 	if c.Host.Network().Connectedness(peerid) == network.Connected {
 
-		numMessagesStr := fillString(fmt.Sprintf("%d", numMessages), 32)
 		messageSizeStr := fillString(fmt.Sprintf("%d", messageSize), 32)
 		protocolstr := fillString(fmt.Sprintf("%d", protocol), 32)
 
-		stream := c.streamStart(peerid, c.benchproto)
-
-		if stream == nil {
+		stream, err := c.Host.NewStream(c.ctx, peerid, c.benchproto)
+		if err != nil {
 			fmt.Println("stream is nil")
 			return
 		}
-		stream.Write([]byte(numMessagesStr))
-		stream.Write([]byte(messageSizeStr))
+
 		stream.Write([]byte(protocolstr))
+		stream.Write([]byte(messageSizeStr))
+		sent := 0
 
 		sendBuffer := make([]byte, messageSize)
-
-		sendBuffer = bytes.Repeat([]byte("a"), messageSize)
-		recvBuffer := make([]byte, 32)
+		//recvBuffer := make([]byte, 32)
 		start := time.Now()
-		for j := 0; j < numMessages; j++ {
+		for time.Now().Sub(start) < 1*time.Second {
 
-			_, err := stream.Write(sendBuffer)
+			n, err := stream.Write(sendBuffer)
 			if err != nil {
-				fmt.Println("Write failed: restarting ", err)
-				stream.Reset()
-				stream = c.streamStart(peerid, c.benchproto)
-
+				stream, err = c.Host.NewStream(c.ctx, peerid, c.benchproto)
+				if err != nil {
+					fmt.Println("stream is nil")
+					return
+				}
 			}
 
-		}
-		_, err := stream.Read(recvBuffer)
-		if err != nil {
-			fmt.Println("Read failed: restarting ", err)
-		}
+			sent += n
 
-		numread, _ := strconv.Atoi(strings.Trim(string(recvBuffer), ":"))
-
+		}
 		elapsed := time.Since(start)
+		/*
+			stream.Read([]byte(recvBuffer))
+			numread, _ := strconv.Atoi(strings.Trim(string(recvBuffer), ":"))
+		*/
 
-		if numread != 0 {
-			appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", numread), fmt.Sprintf("%d ", elapsed.Microseconds()), fmt.Sprintf("%d ", messageSize)})
-		} else {
-			fmt.Println("Invalid message size or number of messages", recvBuffer)
-		}
+		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", sent), fmt.Sprintf("%f ", elapsed.Seconds()), fmt.Sprintf("%d ", messageSize)})
+
 		stream.Close()
 	}
 }
 
 func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
-
-	numMessages := make([]byte, 32)
-	stream.Read(numMessages)
-
-	numMessagesnum, _ := strconv.Atoi(strings.Trim(string(numMessages), ":"))
 
 	messageSize := make([]byte, 32)
 	stream.Read(messageSize)
@@ -81,8 +70,8 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 	stream.Read(protocol)
 	protocolnum, _ := strconv.Atoi(strings.Trim(string(protocol), ":"))
 
-	if numMessagesnum == 0 || messageSizenum == 0 || protocolnum == 0 {
-		fmt.Println("Invalid message size or number of messages", numMessagesnum, messageSizenum, protocolnum)
+	if messageSizenum == 0 || protocolnum == 0 {
+		fmt.Println("Invalid message size or number of messages", messageSizenum, protocolnum)
 		//stream.Reset()
 		stream.Close()
 		return
@@ -106,26 +95,21 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 	receiveBuffer := make([]byte, messageSizenum)
 	total := 0
-	for i := 0; i < numMessagesnum; i++ {
-
-		n, err := stream.Read(receiveBuffer)
-		if err != nil {
-			fmt.Println("Error reading from stream", err)
-
-		}
-
+	var err error
+	var n int
+	for err == nil {
+		n, err = io.Reader.Read(stream, receiveBuffer)
 		total += n
 	}
 	//convert total to byte array
-
-	fmt.Println("Total bytes received", total)
-	totalstr := fillString(fmt.Sprintf("%d", total), 32)
-	_, err := stream.Write([]byte(totalstr))
-	if err != nil {
-		fmt.Println("Error writing to stream", err)
-	}
-
-	stream.Reset()
+	/*
+		fmt.Println("Total bytes received", total)
+		totalstr := fillString(fmt.Sprintf("%d", total), 32)
+		_, err = stream.Write([]byte(totalstr))
+		if err != nil {
+			fmt.Println("Error writing to stream", err)
+		}
+	*/
 	stream.Close()
 
 }
@@ -136,7 +120,11 @@ func (c *P2Papp) benchTCPQUIC(peerid peer.ID, nBytes int, nMess int, times int) 
 
 	//Get all strings from the Host data
 
-	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes")
+	// create new file ./bench.csv
+	createFile("./bench.csv")
+	//write header
+
+	appendToCSV("./bench.csv", []string{"Protocol", "Bytes", "Time", "Size"})
 	fmt.Println("\t[*] Starting TCP Benchmark")
 	c.benchProto(peerid, nMess, false, 64, 1024, 64, times)
 	fmt.Println("\t[*] Starting UDP Benchmark")

@@ -10,36 +10,38 @@ def plot_benchs(files,titles):
     i=0
     for file in files:
 
-        df = pd.read_csv(file, header=None)
-        df.columns=["protocol","mss","time","size"]
+        df = pd.read_csv(file)
+        print(df.columns)
         
-        df["time"]=df["time"]/1000
-        df["size"]=df["size"]
+        
+        #get speed in Mbps
+        df["Speed"]=df["Bytes"]/df["Time"]/1000000
+       
+        
         colors = {'quic':'red', 'tcp':'blue'}
     # colors=["red","blue"]
-        #remove rows with 0 size and 0 time
-        df=df[df["size"] != 0]
-        df=df[df["size"] != 0]
+       
+       
 
         #plot the data x axis is the size of the message and y axis is the time, one line for
         #each protocol in diferent colors
         #interpolate dataframe dat
 
         
-        protocol_groups=df.groupby(['protocol'])
+        protocol_groups=df.groupby(['Protocol'])
         labels=[]
         positions=[]
         offset=-10
         bps=[]
         for key, grp in protocol_groups:
             labels.append(key)
-            grup=grp.groupby(['size'])
+            grup=grp.groupby(['Size'])
             val=np.array(list(grup.groups.keys()))
             
             positions.append(val)
             
             
-            data= [np.array(grup.get_group(x)["time"]) for x in grup.groups]
+            data= [np.array(grup.get_group(x)["Speed"]) for x in grup.groups]
             color=colors[key]
             bp=ax[i].boxplot(data,showfliers=False,positions=val+offset,widths=10,patch_artist=True)
             for element in ['boxes', 'whiskers', 'fliers', 'medians', 'caps']:
@@ -65,17 +67,17 @@ def plot_benchs(files,titles):
         start, end = ax[i].get_ylim()
         
         #yticks are from star to the next multiple of 5 of end
-        end=end+10-end%10
-        print(end)
-        ticks = np.arange(0, end+1, end/10)
+        #end=end+10-end%10
+        #print(end)
+        #ticks = np.arange(0, end+1, end/10)
         
 
 
-        ax[i].set_yticks(ticks)
+        #ax[i].set_yticks(ticks)
 
         #each axes has a different y scale
 
-        ax[i].set_yscale
+        #ax[i].set_yscale
 
         print(start,end)
        # ax[i].yaxis.set_ticks(np.arange(0, end, 50))
@@ -87,7 +89,7 @@ def plot_benchs(files,titles):
 
         i=i+1
     fig.supxlabel("Size (bytes)")
-    fig.supylabel("Time (ms)")
+    fig.supylabel("Speed (MBps)")
     fig.suptitle("QUIC and TCP performance differences")
     fig.legend([bp["boxes"][0] for bp in bps],labels)
     fig.tight_layout()
