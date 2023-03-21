@@ -58,9 +58,13 @@ def plot_benchs(files,titles):
         list_len = [len(i) for i in positions]
         positions= (positions[np.argmax(np.array(list_len))])
         ticks=np.arange(positions[0],positions[-1]+1,positions[1]-positions[0])
+        #set ticks at 60 degree angle
         
+
         ax[i].set_xticks(ticks)
         ax[i].set_xticklabels(ticks)
+        for tick in ax[i].get_xticklabels():
+            tick.set_rotation(60)
         #add legend and labels to each protocol
 
         #make y ticks every 50 ms
@@ -99,7 +103,7 @@ def plot_benchs(files,titles):
 
 def main():
   
-    plot_benchs(["bench2.csv","bench2drop.csv","bench5drop.csv"],titles=["Test with 0% drop chance","dsa","Test with 0.5% drop chance"])
+    plot_benchs(["bench3.csv","bench2drop3.csv","bench10drop2.csv"],titles=["0% drop chance","2% drop chance","10% drop chance"])
 
 
 

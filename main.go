@@ -20,7 +20,7 @@ func main() {
 	seed := flag.Int("seed", 0, "Seed for the random number generator for debug mode")
 	refreshTime := flag.Uint("refresh", 15, "Minutes to refresh the DHT")
 	quic := flag.Bool("quic", false, "Use QUIC transport")
-	filename := flag.String("config", "./config.json", "Config file")
+	filename := flag.String("config", "./key.key", "Config file")
 	mtype := flag.Bool("req", false, "debug mode, Prints host stats")
 	flag.Parse()
 	fmt.Println("[*] Starting Application [*]")

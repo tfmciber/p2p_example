@@ -129,7 +129,7 @@ func (c *P2Papp) newHost() {
 	c.Host, err = libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(c.priv),
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/5000/quic", "/ip4/0.0.0.0/tcp/5000"),
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic", "/ip4/0.0.0.0/tcp/0"),
 
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),

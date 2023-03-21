@@ -27,7 +27,7 @@ func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte
 
 		if err != nil {
 
-			c.disconnectHost(stream, err, string(stream.Protocol()))
+			//c.disconnectHost(stream, err, string(stream.Protocol()))
 			return
 
 		}
