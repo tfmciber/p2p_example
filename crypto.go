@@ -46,11 +46,9 @@ func OpenID(filename string) []byte {
 	salt := ciphertext[len(ciphertext)-16:]
 	//remove salt from ciphertext
 	ciphertext = ciphertext[:len(ciphertext)-16]
-	fmt.Println("salt", salt)
 ask:
 	pwd := requestPwd()
 	key, _ := DeriveKey(pwd, salt)
-	fmt.Println("key", key)
 	sk, err := decrypt(ciphertext, key)
 	if err != nil {
 		fmt.Println("contraseña incorrecta")
