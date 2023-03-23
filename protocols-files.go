@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/schollz/progressbar/v3"
@@ -32,46 +31,30 @@ func (c *P2Papp) sendFile(rendezvous string, path string) {
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 	fromrendezvous := fillString(rendezvous, 64)
 
-	dataChan := make(chan []byte, 1024)
-	stopChan := make(chan bool, 1)
+	c.writeDataRendChan(c.fileproto, rendezvous, func(stream network.Stream) {
 
-	c.writeDataRendChan(dataChan, stopChan, c.fileproto, rendezvous, false)
+		stream.Write([]byte(fromrendezvous))
+		stream.Write([]byte(fileSize))
+		stream.Write([]byte(fileName))
+		for {
 
-	dataChan <- []byte(fromrendezvous)
-	dataChan <- []byte(fileSize)
-	dataChan <- []byte(fileName)
+			sendBuffer := make([]byte, 1024)
 
-	start := time.Now()
-	bar := progressbar.Default(100)
-	totalSend := 0
-	last := 0
-	for {
+			_, err := file.Read(sendBuffer)
 
-		sendBuffer := make([]byte, 1024)
+			if err == io.EOF {
 
-		read, err := file.Read(sendBuffer)
+				break
+			} else {
 
-		totalSend += read
-		if err == io.EOF {
-
-			break
-		} else {
-
-			dataChan <- sendBuffer[:read]
+				stream.Write([]byte(sendBuffer))
+			}
 		}
-		//progress bar indicating download progress aproximately every 10 % of the file
-		aux := (float64(totalSend)) / (float64(fileInfo.Size()))
-		progress := int(aux * 100)
-		if progress%1 == 0 && progress != last {
-			bar.Add(progress - last)
-		}
-		last = progress
 
-	}
-	elapsed := time.Since(start)
-	stopChan <- true
+	})
+
 	file.Close()
-	log.Println("\r File has been sent successfully! in ", elapsed, "at an average speed of ", float64(fileInfo.Size())/float64(elapsed.Milliseconds()), " Mbytes/sec")
+	fmt.Println("\t File has been sent successfully!")
 }
 
 func fillString(retunString string, toLength int) string {

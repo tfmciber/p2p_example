@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -77,45 +78,32 @@ func (c *P2Papp) writeDataRend(data []byte, ProtocolID protocol.ID, rendezvous s
 }
 
 //funt to send data to all peers in a rendezvous in a effient way from a channel
-func (c *P2Papp) writeDataRendChan(dataChan chan []byte, stop chan bool, ProtocolID protocol.ID, rendezvous string, verbose bool) {
-
+func (c *P2Papp) writeDataRendChan(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
+	var wg sync.WaitGroup
 	for _, v := range c.Get(rendezvous) {
-		go func(v peer.ID) {
-			var data []byte
-			if c.Host.Network().Connectedness(v) == network.Connected {
-				if verbose {
-					fmt.Println("Sending data to:", v)
-				}
 
-			restart:
-				stream := c.streamStart(v, ProtocolID)
+		if c.Host.Network().Connectedness(v) == network.Connected {
 
-				if stream == nil {
-					fmt.Println("stream is nil")
+			stream := c.streamStart(v, ProtocolID)
 
-				} else {
-					for {
-						select {
-						case <-stop:
-							return
+			if stream == nil {
+				fmt.Println("stream is nil")
 
-						case data = <-dataChan:
-							_, err := stream.Write(data)
+			} else {
 
-							if err != nil {
-								fmt.Println("Write failed: restarting ", err)
-								stream.Close()
-								goto restart
+				//run go func f and wait until all it intances are done waitgroup
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					f(stream)
+				}()
 
-							}
-						}
-					}
-
-				}
 			}
-		}(v)
+		}
 
 	}
+	wg.Wait()
+
 }
 
 //function to send data over a stream
