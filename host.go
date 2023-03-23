@@ -151,7 +151,9 @@ func (c *P2Papp) newHost() {
 		),
 	)
 	if err != nil {
+		fmt.Println("Error creating host: ", err)
 		panic(err)
+
 	}
 
 	c.Host.SetStreamHandler(c.textproto, c.receiveTexthandler)

@@ -19,11 +19,12 @@ func (c *P2Papp) initDHT() {
 	c.kdht, err = dht.New(c.ctx, c.Host)
 
 	if err != nil {
+		fmt.Println("Error creating DHT: ", err)
 		panic(err)
 	}
 
 	if err = c.kdht.Bootstrap(c.ctx); err != nil {
-
+		fmt.Println("Error bootstrapping DHT: ", err)
 		panic(err)
 	}
 	var wg sync.WaitGroup
@@ -51,7 +52,9 @@ func (c *P2Papp) discoverPeers(RendezvousString string) <-chan peer.AddrInfo {
 
 	peers, err := routingDiscovery.FindPeers(c.ctx, RendezvousString)
 	if err != nil {
+		fmt.Println("Error finding peers: ", err)
 		panic(err)
+
 	}
 	// Advertise this node, so that it will be found by others but only once
 	dutil.Advertise(c.ctx, routingDiscovery, RendezvousString)

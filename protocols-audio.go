@@ -19,6 +19,7 @@ type streamConfig struct {
 }
 
 func (c *P2Papp) sendAudioHandler(rendezvous string) {
+
 	for {
 		data := <-audioChan
 		c.writeDataRend(data, c.audioproto, rendezvous, false)

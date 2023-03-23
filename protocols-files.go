@@ -30,9 +30,16 @@ func (c *P2Papp) sendFile(rendezvous string, path string) {
 
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
+	fromrendezvous := fillString(rendezvous, 64)
 
-	c.writeDataRend([]byte(fileSize), c.fileproto, rendezvous, false)
-	c.writeDataRend([]byte(fileName), c.fileproto, rendezvous, false)
+	dataChan := make(chan []byte, 1024)
+	stopChan := make(chan bool, 1)
+
+	c.writeDataRendChan(dataChan, stopChan, c.fileproto, rendezvous, false)
+
+	dataChan <- []byte(fromrendezvous)
+	dataChan <- []byte(fileSize)
+	dataChan <- []byte(fileName)
 
 	start := time.Now()
 	bar := progressbar.Default(100)
@@ -50,7 +57,7 @@ func (c *P2Papp) sendFile(rendezvous string, path string) {
 			break
 		} else {
 
-			c.writeDataRend(sendBuffer, c.fileproto, rendezvous, false)
+			dataChan <- sendBuffer[:read]
 		}
 		//progress bar indicating download progress aproximately every 10 % of the file
 		aux := (float64(totalSend)) / (float64(fileInfo.Size()))
@@ -62,6 +69,7 @@ func (c *P2Papp) sendFile(rendezvous string, path string) {
 
 	}
 	elapsed := time.Since(start)
+	stopChan <- true
 	file.Close()
 	log.Println("\r File has been sent successfully! in ", elapsed, "at an average speed of ", float64(fileInfo.Size())/float64(elapsed.Milliseconds()), " Mbytes/sec")
 }
@@ -81,19 +89,27 @@ func fillString(retunString string, toLength int) string {
 // falta añadir desde que rendezvous se ha recibido
 func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 
+	fmt.Println("receiveFilehandler")
 	downloadDir := getDefaultDownloadDir()
 	createDirIfNotExist(downloadDir) //create download dir if it does not exist
 
+	fromrendezvousbuffer := make([]byte, 64)
+	stream.Read(fromrendezvousbuffer)
+	fromrendezvous := strings.Trim(string(fromrendezvousbuffer), ":")
+
+	fmt.Println(fromrendezvous)
 	fileSizeBuffer := make([]byte, 10)
 	stream.Read(fileSizeBuffer)
+	fmt.Println(fileSizeBuffer)
 
 	fileSize, _ := strconv.Atoi(strings.Trim(string(fileSizeBuffer), ":"))
 
 	fileNameBuffer := make([]byte, 64)
 	stream.Read(fileNameBuffer)
 	fileName := strings.Trim(string(fileNameBuffer), ":")
+	fmt.Println(fileName)
 
-	log.Println("Receiving file: ", fileName, " of size: ", fileSize, " bytes")
+	fmt.Println("Receiving file: ", fileName, " of size: ", fileSize, " bytes from rendezvous ", fromrendezvous, " from peer ", stream.Conn().RemotePeer())
 
 	newFile, err := os.Create(fmt.Sprintf("%s/%s", downloadDir, fileName))
 	if err != nil {

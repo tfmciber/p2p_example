@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
@@ -39,39 +40,82 @@ func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte
 func (c *P2Papp) writeDataRend(data []byte, ProtocolID protocol.ID, rendezvous string, verbose bool) {
 
 	for _, v := range c.Get(rendezvous) {
-
-		if c.Host.Network().Connectedness(v) == network.Connected {
-			if verbose {
-				fmt.Println("Sending data to:", v)
-			}
-
-		restart:
-			stream := c.streamStart(v, ProtocolID)
-
-			if stream == nil {
-				fmt.Println("stream is nil")
-
-			} else {
-
-				_, err := stream.Write(data)
-
-				if err != nil {
-					fmt.Println("Write failed: restarting ", err)
-					stream.Close()
-					goto restart
-
-				}
+		go func(v peer.ID) {
+			if c.Host.Network().Connectedness(v) == network.Connected {
 				if verbose {
+					fmt.Println("Sending data to:", v)
+				}
+
+			restart:
+				stream := c.streamStart(v, ProtocolID)
+
+				if stream == nil {
+					fmt.Println("stream is nil")
+
+				} else {
+
+					_, err := stream.Write(data)
+
 					if err != nil {
 						fmt.Println("Write failed: restarting ", err)
-					} else {
-						fmt.Println("Data sent to:", v)
+						stream.Close()
+						goto restart
+
+					}
+					if verbose {
+						if err != nil {
+							fmt.Println("Write failed: restarting ", err)
+						} else {
+							fmt.Println("Data sent to:", v)
+						}
 					}
 				}
 			}
-		}
-	}
+		}(v)
 
+	}
+}
+
+//funt to send data to all peers in a rendezvous in a effient way from a channel
+func (c *P2Papp) writeDataRendChan(dataChan chan []byte, stop chan bool, ProtocolID protocol.ID, rendezvous string, verbose bool) {
+
+	for _, v := range c.Get(rendezvous) {
+		go func(v peer.ID) {
+			var data []byte
+			if c.Host.Network().Connectedness(v) == network.Connected {
+				if verbose {
+					fmt.Println("Sending data to:", v)
+				}
+
+			restart:
+				stream := c.streamStart(v, ProtocolID)
+
+				if stream == nil {
+					fmt.Println("stream is nil")
+
+				} else {
+					for {
+						select {
+						case <-stop:
+							return
+
+						case data = <-dataChan:
+							_, err := stream.Write(data)
+
+							if err != nil {
+								fmt.Println("Write failed: restarting ", err)
+								stream.Close()
+								goto restart
+
+							}
+						}
+					}
+
+				}
+			}
+		}(v)
+
+	}
 }
 
 //function to send data over a stream

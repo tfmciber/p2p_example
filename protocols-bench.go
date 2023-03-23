@@ -48,11 +48,6 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 
 		}
 		elapsed := time.Since(start)
-		/*
-			stream.Read([]byte(recvBuffer))
-			numread, _ := strconv.Atoi(strings.Trim(string(recvBuffer), ":"))
-		*/
-
 		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", sent), fmt.Sprintf("%f ", elapsed.Seconds()), fmt.Sprintf("%d ", messageSize)})
 
 		stream.Close()

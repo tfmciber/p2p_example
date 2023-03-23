@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
 )
 
 func (c *P2Papp) sendTextHandler(text string, rendezvous string) {
 
-	c.writeDataRend([]byte(text), c.textproto, rendezvous, true)
+	c.writeDataRend([]byte(rendezvous+"$"+text), c.textproto, rendezvous, true)
 
 }
 
@@ -16,7 +17,15 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 
 	c.readData(stream, 2000, func(buff []byte, stream network.Stream) {
 
-		fmt.Printf("%s = %s \n", stream.Conn().RemotePeer(), string(buff[:]))
+		data := strings.SplitN(string(buff[:]), "$", 2)
+		var rendezvous string
+		var text string
+		if len(data) > 1 {
+			rendezvous = data[0]
+			text = data[1]
+
+		}
+		fmt.Printf("[%s] %s = %s \n", rendezvous, stream.Conn().RemotePeer(), text)
 
 		buff = nil
 
