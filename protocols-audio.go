@@ -36,11 +36,11 @@ func (c *P2Papp) receiveAudioHandler(stream network.Stream) {
 	reps := temp / float32(count) * float32(sampleRate) * 4
 	length := (int(reps) * count)
 
-	go c.readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
+	/*go c.readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
 
 		recvBuff <- buff
 
-	})
+	})*/
 
 }
 

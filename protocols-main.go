@@ -31,7 +31,7 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 }
 
 // Function that reads data of size n from stream and calls f funcion
-func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
+func (c *P2Papp) reardData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
 
 	for {
 		buff := make([]byte, size)
