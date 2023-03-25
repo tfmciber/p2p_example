@@ -212,7 +212,7 @@ func (c *P2Papp) streamStart(peerid peer.ID, ProtocolID protocol.ID) network.Str
 		if err != nil {
 			fmt.Println(err.Error())
 			if err.Error() == "transient connection to peer" {
-				stream, err = c.Host.NewStream(network.WithUseTransient(context.Background(), "relay"), peerid, ProtocolID)
+				stream, err = c.Host.NewStream(network.WithUseTransient(c.ctx, "relay"), peerid, ProtocolID)
 
 			}
 		}

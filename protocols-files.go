@@ -127,5 +127,8 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 
 	log.Println("File has been received successfully!")
 	stream.Close()
+	stream.Reset()
+
 	newFile.Close()
+	return
 }

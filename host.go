@@ -218,9 +218,7 @@ func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rend
 		fmt.Println("\t\t\t\t Successfully created stream to ", peeraddr.ID)
 		ms := "rendezvous$" + rendezvous
 		stream.Write([]byte(ms))
-		if start {
-			c.startStreams(rendezvous, peeraddr.ID)
-		}
+
 		return true
 	}
 	fmt.Println("\t\t\t Failed to connect to ", peeraddr.ID, err)
@@ -422,7 +420,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 		case cmd == "benchmark":
 			nMess := 1000
 			nBytes := 1024
-			times := 10
+			times := 1
 			peerid := c.GetPeerIDfromstring(rendezvous)
 			if peerid != "" {
 				c.benchTCPQUIC(peerid, nBytes, nMess, times)

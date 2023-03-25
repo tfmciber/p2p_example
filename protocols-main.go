@@ -13,8 +13,19 @@ import (
 
 // func for removing and disconecting a peer
 func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol string) {
-	fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err, protocol)
-	c.Host.Network().ClosePeer(stream.Conn().RemotePeer())
+
+	fmt.Println("Host disconnected:", stream.Conn().RemotePeer(), err, protocol)
+
+	//get addrinfo of peer
+	peerinfo := c.Host.Peerstore().PeerInfo(stream.Conn().RemotePeer())
+	fmt.Println("Trying to reconnect")
+	//try to reconnect to peer
+	err = c.Host.Connect(c.ctx, peerinfo)
+	if err != nil {
+		fmt.Println("Error reconnecting to peer:", err)
+		fmt.Println("Disconnecting host:", stream.Conn().RemotePeer(), err, protocol)
+		c.Host.Network().ClosePeer(stream.Conn().RemotePeer())
+	}
 	//func to get all keys from a map
 
 }

@@ -48,9 +48,10 @@ func (c *P2Papp) sendBench(numMessages int, messageSize int, protocol int, peeri
 
 		}
 		elapsed := time.Since(start)
-		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", sent), fmt.Sprintf("%f ", elapsed.Seconds()), fmt.Sprintf("%d ", messageSize)})
-
+		appendToCSV("./bench.csv", []string{stream.Conn().ConnState().Transport, fmt.Sprintf("%d", sent), fmt.Sprintf("%f", elapsed.Seconds()), fmt.Sprintf("%d", messageSize)})
 		stream.Close()
+		stream.Reset()
+
 	}
 }
 
@@ -67,8 +68,8 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 
 	if messageSizenum == 0 || protocolnum == 0 {
 		fmt.Println("Invalid message size or number of messages", messageSizenum, protocolnum)
-		//stream.Reset()
 		stream.Close()
+		stream.Reset()
 		return
 	}
 
@@ -76,14 +77,18 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 		//ensure that the stream protocol is TCP
 		if stream.Conn().ConnState().Transport != "tcp" {
 			fmt.Println("Invalid protocol")
+			stream.Close()
 			stream.Reset()
+			return
 
 		}
 	} else if protocolnum == 2 {
 		//ensure that the stream protocol is QUIC
 		if stream.Conn().ConnState().Transport != "quic" {
 			fmt.Println("Invalid protocol")
+			stream.Close()
 			stream.Reset()
+			return
 
 		}
 	}
@@ -96,29 +101,16 @@ func (c *P2Papp) receiveBenchhandler(stream network.Stream) {
 		n, err = io.Reader.Read(stream, receiveBuffer)
 		total += n
 	}
-	//convert total to byte array
-	/*
-		fmt.Println("Total bytes received", total)
-		totalstr := fillString(fmt.Sprintf("%d", total), 32)
-		_, err = stream.Write([]byte(totalstr))
-		if err != nil {
-			fmt.Println("Error writing to stream", err)
-		}
-	*/
-	stream.Close()
 
+	stream.Close()
+	stream.Reset()
+	return
 }
 
 func (c *P2Papp) benchTCPQUIC(peerid peer.ID, nBytes int, nMess int, times int) {
 
 	fmt.Println("[*] Starting Benchmark with", nMess, "messages of", nBytes, "bytes")
-
-	//Get all strings from the Host data
-
-	// create new file ./bench.csv
 	createFile("./bench.csv")
-	//write header
-
 	appendToCSV("./bench.csv", []string{"Protocol", "Bytes", "Time", "Size"})
 	fmt.Println("\t[*] Starting TCP Benchmark")
 	c.benchProto(peerid, nMess, false, 64, 1024, 64, times)
