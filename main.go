@@ -63,7 +63,6 @@ func main() {
 
 	P.newHost()
 	P.initDHT()
-	P.interrupts()
 
 	fmt.Println("Host created. We are:", P.Host.ID())
 

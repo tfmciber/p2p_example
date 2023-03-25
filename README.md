@@ -21,10 +21,9 @@ al hacer benchmark si no están el otro online da erro
 limitar busqueda dht a 10 segundos --- hecho
 port=5000
 probability=0.02
-sudo iptables -A INPUT -p udp --dport port -m statistic --mode random --probability probability -j DROP
-sudo iptables -A INPUT -p tcp --dport port -m statistic --mode random --probability probability -j DROP
-sudo iptables -D INPUT -p udp --dport port -m statistic --mode random --probability probability -j DROP
-sudo iptables -D INPUT -p tcp --dport port -m statistic --mode random --probability probability -j DROP
+sudo iptables -A INPUT -p udp --dport $port -m statistic --mode random --probability $probability -j DROP
+sudo iptables -A INPUT -p tcp --dport $port -m statistic --mode random --probability $probability -j DROP
+sudo iptables -F
 
 wget https://go.dev/dl/go1.18.10.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.18.10.linux-amd64.tar.gz

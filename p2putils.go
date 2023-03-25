@@ -3,10 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
@@ -233,18 +230,6 @@ func (c *P2Papp) streamStart(peerid peer.ID, ProtocolID protocol.ID) network.Str
 
 }
 
-func (c *P2Papp) interrupts() {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-quit
-		fmt.Println("\r- Exiting Program")
-		c.clear()
-		c.Host.Close()
-		os.Exit(0)
-	}()
-}
-
 // func to connect to input peers using relay server
 func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, preferQUIC bool) {
 	fmt.Println("[*] Connecting to peers through Relays")
@@ -333,7 +318,10 @@ func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := c.discoverPeers(aux)
 			Received := c.receivePeersDHT(FoundPeersDHT, aux)
+
 			failed := c.connectToPeers(Received, aux, quic, true)
+			fmt.Print("failed: ", failed)
+
 			failed = c.requestConnection(failed, aux, quic)
 			time.Sleep(5 * time.Second)
 			c.connectRelay(aux)

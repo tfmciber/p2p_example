@@ -42,13 +42,14 @@ func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
 	rend := c.Get(rendezvous)
+
 	//check if rendezvous is a peer id connected to us
 	if rend == nil {
 
-		if c.Host.Network().Connectedness(peer.ID(rendezvous)) != network.Connected {
-			rend = append(rend, peer.ID(rendezvous))
-		} else {
-			return
+		peerid := c.GetPeerIDfromstring(rendezvous)
+		if peerid != "" {
+
+			rend = []peer.ID{peerid}
 		}
 
 	}
