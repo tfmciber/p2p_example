@@ -31,7 +31,7 @@ func (c *P2Papp) sendFile(rendezvous string, path string) {
 	fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
 	fromrendezvous := fillString(rendezvous, 64)
 
-	c.writeDataRendChan(c.fileproto, rendezvous, func(stream network.Stream) {
+	c.writeDataRendFunc(c.fileproto, rendezvous, func(stream network.Stream) {
 
 		stream.Write([]byte(fromrendezvous))
 		stream.Write([]byte(fileSize))
@@ -80,17 +80,14 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 	stream.Read(fromrendezvousbuffer)
 	fromrendezvous := strings.Trim(string(fromrendezvousbuffer), ":")
 
-	fmt.Println(fromrendezvous)
 	fileSizeBuffer := make([]byte, 10)
 	stream.Read(fileSizeBuffer)
-	fmt.Println(fileSizeBuffer)
 
 	fileSize, _ := strconv.Atoi(strings.Trim(string(fileSizeBuffer), ":"))
 
 	fileNameBuffer := make([]byte, 64)
 	stream.Read(fileNameBuffer)
 	fileName := strings.Trim(string(fileNameBuffer), ":")
-	fmt.Println(fileName)
 
 	fmt.Println("Receiving file: ", fileName, " of size: ", fileSize, " bytes from rendezvous ", fromrendezvous, " from peer ", stream.Conn().RemotePeer())
 
@@ -126,6 +123,7 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 		last = progress
 
 	}
+	bar.Add(100 - last)
 
 	log.Println("File has been received successfully!")
 	stream.Close()

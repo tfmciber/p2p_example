@@ -38,49 +38,22 @@ func (c *P2Papp) readData(stream network.Stream, size uint16, f func(buff []byte
 	}
 }
 
-func (c *P2Papp) writeDataRend(data []byte, ProtocolID protocol.ID, rendezvous string, verbose bool) {
+//funt to send data to all peers in a rendezvous in a effient way from a channel
+func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
-	for _, v := range c.Get(rendezvous) {
-		go func(v peer.ID) {
-			if c.Host.Network().Connectedness(v) == network.Connected {
-				if verbose {
-					fmt.Println("Sending data to:", v)
-				}
+	rend := c.Get(rendezvous)
+	//check if rendezvous is a peer id connected to us
+	if rend == nil {
 
-			restart:
-				stream := c.streamStart(v, ProtocolID)
-
-				if stream == nil {
-					fmt.Println("stream is nil")
-
-				} else {
-
-					_, err := stream.Write(data)
-
-					if err != nil {
-						fmt.Println("Write failed: restarting ", err)
-						stream.Close()
-						goto restart
-
-					}
-					if verbose {
-						if err != nil {
-							fmt.Println("Write failed: restarting ", err)
-						} else {
-							fmt.Println("Data sent to:", v)
-						}
-					}
-				}
-			}
-		}(v)
+		if c.Host.Network().Connectedness(peer.ID(rendezvous)) != network.Connected {
+			rend = append(rend, peer.ID(rendezvous))
+		} else {
+			return
+		}
 
 	}
-}
-
-//funt to send data to all peers in a rendezvous in a effient way from a channel
-func (c *P2Papp) writeDataRendChan(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 	var wg sync.WaitGroup
-	for _, v := range c.Get(rendezvous) {
+	for _, v := range rend {
 
 		if c.Host.Network().Connectedness(v) == network.Connected {
 

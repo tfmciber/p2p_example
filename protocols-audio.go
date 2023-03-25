@@ -22,7 +22,11 @@ func (c *P2Papp) sendAudioHandler(rendezvous string) {
 
 	for {
 		data := <-audioChan
-		c.writeDataRend(data, c.audioproto, rendezvous, false)
+		c.writeDataRendFunc(c.audioproto, rendezvous, func(stream network.Stream) {
+
+			stream.Write(data)
+
+		})
 	}
 
 }
@@ -71,7 +75,11 @@ func (c *P2Papp) recordAudio(ctx *malgo.AllocatedContext, rendezvous string, qui
 
 	case <-quitchan:
 
-		c.writeDataRend(aux, c.audioproto, rendezvous, false)
+		c.writeDataRendFunc(c.audioproto, rendezvous, func(stream network.Stream) {
+
+			stream.Write(aux)
+
+		})
 		break
 	}
 

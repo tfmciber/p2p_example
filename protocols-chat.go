@@ -9,7 +9,11 @@ import (
 
 func (c *P2Papp) sendTextHandler(text string, rendezvous string) {
 
-	c.writeDataRend([]byte(rendezvous+"$"+text), c.textproto, rendezvous, true)
+	c.writeDataRendFunc(c.textproto, rendezvous, func(stream network.Stream) {
+
+		stream.Write([]byte(rendezvous + "$" + text))
+
+	})
 
 }
 
