@@ -32,9 +32,9 @@ func (c *P2Papp) sendAudioHandler(rendezvous string) {
 }
 
 func (c *P2Papp) receiveAudioHandler(stream network.Stream) {
-	count := len(<-audioChan)
-	reps := temp / float32(count) * float32(sampleRate) * 4
-	length := (int(reps) * count)
+	//count := len(<-audioChan)
+	//reps := temp / float32(count) * float32(sampleRate) * 4
+	//length := (int(reps) * count)
 
 	/*go c.readData(stream, uint16(length), func(buff []byte, stream network.Stream) {
 

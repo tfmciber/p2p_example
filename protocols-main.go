@@ -30,25 +30,6 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 
 }
 
-// Function that reads data of size n from stream and calls f funcion
-func (c *P2Papp) reardData(stream network.Stream, size uint16, f func(buff []byte, stream network.Stream)) {
-
-	for {
-		buff := make([]byte, size)
-
-		_, err := stream.Read(buff)
-
-		if err != nil {
-
-			//c.disconnectHost(stream, err, string(stream.Protocol()))
-			return
-
-		}
-		f(buff, stream)
-
-	}
-}
-
 //funt to send data to all peers in a rendezvous in a effient way from a channel
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 

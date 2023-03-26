@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -16,14 +17,15 @@ func (c *P2Papp) initDHT() {
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
 	var err error
-	c.kdht, err = dht.New(c.ctx, c.Host)
+	ctx := context.Background()
+	c.kdht, err = dht.New(ctx, c.Host)
 
 	if err != nil {
 		fmt.Println("Error creating DHT: ", err)
 		panic(err)
 	}
 
-	if err = c.kdht.Bootstrap(c.ctx); err != nil {
+	if err = c.kdht.Bootstrap(ctx); err != nil {
 		fmt.Println("Error bootstrapping DHT: ", err)
 		panic(err)
 	}
@@ -33,7 +35,7 @@ func (c *P2Papp) initDHT() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := c.Host.Connect(c.ctx, *peerinfo); err != nil {
+			if err := c.Host.Connect(ctx, *peerinfo); err != nil {
 
 			}
 		}()
@@ -44,20 +46,22 @@ func (c *P2Papp) initDHT() {
 
 func (c *P2Papp) discoverPeers(RendezvousString string) <-chan peer.AddrInfo {
 
+	ctx := context.Background()
 	routingDiscovery := drouting.NewRoutingDiscovery(c.kdht)
+
+	// Advertise this node, so that it will be found by others but only once
+	dutil.Advertise(c.ctx, routingDiscovery, RendezvousString)
 
 	// Look for others who have announced and attempt to connect to them
 
 	fmt.Println("[*] Searching for peers in DHT [", RendezvousString, "]")
 
-	peers, err := routingDiscovery.FindPeers(c.ctx, RendezvousString)
+	peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
 	if err != nil {
 		fmt.Println("Error finding peers: ", err)
 		panic(err)
 
 	}
-	// Advertise this node, so that it will be found by others but only once
-	dutil.Advertise(c.ctx, routingDiscovery, RendezvousString)
 
 	return peers
 

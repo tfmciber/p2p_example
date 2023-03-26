@@ -301,26 +301,27 @@ func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
 
 	for {
 		select {
-		case <-time.After(60 * time.Second):
+		/*
+			case <-time.After(60 * time.Second):
 
-			for rendezvous, s := range c.data {
+				for rendezvous, s := range c.data {
 
-				if s.timer == 0 {
-					c.rendezvousS <- rendezvous
-				} else {
-					c.SetTimer(rendezvous, s.timer-1)
+					if s.timer == 0 {
+						c.rendezvousS <- rendezvous
+					} else {
+						c.SetTimer(rendezvous, s.timer-1)
 
+					}
 				}
-			}
-
+		*/
 		case aux := <-c.rendezvousS:
 
 			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := c.discoverPeers(aux)
 			Received := c.receivePeersDHT(FoundPeersDHT, aux)
 
-			failed := c.connectToPeers(Received, aux, quic, true)
-			fmt.Print("failed: ", failed)
+			c.connectToPeers(Received, aux, quic, true)
+			/*fmt.Print("failed: ", failed)
 
 			failed = c.requestConnection(failed, aux, quic)
 			time.Sleep(5 * time.Second)
@@ -330,7 +331,7 @@ func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
 
 			}
 			c.SetTimer(aux, refresh)
-
+			*/
 		}
 	}
 }
