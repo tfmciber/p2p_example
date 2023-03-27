@@ -20,15 +20,13 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
 
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
-	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
-	tcp "github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 // Host is the libp2p host
@@ -118,13 +116,14 @@ func (c *P2Papp) newHost() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(tcp.NewTCPTransport),
 
 		libp2p.Transport(quic.NewTransport),
 	)
-
+	var err error
 	fmt.Println("[*] Creating Host")
 	c.Host, err = libp2p.New(
 		// Use the keypair we generated
@@ -137,13 +136,13 @@ func (c *P2Papp) newHost() {
 		libp2p.Security(noise.ID, noise.New),
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
-		libp2p.DefaultConnectionManager,
-		libp2p.ResourceManager(rcm),
+
+		libp2p.ConnectionManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
-		libp2p.EnableNATService(),
+		//libp2p.EnableNATService(),
 
 		libp2p.ChainOptions(
 			libp2p.Muxer("/yamux/1.0.0", yamux.DefaultTransport),
@@ -175,25 +174,6 @@ func (c *P2Papp) newHost() {
 
 }
 
-// func to connect to peers found in rendezvous
-func (c *P2Papp) receivePeersDHT(peerChan <-chan peer.AddrInfo, rendezvous string) []peer.AddrInfo {
-	fmt.Println("[*] Connecting to peers")
-	var peersFound []peer.AddrInfo
-	fmt.Println("\t[*] Receiving peers")
-	for peerr := range peerChan {
-
-		if peerr.ID == c.Host.ID() {
-			continue
-		}
-		peersFound = append(peersFound, peerr)
-		fmt.Println("\t\t[*] Peer Found:", peer.Encode(peerr.ID))
-
-	}
-
-	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found, ", len(c.Get(rendezvous)), " peers connected")
-	return peersFound
-
-}
 func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) bool {
 
 	if c.Host.Network().Connectedness(peeraddr.ID) == network.Connected {
@@ -218,7 +198,9 @@ func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rend
 		fmt.Println("\t\t\t\t Successfully created stream to ", peeraddr.ID)
 		ms := "rendezvous$" + rendezvous
 		stream.Write([]byte(ms))
-
+		if start {
+			c.startStreams(rendezvous, peeraddr.ID)
+		}
 		return true
 	}
 	fmt.Println("\t\t\t Failed to connect to ", peeraddr.ID, err)
@@ -229,11 +211,21 @@ func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rend
 func (c *P2Papp) connectToPeers(peeraddrs []peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) []peer.ID {
 
 	var failed []peer.ID
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, peeraddr := range peeraddrs {
 
-		if !c.connectToPeer(c.ctx, peeraddr, rendezvous, preferQUIC, start) {
-			failed = append(failed, peeraddr.ID)
-		}
+		wg.Add(1)
+		go func(peeraddr peer.AddrInfo) {
+			defer wg.Done()
+			if !c.connectToPeer(c.ctx, peeraddr, rendezvous, preferQUIC, start) {
+				mu.Lock()
+				failed = append(failed, peeraddr.ID)
+				mu.Unlock()
+			}
+
+		}(peeraddr)
+
 	}
 	return failed
 

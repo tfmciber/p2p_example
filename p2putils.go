@@ -53,13 +53,7 @@ func (c *P2Papp) listallUSers() {
 	fmt.Println("Users connected:")
 	for str, peerr := range c.data {
 		for _, p := range peerr.peers {
-
-			//check if users is connected
-			online := false
-			if c.Host.Network().Connectedness(p) == network.Connected {
-				online = true
-			}
-			fmt.Printf("Rendezvous %s peer ID %s, online %t \n", str, p.String(), online)
+			fmt.Printf("Rendezvous %s peer ID %s, %s \n", str, p.String(), c.Host.Network().Connectedness(p))
 		}
 	}
 
@@ -297,31 +291,28 @@ func (c *P2Papp) connectRelay(rendezvous string) {
 
 // go func for when a channel, "aux" is written create a new nuction that runs every 5 minutes appends the value written to the channel to a list and then runs the function
 // for all the values in the list that wherent run in the last 5 minutes
-func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
+func (c *P2Papp) dhtRoutine(quic bool, refresh uint) {
 
 	for {
 		select {
-		/*
-			case <-time.After(60 * time.Second):
 
-				for rendezvous, s := range c.data {
+		case <-time.After(60 * time.Second):
 
-					if s.timer == 0 {
-						c.rendezvousS <- rendezvous
-					} else {
-						c.SetTimer(rendezvous, s.timer-1)
+			for rendezvous, s := range c.data {
 
-					}
+				if s.timer == 0 {
+					c.rendezvousS <- rendezvous
+				} else {
+					c.SetTimer(rendezvous, s.timer-1)
+
 				}
-		*/
+			}
+
 		case aux := <-c.rendezvousS:
 
-			fmt.Println("[*] Searching for peers at rendezvous:", aux, "...")
 			FoundPeersDHT := c.discoverPeers(aux)
-			Received := c.receivePeersDHT(FoundPeersDHT, aux)
 
-			c.connectToPeers(Received, aux, quic, true)
-			/*fmt.Print("failed: ", failed)
+			failed := c.connectToPeers(FoundPeersDHT, aux, quic, true)
 
 			failed = c.requestConnection(failed, aux, quic)
 			time.Sleep(5 * time.Second)
@@ -331,7 +322,7 @@ func (c *P2Papp) dhtRoutine(quic bool, refresh uint, typem bool) {
 
 			}
 			c.SetTimer(aux, refresh)
-			*/
+
 		}
 	}
 }

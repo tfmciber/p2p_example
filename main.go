@@ -21,7 +21,7 @@ func main() {
 	refreshTime := flag.Uint("refresh", 15, "Minutes to refresh the DHT")
 	quic := flag.Bool("quic", false, "Use QUIC transport")
 	filename := flag.String("config", "./key.key", "Config file")
-	mtype := flag.Bool("req", false, "debug mode, Prints host stats")
+
 	flag.Parse()
 	fmt.Println("[*] Starting Application [*]")
 
@@ -62,14 +62,16 @@ func main() {
 	}), ctx: ctx, rendezvousS: make(chan string, 1), priv: priv, textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
 
 	P.newHost()
+	/*
+		hacer que la funcion init se desconecte de los peers, ya que hay que limitar las conexiones abiertas con la DHT,
+		si no los usuarios no se pueden conectar.*/
 	P.initDHT()
 
 	fmt.Println("Host created. We are:", P.Host.ID())
 
-	// Go routines
 	var cmdChan = make(chan string)
 
-	go P.dhtRoutine(*quic, *refreshTime, *mtype)
+	go P.dhtRoutine(*quic, *refreshTime)
 
 	go readStdin(cmdChan)
 
