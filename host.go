@@ -18,15 +18,15 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/multiformats/go-multiaddr"
-
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
-	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
-
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	tcp "github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/multiformats/go-multiaddr"
 )
 
 // Host is the libp2p host
@@ -110,20 +110,54 @@ func (c *P2Papp) GetKeys() []string {
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func (c *P2Papp) newHost() {
 
-	limiter := rcmgr.InfiniteLimits
+	/*
+		limiter := rcmgr.InfiniteLimits
 
-	rcm, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limiter))
+		rcm, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limiter))
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
+	limiterCfg := `{
+    "System":  {
+      "StreamsInbound": 4096,
+      "StreamsOutbound": 32768,
+      "Conns": 64000,
+      "ConnsInbound": 512,
+      "ConnsOutbound": 32768,
+      "FD": 64000
+    },
+    "Transient": {
+      "StreamsInbound": 4096,
+      "StreamsOutbound": 32768,
+      "ConnsInbound": 512,
+      "ConnsOutbound": 32768,
+      "FD": 64000
+    },
+    "ProtocolDefault":{
+      "StreamsInbound": 1024,
+      "StreamsOutbound": 32768
+    },
+    "ServiceDefault":{
+      "StreamsInbound": 2048,
+      "StreamsOutbound": 32768
+    }
+  }`
+	limiter, err := rcmgr.NewDefaultLimiterFromJSON(strings.NewReader(limiterCfg))
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-
+	rcm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		panic(err)
+	}
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(tcp.NewTCPTransport),
 
 		libp2p.Transport(quic.NewTransport),
 	)
-	var err error
+
 	fmt.Println("[*] Creating Host")
 	c.Host, err = libp2p.New(
 		// Use the keypair we generated
@@ -137,7 +171,7 @@ func (c *P2Papp) newHost() {
 		// support any other default transports (TCP,quic)
 		DefaultTransports,
 
-		libp2p.ConnectionManager(rcm),
+		libp2p.ResourceManager(rcm),
 		libp2p.UserAgent("P2P_Example"),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),

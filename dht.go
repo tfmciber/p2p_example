@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,6 +17,7 @@ func (c *P2Papp) initDHT() {
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
 	var err error
+
 	c.kdht, err = dht.New(c.ctx, c.Host)
 
 	if err != nil {
@@ -34,15 +35,15 @@ func (c *P2Papp) initDHT() {
 func (c *P2Papp) discoverPeers(RendezvousString string) []peer.AddrInfo {
 
 	var peersFound []peer.AddrInfo
+
 	var wg sync.WaitGroup
-	context, cancel := context.WithCancel(c.ctx)
 
 	for _, peerAddr := range dht.DefaultBootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := c.Host.Connect(context, *peerinfo); err != nil {
+			if err := c.Host.Connect(c.ctx, *peerinfo); err != nil {
 
 			}
 		}()
@@ -52,13 +53,13 @@ func (c *P2Papp) discoverPeers(RendezvousString string) []peer.AddrInfo {
 	routingDiscovery := drouting.NewRoutingDiscovery(c.kdht)
 
 	// Advertise this node, so that it will be found by others but only once
-	dutil.Advertise(context, routingDiscovery, RendezvousString)
+	dutil.Advertise(c.ctx, routingDiscovery, RendezvousString)
 
 	// Look for others who have announced and attempt to connect to them
 
 	fmt.Println("[*] Searching for peers in DHT [", RendezvousString, "]")
 
-	peers, err := routingDiscovery.FindPeers(context, RendezvousString)
+	peers, err := routingDiscovery.FindPeers(c.ctx, RendezvousString)
 	if err != nil {
 		fmt.Println("Error finding peers: ", err)
 		panic(err)
@@ -74,8 +75,46 @@ func (c *P2Papp) discoverPeers(RendezvousString string) []peer.AddrInfo {
 		fmt.Println("\t\t[*] Peer Found:", peer.Encode(peerr.ID))
 
 	}
-	cancel()
+
+	c.kdht.Close()
+
 	fmt.Println("[*] Finished peer discovery, ", len(peersFound), " peers found")
 	return peersFound
 
+}
+
+func (c *P2Papp) dhtRoutine(quic bool, refresh uint) {
+
+	for {
+		select {
+
+		case <-time.After(60 * time.Second):
+
+			for rendezvous, s := range c.data {
+
+				if s.timer == 0 {
+					c.rendezvousS <- rendezvous
+				} else {
+					c.SetTimer(rendezvous, s.timer-1)
+
+				}
+			}
+
+		case aux := <-c.rendezvousS:
+
+			FoundPeersDHT := c.discoverPeers(aux)
+
+			failed := c.connectToPeers(FoundPeersDHT, aux, quic, true)
+
+			failed = c.requestConnection(failed, aux, quic)
+			time.Sleep(5 * time.Second)
+			c.connectRelay(aux)
+			if len(failed) > 0 {
+				c.connectthrougRelays(failed, aux, quic)
+
+			}
+			c.SetTimer(aux, refresh)
+
+		}
+	}
 }
