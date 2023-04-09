@@ -1,0 +1,46 @@
+.offlineusers{
+
+}
+.onlineusers{
+
+}
+.useronline{
+
+    margin: 5%;
+    border-radius: 30px;
+    border: 2px solid rgb(0, 0, 0);
+    background-color: rgb(149, 149, 149);
+    color: black;
+    height: fit-content;
+    padding: 5px;
+    cursor: pointer;
+}
+.useroffline{
+    padding: 5px;
+	margin: 5%;
+  border-radius: 30px;
+  border: 2px solid rgb(0, 0, 0);
+  background-color: rgb(149, 149, 149);
+  color: black;
+  opacity: 40%;
+  height: fit-content;
+
+  cursor: pointer;
+
+}
+.offlineheader{
+
+    text-align: left;
+    margin-left: 10px;
+    font-size: medium;
+    border-bottom: 1px solid rgb(223, 223, 223);
+    width: 90%;
+}
+.onlineheader{
+    text-align: left;
+    margin-left: 10px;
+    font-size: medium;
+    border-bottom: 1px solid rgb(223, 223, 223);
+    width: 90%;
+    
+}
