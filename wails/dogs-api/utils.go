@@ -8,9 +8,18 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+func contains(s []peer.ID, e peer.ID) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
 func PrintToVariable(args ...interface{}) (string, error) {
 	var buffer bytes.Buffer
 

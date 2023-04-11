@@ -16,6 +16,7 @@ func (c *P2Papp) InitDHT() {
 	// client because we want each peer to maintain its own local copy of the
 	// DHT, so that the bootstrapping node of the DHT can go down without
 	// inhibiting future peer discovery.
+
 	var err error
 
 	c.kdht, err = dht.New(c.ctx, c.Host)
@@ -56,13 +57,13 @@ func (c *P2Papp) discoverPeers(RendezvousString string, ctx context.Context, ctx
 		routingDiscovery := drouting.NewRoutingDiscovery(c.kdht)
 
 		// Advertise this node, so that it will be found by others but only once
-		dutil.Advertise(c.ctx, routingDiscovery, RendezvousString)
+		dutil.Advertise(ctx, routingDiscovery, RendezvousString)
 
 		// Look for others who have announced and attempt to connect to them
 
 		c.fmtPrintln("[*] Searching for peers in DHT [", RendezvousString, "]")
 
-		peers, err := routingDiscovery.FindPeers(c.ctx, RendezvousString)
+		peers, err := routingDiscovery.FindPeers(ctx, RendezvousString)
 		if err != nil {
 			c.fmtPrintln("Error finding peers: ", err)
 			panic(err)
@@ -79,17 +80,15 @@ func (c *P2Papp) discoverPeers(RendezvousString string, ctx context.Context, ctx
 
 		}
 
-		c.kdht.Close()
-
 		c.fmtPrintln("[*] Finished peer discovery, ", len(peersFound), " peers found")
 		end <- true
 	}()
 	select {
 	case <-ctx.Done():
-		c.fmtPrintln("[*] global ctx done")
+		c.fmtPrintln("[*] discoverPeers done")
 		return nil
 	case <-ctx2.Done():
-		c.fmtPrintln("[*] ctx2 done")
+		c.fmtPrintln("[*] discoverPeers done")
 		return nil
 	case <-end:
 		return peersFound
@@ -104,27 +103,31 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 	c.fmtPrintln("[*] DHT Adding Rendezvous", rendezvous)
 	var ctx context.Context
 	var end = make(chan bool)
+	c.kdht, _ = dht.New(c.ctx, c.Host)
 
-	ctx, c.cancelRendezvous = context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, c.cancelRendezvous = context.WithTimeout(context.Background(), 120*time.Second)
 	defer c.cancelRendezvous()
+	var cancelfunc1, cancelfunc2, cancelfunc3, cancelfunc4, cancelfunc5 context.CancelFunc
+	var context1, context2, context3, context4, context5 context.Context
 
 	go func() {
 
-		ctx2, _ := context.WithTimeout(context.Background(), 20*time.Second)
-		FoundPeersDHT := c.discoverPeers(rendezvous, ctx, ctx2)
-		ctx2, _ = context.WithTimeout(context.Background(), 20*time.Second)
-		failed := c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, ctx2)
-		connected := c.Get(rendezvous)
+		context1, cancelfunc1 = context.WithTimeout(context.Background(), 60*time.Second)
+		FoundPeersDHT := c.discoverPeers(rendezvous, ctx, context1)
+
+		context2, cancelfunc2 = context.WithTimeout(context.Background(), 30*time.Second)
+		failed := c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
+		connected, _ := c.Get(rendezvous)
 		c.fmtPrintln("connected Users=", connected)
 		time.Sleep(5 * time.Second)
 		if len(connected) > 0 {
-			ctx2, _ = context.WithTimeout(context.Background(), 5*time.Second)
-			failed = c.requestConnection(failed, rendezvous, c.preferquic, ctx, ctx2)
+			context3, cancelfunc3 = context.WithTimeout(context.Background(), 15*time.Second)
+			failed = c.requestConnection(failed, rendezvous, c.preferquic, ctx, context3)
 			time.Sleep(5 * time.Second)
-			ctx2, _ = context.WithTimeout(context.Background(), 5*time.Second)
-			c.connectRelay(rendezvous, ctx, ctx2)
-			ctx2, _ = context.WithTimeout(context.Background(), 5*time.Second)
-			c.connectthrougRelays(failed, rendezvous, c.preferquic, ctx, ctx2)
+			context4, cancelfunc4 = context.WithTimeout(context.Background(), 5*time.Second)
+			c.connectRelay(rendezvous, ctx, context4)
+			context5, cancelfunc5 = context.WithTimeout(context.Background(), 10*time.Second)
+			c.connectthrougRelays(failed, rendezvous, c.preferquic, ctx, context5)
 
 		} else {
 			c.fmtPrintln("[*] No connected peers")
@@ -133,20 +136,39 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 		}
 
 		end <- true
+		//clear all contexts
 
 	}()
 	select {
 	case <-ctx.Done():
+		//clear all contexts
+		if cancelfunc1 != nil {
+			cancelfunc1()
+		}
+		if cancelfunc2 != nil {
+			cancelfunc2()
+		}
+		if cancelfunc3 != nil {
+			cancelfunc3()
+		}
+		if cancelfunc4 != nil {
+			cancelfunc4()
+		}
+		if cancelfunc5 != nil {
+			cancelfunc5()
+		}
+
 		c.fmtPrintln("[*] ctx done")
 		return
 	case <-end:
+
 		c.fmtPrintln("[*] DHT Ended")
 		return
 
 	}
 }
 
-func (c *P2Papp) DhtRoutine(quic bool, refresh uint) {
+func (c *P2Papp) DhtRoutine(quic bool) {
 	go func() {
 		for {
 			select {

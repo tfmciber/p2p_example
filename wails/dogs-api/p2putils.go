@@ -51,7 +51,7 @@ func (c *P2Papp) setPeersTRansport(ctx context.Context, rendezvous string, prefe
 	ret := false
 	//get all peers connected using rendezvous
 
-	Peers := c.Get(rendezvous)
+	Peers, _ := c.Get(rendezvous)
 
 	for _, v := range Peers {
 		aux := c.setTransport(v, preferQUIC)
@@ -80,7 +80,7 @@ func (c *P2Papp) closeConns(ID peer.ID) {
 
 func (c *P2Papp) onlinePeers(rendezvous string) []peer.ID {
 	var peers []peer.ID
-	rendezvousPeers := c.Get(rendezvous)
+	rendezvousPeers, _ := c.Get(rendezvous)
 	for _, v := range rendezvousPeers {
 		if c.Host.Network().Connectedness(v) == network.Connected {
 			peers = append(peers, v)
@@ -220,7 +220,8 @@ func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, prefe
 	c.fmtPrintln("[*] Connecting to peers through Relays")
 	var end = make(chan bool)
 	go func() {
-		for _, server := range c.Get(rendezvous) {
+		peers, _ := c.Get(rendezvous)
+		for _, server := range peers {
 			serverpeerinfo := c.Host.Network().Peerstore().PeerInfo(server)
 			if serverpeerinfo.Addrs == nil {
 				continue
@@ -275,13 +276,16 @@ func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, prefe
 
 // func to reserve circuit with relay server and return all successful connections
 func (c *P2Papp) connectRelay(rendezvous string, ctx context.Context, ctx2 context.Context) {
-
+	aux, _ := c.Get(rendezvous)
+	if len(aux) == 0 {
+		return
+	}
 	var end = make(chan bool)
 
 	go func() {
-		c.fmtPrintln("[*] Reserving circuit with connected c.Hosts...")
+		c.fmtPrintln("[*] Reserving circuit with connected Hosts...")
 
-		for _, v := range c.Get(rendezvous) {
+		for _, v := range aux {
 
 			// check if peer is  connected
 			if c.Host.Network().Connectedness(v) == network.Connected {

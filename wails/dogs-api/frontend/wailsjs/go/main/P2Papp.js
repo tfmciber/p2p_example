@@ -6,6 +6,10 @@ export function Add(arg1, arg2) {
   return window['go']['main']['P2Papp']['Add'](arg1, arg2);
 }
 
+export function AddDm(arg1) {
+  return window['go']['main']['P2Papp']['AddDm'](arg1);
+}
+
 export function AddRendezvous(arg1) {
   return window['go']['main']['P2Papp']['AddRendezvous'](arg1);
 }
@@ -26,8 +30,8 @@ export function DeriveKey(arg1, arg2) {
   return window['go']['main']['P2Papp']['DeriveKey'](arg1, arg2);
 }
 
-export function DhtRoutine(arg1, arg2) {
-  return window['go']['main']['P2Papp']['DhtRoutine'](arg1, arg2);
+export function DhtRoutine(arg1) {
+  return window['go']['main']['P2Papp']['DhtRoutine'](arg1);
 }
 
 export function Get(arg1) {
@@ -56,6 +60,10 @@ export function GetTimer(arg1) {
 
 export function InitDHT() {
   return window['go']['main']['P2Papp']['InitDHT']();
+}
+
+export function ListChats() {
+  return window['go']['main']['P2Papp']['ListChats']();
 }
 
 export function ListUsers() {

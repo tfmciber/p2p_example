@@ -121,7 +121,6 @@ margin-bottom: 1rem;
 }
 button:hover {
   filter: contrast(150%);
-
 }
 
 .logout {
@@ -133,7 +132,7 @@ left:0;
 }
 .left-menu {
   width: 250px; /* fixed width */
-  color: #eee;
+  
   display: flex; 
   margin-top: 10px;
   overflow-y: auto;
@@ -189,11 +188,20 @@ width: fit-content;
 text-align: left;
 margin-left: 10%;
 border-radius: 5px;
- 
-
-  
-  
+background-color: gray;  
 }
+
+.directmessages{
+
+  width: fit-content;
+text-align: left;
+margin-left: 10%;
+border-radius: 5px;
+
+
+}
+
+
 .middle {
   flex-grow: 1; /* variable width */
   

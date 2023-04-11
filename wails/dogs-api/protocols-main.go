@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
@@ -33,18 +32,8 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 //funt to send data to all peers in a rendezvous in a effient way from a channel
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
-	rend := c.Get(rendezvous)
-
-	//check if rendezvous is a peer id connected to us
-	if rend == nil {
-
-		peerid := c.GetPeerIDfromstring(rendezvous)
-		if peerid != "" {
-
-			rend = []peer.ID{peerid}
-		}
-
-	}
+	rend, _ := c.Get(rendezvous)
+	fmt.Print("rend", rend)
 	var wg sync.WaitGroup
 	for _, v := range rend {
 

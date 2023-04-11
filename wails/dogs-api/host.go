@@ -45,14 +45,15 @@ type P2Papp struct {
 		timer uint
 	}
 
-	refresh     uint
-	preferquic  bool
-	rendezvousS chan string
-	textproto   protocol.ID
-	audioproto  protocol.ID
-	benchproto  protocol.ID
-	cmdproto    protocol.ID
-	fileproto   protocol.ID
+	direcmessages []peer.ID
+	refresh       uint
+	preferquic    bool
+	rendezvousS   chan string
+	textproto     protocol.ID
+	audioproto    protocol.ID
+	benchproto    protocol.ID
+	cmdproto      protocol.ID
+	fileproto     protocol.ID
 	//chanel of struct of 2 strings
 	useradded chan bool
 	chatadded chan string
@@ -85,7 +86,7 @@ func (c *P2Papp) ListUsers() []Users {
 			if peer != "" {
 
 				status := c.Host.Network().Connectedness(peer) == network.Connected
-				c.fmtPrintln("status=", status, c.Host.Network().Connectedness(peer), peer.String())
+				c.fmtPrintln("status chat [", chat, " ]", status, c.Host.Network().Connectedness(peer), peer.String())
 				aux = append(aux, User{Ip: peer.String(), Status: status})
 			}
 
@@ -145,6 +146,23 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 		}{peers: append(c.data[key].peers, value), timer: c.refresh}
 
 	}
+
+	if _, ok := c.data[""]; !ok {
+		c.data[""] = struct {
+			peers []peer.ID
+			timer uint
+		}{peers: []peer.ID{value}, timer: c.refresh}
+	} else {
+		//append peer only if not already in list of peer.ID in c.data[""]
+		if !contains(c.data[""].peers, value) {
+			c.data[""] = struct {
+				peers []peer.ID
+				timer uint
+			}{peers: append(c.data[""].peers, value), timer: c.refresh}
+		}
+
+	}
+
 	if value != "" {
 		go func() {
 			//aux := []string{key, value.String()}
@@ -153,6 +171,7 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 
 	}
 }
+
 func (c *P2Papp) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -170,14 +189,25 @@ func (c *P2Papp) Clear() {
 	if c.kdht != nil {
 		c.kdht.Close()
 	}
-	c.fmtPrintln("c.data=", c.data)
+
 }
-func (c *P2Papp) Get(key string) []peer.ID {
+func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 
 	c.mu.Lock()
 
 	defer c.mu.Unlock()
-	return c.data[key].peers
+	c.fmtPrintln("Get", key, c.data[key].peers)
+	id := c.GetPeerIDfromstring(key)
+	if id != "" {
+
+		if contains(c.data[""].peers, c.GetPeerIDfromstring(key)) {
+			return []peer.ID{c.GetPeerIDfromstring(key)}, true
+		} else {
+			return nil, false
+		}
+	} else {
+		return c.data[key].peers, false
+	}
 }
 func (c *P2Papp) GetRend() []string {
 
@@ -220,6 +250,17 @@ func (c *P2Papp) GetKeys() []string {
 	}
 	return keys
 }
+func (c *P2Papp) ListChats() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var chats []string
+	for k := range c.data {
+		if k != "" {
+			chats = append(chats, k)
+		}
+	}
+	return chats
+}
 
 //func that alerts if c.data has changed
 func (c *P2Papp) DataChanged() {
@@ -227,18 +268,20 @@ func (c *P2Papp) DataChanged() {
 	go func() {
 		for {
 			select {
-			case aux := <-c.chatadded:
+			case <-c.chatadded:
 				c.fmtPrintln("chatadded")
+				aux := c.ListChats()
 
 				runtime.EventsEmit(c.ctx, "updateChats", aux)
 			case <-c.useradded:
 				c.fmtPrintln("user added")
 				aux := c.ListUsers()
-				c.fmtPrintln("aux=", aux)
+
 				runtime.EventsEmit(c.ctx, "updateUsers", aux)
-			case <-time.After(60 * time.Second):
+			case <-time.After(30 * time.Second):
 				aux := c.ListUsers()
 				runtime.EventsEmit(c.ctx, "updateUsers", aux)
+
 			case <-c.ctx.Done():
 
 				return
@@ -358,6 +401,7 @@ func (c *P2Papp) NewHost() string {
 func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rendezvous string, preferQUIC bool, start bool) bool {
 
 	if c.Host.Network().Connectedness(peeraddr.ID) == network.Connected {
+		c.fmtPrintln("\t\t\t Already connected to ", peeraddr.ID, peeraddr.Addrs)
 		return true
 	}
 
@@ -527,7 +571,7 @@ func (c *P2Papp) disconnectPeer(peerid string) {
 
 func (c *P2Papp) Reconnect(rendezvous string) {
 
-	peerids := c.Get(rendezvous)
+	peerids, _ := c.Get(rendezvous)
 	var peeraddrs []peer.AddrInfo
 	for _, peerid := range peerids {
 		peeraddrs = append(peeraddrs, c.Host.Peerstore().PeerInfo(peerid))

@@ -12,26 +12,26 @@
   import { SelectFiles } from "../wailsjs/go/main/P2Papp.js";
   import { SendFile } from "../wailsjs/go/main/P2Papp.js";
   import { OpenFileExplorer } from "../wailsjs/go/main/P2Papp.js";
-  
+
   import uploadBtn from "./assets/images/uploadBtn.png";
 
   import fileIcon from "./assets/images/folder.png";
-import check from "./assets/images/check.png";
-import wrong from "./assets/images/wrong.png";
+  import check from "./assets/images/check.png";
+  import wrong from "./assets/images/wrong.png";
   /*
-TODO: BUTTON TO DELETE A reND
-      FIX: WHEN CHANGING BETWWEN CHATS THE MESSAGES GET DELETED "!!!!! UREGEENT !!!!!"
-ADD ONLINE/OFFLINE STATUS
-ADD TIMESTAMP IN MESSAGES
+TODO: BUTTON TO DELETE A chat
+todo show progress when uploading and downloading a file
+
 */
   let current_red = "";
   let ciphered = [];
   //var of type number[]
   let id = "";
-  const Users = {}; // Users[""] will hold all users
-  //Files {chatname: [{path1,filename1},]}
-  const Files = {};
+  let Users = {}; // Users[""] will hold all users
+
+  let Files = {};
   var chats = [];
+  var directmessages = [];
   let filename = "key.key";
   let password = "";
   let login_register = true; // true for login, false for register
@@ -48,10 +48,15 @@ ADD TIMESTAMP IN MESSAGES
     } else {
       login_register = true;
     }
-    current_red = "";
-    chats = ["dsadsa"];
-    Users[current_red] = [];
-    Files[current_red]= [];
+    /*
+    chats = ["test1", "test2"];
+    Users[""] = [{ user: "user1", online: true }];
+    Users["test1"] = [{ user: "user1", online: true }];
+    Files["test1"] = [];
+    */
+    chats = [];
+    Users = {};
+    Files = {};
   }
   startup();
 
@@ -75,32 +80,44 @@ ADD TIMESTAMP IN MESSAGES
       }
     }
   }
-  function SetUsers() {
+  async function SetUsers() {
+    let usersAux = Users[current_red];
+
+    if (directmessages.includes(current_red)) {
+      usersAux = Users[""].filter((user) => user.user == current_red);
+    }
+
     //set users in html periodically in right side
     let userscurrent = document.getElementById("users");
     //get offline users container inside the users container
     let offline = userscurrent.getElementsByClassName("offlineusers")[0];
     let online = userscurrent.getElementsByClassName("onlineusers")[0];
-    let onlinenum = Users[current_red].filter((user) => user.online).length;
-    let offlinenum = Users[current_red].length - onlinenum;
-    online.innerHTML =
-      "<h1 class='onlineheader'>Online - " + onlinenum + " </h1>";
-    offline.innerHTML =
-      "<h1 class='offlineheader'>Offline - " + offlinenum + "</h1>";
-
-    //create random users for testing
-
-    Users[current_red].forEach((user) => {
-      if (user.online) {
-        //add div with onlick event listener
-        online.innerHTML += `<div class="useronline" id="${user.user}">${user.user}</div>`;
-
-        //add event listener for each user
-        let users = userscurrent.getElementsByClassName("useronline");
-      } else {
-        offline.innerHTML += `<div class="useroffline" id="${user.user}">${user.user}</div>`;
-      }
-    });
+    offline.innerHTML = "";
+    online.innerHTML = "";
+    let onlinenum = 0;
+    let offlinenum = 0;
+    if (usersAux != null) {
+      onlinenum = usersAux.filter((user) => user.online).length;
+      offlinenum = usersAux.length - onlinenum;
+    }
+    if (onlinenum > 0) {
+      online.innerHTML =
+        "<h1 class='onlineheader'>Online - " + onlinenum + " </h1>";
+    }
+    if (offlinenum > 0) {
+      offline.innerHTML =
+        "<h1 class='offlineheader'>Offline - " + offlinenum + "</h1>";
+    }
+    if (usersAux != null) {
+      usersAux.forEach((user) => {
+        if (user.online) {
+          //add div with onlick event listener
+          online.innerHTML += `<div class="useronline" id="${user.user}">${user.user}</div>`;
+        } else {
+          offline.innerHTML += `<div class="useroffline" id="${user.user}">${user.user}</div>`;
+        }
+      });
+    }
 
     //add event listener for every user, online and offline
 
@@ -118,8 +135,10 @@ ADD TIMESTAMP IN MESSAGES
   function perodicSetUsers() {
     //call SetUsers() every second once the user is logged in
     if (loggedin) {
+      //create random chat
+
       SetUsers();
-      setTimeout(perodicSetUsers, 1000);
+      setTimeout(perodicSetUsers, 10000);
     }
   }
   perodicSetUsers();
@@ -134,56 +153,56 @@ ADD TIMESTAMP IN MESSAGES
     //wait for host to be created
 
     await InitDHT();
-    DhtRoutine(true, 999999).then();
+    DhtRoutine(true).then();
     perodicSetUsers();
   }
 
   function updateChats() {
-    window.runtime.EventsOn("updateChats", function (...arg) {
+    window.runtime.EventsOn("updateChats", function (arg) {
       chats = arg;
     });
   }
   function updateUsers() {
     window.runtime.EventsOn("updateUsers", function (arg) {
-      let UniqueUsers = [];
-    for (let i = 0; i < arg.length; i++) {
-      Users[arg[i].chat]= [];
-      for (let j = 0; j < arg[i].user.length; j++) {
-        let user = {
-          user: arg[i].user[j].ip,
-          online: arg[i].user[j].status,
-        }
-        Users[arg[i].chat].push(user);
-       if (UniqueUsers.indexOf(arg[i].user[j].ip) == -1) {
-          UniqueUsers.push(user);
+      Users = {};
+      for (let i = 0; i < arg.length; i++) {
+        Users[arg[i].chat] = [];
+        for (let j = 0; j < arg[i].user.length; j++) {
+          let user = {
+            user: arg[i].user[j].ip,
+            online: arg[i].user[j].status,
+          };
+          Users[arg[i].chat].push(user);
         }
       }
-      Users[""]= UniqueUsers;
-    }  
-});
-  }
-  function receiveMessage() {
-    window.runtime.EventsOn("receiveMessage", function (...arg) {
-      createMessage(arg[0], arg[1], arg[2],arg[3]);
     });
   }
-
+  async function receiveMessage() {
+    window.runtime.EventsOn("receiveMessage", async function (...arg) {
+      await createMessage(arg[0], arg[1], arg[2], arg[3]);
+    });
+  }
+  function direcMessage() {
+    window.runtime.EventsOn("directMessage", function (arg) {
+      directmessages = arg;
+    });
+  }
   function receiveFile() {
     window.runtime.EventsOn("receiveFile", function (...arg) {
       createMessage(arg[0], arg[1], arg[2]);
     });
   }
-function terminal(){
-  window.runtime.EventsOn("receiveCommands", function (...arg) {
-   
+  function terminal() {
+    window.runtime.EventsOn("receiveCommands", function (...arg) {
       createCommand(arg);
     });
-}
-terminal();
+  }
+  terminal();
   receiveMessage();
   receiveFile();
   updateUsers();
   updateChats();
+  direcMessage();
 
   function cancelRendezvous() {
     CancelRendezvous().then();
@@ -204,35 +223,28 @@ terminal();
     cancelBtn.style.display = "none";
     submitBtn.style.display = "";
   }
-function createCommand(cmd){
-  
-  let terminal = document.getElementById("terminal-box");
-  let command = document.createElement("div");
-  command.className = "command";
-  command.innerHTML = cmd;
-  terminal.scrollTop = terminal.scrollHeight+20;
-  terminal.appendChild(command);
-
-}
-  function sendmessage(message,setmsg) {
-    
+  function createCommand(cmd) {
+    let terminal = document.getElementById("terminal-box");
+    let command = document.createElement("div");
+    command.className = "command";
+    command.innerHTML = cmd;
+    terminal.scrollTop = terminal.scrollHeight + 20;
+    terminal.appendChild(command);
+  }
+  async function sendmessage(message, setmsg) {
     if (setmsg != true) {
       message = document.getElementById("inputtextarea" + current_red).value;
       let input = document.getElementById("inputtextarea" + current_red);
       var sendBtn = document.getElementById("sendBtn" + current_red);
-      input.value = "";
-      sendBtn.style.display = "none";
-    }
- 
-   
-   
 
-    SendTextHandler(message, current_red).then(result => {
-   
-     createMessage(current_red, message, "me", "blue", Files[current_red],result);
-      
+      input.value = "";
+      sendBtn.style.opacity = "0%";
+      sendBtn.style.pointerEvents = "none";
+    }
+
+    await SendTextHandler(message, current_red).then((result) => {
+      createMessage(current_red, message, "me", "", Files[current_red], result);
     });
-    
 
     if (Files[current_red] != null) {
       for (let i = 0; i < Files[current_red].length; i++) {
@@ -251,9 +263,8 @@ function createCommand(cmd){
   }
 
   //creates a new message div and returns it
-  function createMessage(chat, message, sender, time, files,ok) {
+  function createMessage(chat, message, sender, time, files, ok) {
     let chatbox = document.getElementById("chat-box" + chat);
-
     let newmessage = document.createElement("div");
     if (sender == "me") {
       newmessage.className = "messagesent";
@@ -283,19 +294,13 @@ function createCommand(cmd){
         let name = document.createElement("div");
         name.innerText = files[i].filename;
         button.src = fileIcon;
-
         button.className = "fileIconmessage";
-
-        container.appendChild(button);
-        container.appendChild(text);
-
         let file = files[i];
         let path = file.path;
-
         //add path attribute to button
         button.setAttribute("path", path);
-
-        //filesmess += `<div class="message-file" onclick="printPath()">${filename}</div>`;
+        container.appendChild(button);
+        container.appendChild(text);
       }
     }
 
@@ -305,15 +310,17 @@ function createCommand(cmd){
   </div>
     <div class="message-text">${message}</div>
     `;
-   
-    if (ok == false) {
-      newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
-    }else{
-      newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
+    if (sender == "me" && message != "") {
+      if (ok == true) {
+        newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
+      } else {
+        newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
+      }
     }
     if (files != null) {
       newmessage.appendChild(container);
     }
+
     chatbox.appendChild(newmessage);
     //scroll to bottom
     chatbox.scrollTop = chatbox.scrollHeight;
@@ -369,6 +376,7 @@ function createCommand(cmd){
           button.parentElement.querySelector(".filedivname").innerText;
         button.parentElement.querySelector(".filedivname").parentNode.remove();
         deleteFile(name);
+        showsendBtn();
       });
       button.innerHTML = '<i class="fas fa-trash"></i>';
       button.className = "removefilebtn";
@@ -384,51 +392,51 @@ function createCommand(cmd){
     showsendBtn();
   }
 
-  function ChangeChat(chat) {
-
-  
-if (chat == current_red) {
+  async function ChangeChat(chat) {
+    if (chat == current_red) {
       return;
     }
 
-  
-    if (Files[current_red] == null) {
-      Files[current_red] = [];
+    if (Files[chat] == null) {
+      Files[chat] = [];
     }
     setTimeout(auxchangechat, 100, current_red);
+
     current_red = chat;
-
-
+    SetUsers();
   }
 
-function auxchangechat(last_rend){
-
- 
-
-  if (current_red != ""){
-  let currentchatdiv = document.getElementById("chat" + current_red);
-  currentchatdiv.style.display = "block";
-
-  }else{
-    let home_container = document.getElementById("home_container");
-    home_container.style.display = "block";
-    
-  }
-  if (last_rend != ""){
-    let lastchatdiv = document.getElementById("chat" + last_rend);
-    lastchatdiv.style.display = "none";
+  async function auxchangechat(last_rend) {
+    if (current_red != "") {
+      let currentchatdiv = document.getElementById("chat" + current_red);
+      currentchatdiv.style.display = "block";
+    } else {
+      let home_container = document.getElementById("home_container");
+      home_container.style.display = "block";
     }
-    else{
+    if (last_rend != "") {
+      let lastchatdiv = document.getElementById("chat" + last_rend);
+      lastchatdiv.style.display = "none";
+    } else {
       let home_container = document.getElementById("home_container");
       home_container.style.display = "none";
-     
+    }
+    let nowchatoptionsbutton = document.getElementById(
+      "chatoptions" + current_red
+    );
+    if (nowchatoptionsbutton) {
+      nowchatoptionsbutton.style.border = "1px solid #fff";
+    }
+    let lastchatoptionsbutton = document.getElementById(
+      "chatoptions" + last_rend
+    );
+    if (lastchatoptionsbutton) {
+      lastchatoptionsbutton.style.border = "none";
     }
 
-
-
     return;
-}
-function deleteFile(element) {
+  }
+  function deleteFile(element) {
     for (let i = 0; i < Files[current_red].length; i++) {
       if (Files[current_red][i].filename == element) {
         Files[current_red].splice(i, 1);
@@ -447,27 +455,24 @@ function deleteFile(element) {
     modal.style.display = "block";
     modal.style.right = "300px";
   }
-  function textareacheck() {
-    
+  async function textareacheck() {
     var textarea = document.getElementById("inputtextarea" + current_red);
 
     textarea.style.height = "16px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 80)}px`;
-    
-    showsendBtn();
+
+    await showsendBtn();
   }
-  function showsendBtn() {
-  
+  async function showsendBtn() {
     var sendBtn = document.getElementById("sendBtn" + current_red);
     var textarea = document.getElementById("inputtextarea" + current_red);
 
     if (textarea.value.trim() !== "" || Files[current_red].length > 0) {
-      sendBtn.style.display = "block";
-     
-      
+      sendBtn.style.opacity = "100%";
+      sendBtn.style.pointerEvents = "auto";
     } else {
-      
-      sendBtn.style.display = "hidden";
+      sendBtn.style.opacity = "0%";
+      sendBtn.style.pointerEvents = "none";
     }
   }
 
@@ -491,40 +496,44 @@ function deleteFile(element) {
   }
   hidepopup();
 
-   function sendAndAddtoChat() {
-    
+  function sendAndAddtoChat() {
     var modal = document.getElementById("popup");
     var poputname = modal.querySelector("#popupname");
 
     modal.style.display = "none";
-    
-    setTimeout(NewChat, 100, poputname.innerText);
+
+    let auxdirectmessages = directmessages;
+    if (!directmessages.find((ch) => ch === poputname.innerText)) {
+      auxdirectmessages.push(poputname.innerText);
+    }
+    directmessages = auxdirectmessages;
     ChangeChat(poputname.innerText);
-    
-    
+
     //change chat, update chatbox, update files
 
-   
     setTimeout(SendMessageFrompopup, 100);
-
-    
-
   }
-  function NewChat(chat){
 
-    let auxchats =chats;
-    //add to chat if not already there
-    if (!chats.find((ch) => ch === chat)) {
-      auxchats.push(chat);
-    }
-    chats = auxchats;
-    
-
-  }
   function SendMessageFrompopup() {
     var mess = document.getElementById("textinpopup");
-    sendmessage(mess.value,true);
+    sendmessage(mess.value, true);
     document.forms["chatinpopup"].reset();
+  }
+
+  function getColorForUserId(userId) {
+    // Convert the user ID to a number
+    const num = parseInt(userId, 36);
+
+    // Choose a large prime number as the modulus
+    const prime = 65537;
+
+    // Generate random RGB values between 0 and 255
+    const r = Math.floor(Math.abs(Math.sin(num) * prime) % 256);
+    const g = Math.floor(Math.abs(Math.cos(num) * prime) % 256);
+    const b = Math.floor(Math.abs(Math.tan(num) * prime) % 256);
+
+    // Return the random color in RGB format
+    return `rgb(${r}, ${g}, ${b})`;
   }
 </script>
 
@@ -537,14 +546,14 @@ function deleteFile(element) {
   <div class="app-container">
     {#if loggedin}
       <div class="left-menu">
-        <button class="Home" on:click={() => (ChangeChat(""))}>
-          Home
-        </button>
+        <button class="Home" on:click={() => ChangeChat("")}> Home </button>
 
-        {#each chats as chat}
+        {#each [...chats, ...directmessages] as chat}
           <button
             type="button"
             class="chatoptions"
+            id="chatoptions{chat}"
+            style="background-color: {getColorForUserId(chat)}"
             on:click={() => ChangeChat(chat)}
           >
             {chat}</button
@@ -553,11 +562,10 @@ function deleteFile(element) {
       </div>
 
       <div class="data-container">
-       
-        <div id= "home_container">
+        <div id="home_container">
           <h4>Host ID: {id}</h4>
           <h1>Join/Create channel</h1>
-         
+
           <div class="rend-container">
             <div class="rendform">
               <form autocomplete="off" on:submit|preventDefault={addRend}>
@@ -590,51 +598,49 @@ function deleteFile(element) {
               <i class="fas fa-sign-out-alt" />
             </button>
           </div>
-          <div id="terminal">Terminal
-            <div id= "terminal-box"></div>
+          <div id="terminal">
+            Terminal
+            <div id="terminal-box" />
           </div>
         </div>
-        
-          <div class="chatdiv">
-            <h1 class="chatname">{current_red}</h1>
-            {#each chats as chat}
+
+        <div class="chatdiv" id="chatdiv">
+          <h1 class="chatname">{current_red}</h1>
+          {#each [...chats, ...directmessages] as chat}
             <div class="chatdiveach" id="chat{chat}">
-            <div class="chat-box" id="chat-box{chat}">
-              <div class="filecontainers" id="filescontainer{chat}"> </div>
+              <div class="chat-box" id="chat-box{chat}">
+                <div class="filecontainers" id="filescontainer{chat}" />
+              </div>
+
+              <div class="inputcontainer">
+                <textarea
+                  on:keyup={() => textareacheck()}
+                  class="input-textarea"
+                  id="inputtextarea{chat}"
+                  placeholder="Send message ..."
+                />
+                <img
+                  class="uploadlabed"
+                  src={uploadBtn}
+                  alt="img"
+                  on:click={() => addfile()}
+                />
+                <input
+                  type="file"
+                  name="myfile"
+                  id="file{chat}"
+                  style="display:none"
+                />
+
+                <button
+                  class="sendBtn"
+                  id="sendBtn{chat}"
+                  on:click={() => sendmessage()}
+                />
+              </div>
             </div>
-            
-            <div class="inputcontainer">
-              <textarea
-                on:input={() => textareacheck()}
-                class="input-textarea"
-                id="inputtextarea{chat}"
-                placeholder="Send message ..."
-              />
- <img
-                class="uploadlabed"
-                src={uploadBtn}
-                alt="img"
-                on:click={() => addfile()}
-              />
-              <input
-                type="file"
-                name="myfile"
-                id="file{chat}"
-                style="display:none"
-              />
-
-             
-
-              <button class="sendBtn" id="sendBtn{chat}" on:click={() => sendmessage()}
-                ></button
-              >
-             
-          
-          </div>
+          {/each}
         </div>
-        {/each}
-      </div> 
-       
       </div>
 
       <div class="right-menu">
@@ -659,7 +665,6 @@ function deleteFile(element) {
         <h1>Users</h1>
         <div id="users">
           <div class="onlineusers" />
-
           <div class="offlineusers" />
         </div>
       </div>
@@ -677,7 +682,6 @@ function deleteFile(element) {
             <input type="password" id="password" required />
             <button class="btn">Login</button>
           </form>
-
           <p>
             Dont have an account? <button
               on:click={() => (login_register = false)}>Sign In</button
@@ -700,12 +704,10 @@ function deleteFile(element) {
             <span id="password-match-error" style="color: red; display: none"
               >Passwords do not match</span
             >
-
             <button type="submit">Register</button>
           </form>
           <p>Already have an account?</p>
           <button on:click={() => (login_register = true)}>Login</button>
-         
         {/if}
       </div>
     {/if}

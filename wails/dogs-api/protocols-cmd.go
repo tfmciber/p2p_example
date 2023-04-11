@@ -65,9 +65,11 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 		}
 
 	case "rendezvous":
-		fmt.Println("New user added: ", stream.Conn().RemotePeer())
-		c.Add(message[1], stream.Conn().RemotePeer())
-		client.Reserve(context.Background(), c.Host, c.Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
+		if message[1] != "" {
+			fmt.Println("New user added: ", stream.Conn().RemotePeer())
+			c.Add(message[1], stream.Conn().RemotePeer())
+			client.Reserve(context.Background(), c.Host, c.Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
+		}
 
 	case "request":
 		if len(message) < 4 {
@@ -153,7 +155,7 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 	// get random peer from rendezvous that is connected
 	go func() {
 		fmt.Println("[*] Starting connection request")
-		Connectedpeers := c.Get(rendezvous)
+		Connectedpeers, _ := c.Get(rendezvous)
 
 		peers := make([]peer.AddrInfo, 0)
 		for _, peer := range Connectedpeers {

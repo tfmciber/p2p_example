@@ -13,19 +13,24 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-func (c *P2Papp) SendFile(rendezvous string, path string) {
+func (c *P2Papp) SendFile(rendezvous string, path string) bool {
+
+	x, _ := c.Get(rendezvous)
+	if x == nil {
+		return false
+	}
 
 	log.Println("sendFile ", path)
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return false
 	}
 	defer file.Close()
 	fileInfo, err := file.Stat()
 	if err != nil {
 		log.Println(err)
-		return
+		return false
 	}
 
 	fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
@@ -56,6 +61,7 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 
 	file.Close()
 	fmt.Println("\t File has been sent successfully!")
+	return true
 }
 
 func fillString(retunString string, toLength int) string {
