@@ -13,6 +13,7 @@
   import { SendFile } from "../wailsjs/go/main/P2Papp.js";
   import { OpenFileExplorer } from "../wailsjs/go/main/P2Papp.js";
 
+
   import uploadBtn from "./assets/images/uploadBtn.png";
 
   import fileIcon from "./assets/images/folder.png";
@@ -48,15 +49,11 @@ todo show progress when uploading and downloading a file
     } else {
       login_register = true;
     }
-    /*
-    chats = ["test1", "test2"];
-    Users[""] = [{ user: "user1", online: true }];
-    Users["test1"] = [{ user: "user1", online: true }];
-    Files["test1"] = [];
-    */
+    current_red = "";
     chats = [];
     Users = {};
     Files = {};
+    directmessages = [];
   }
   startup();
 
@@ -82,7 +79,6 @@ todo show progress when uploading and downloading a file
   }
   async function SetUsers() {
     let usersAux = Users[current_red];
-
     if (directmessages.includes(current_red)) {
       usersAux = Users[""].filter((user) => user.user == current_red);
     }
@@ -132,16 +128,6 @@ todo show progress when uploading and downloading a file
     }
   }
 
-  function perodicSetUsers() {
-    //call SetUsers() every second once the user is logged in
-    if (loggedin) {
-      //create random chat
-
-      SetUsers();
-      setTimeout(perodicSetUsers, 10000);
-    }
-  }
-  perodicSetUsers();
   function register() {
     password = document.getElementById("password").value;
     NewID(password, filename).then();
@@ -154,7 +140,7 @@ todo show progress when uploading and downloading a file
 
     await InitDHT();
     DhtRoutine(true).then();
-    perodicSetUsers();
+    
   }
 
   function updateChats() {
@@ -163,11 +149,14 @@ todo show progress when uploading and downloading a file
     });
   }
   function updateUsers() {
-    window.runtime.EventsOn("updateUsers", function (arg) {
+    window.runtime.EventsOn("updateUsers", async function (arg) {
+      
+        
       Users = {};
       for (let i = 0; i < arg.length; i++) {
         Users[arg[i].chat] = [];
         for (let j = 0; j < arg[i].user.length; j++) {
+        
           let user = {
             user: arg[i].user[j].ip,
             online: arg[i].user[j].status,
@@ -175,6 +164,8 @@ todo show progress when uploading and downloading a file
           Users[arg[i].chat].push(user);
         }
       }
+     
+      await SetUsers();
     });
   }
   async function receiveMessage() {
@@ -403,7 +394,7 @@ todo show progress when uploading and downloading a file
     setTimeout(auxchangechat, 100, current_red);
 
     current_red = chat;
-    SetUsers();
+    setTimeout(SetUsers, 100);
   }
 
   async function auxchangechat(last_rend) {

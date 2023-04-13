@@ -28,12 +28,10 @@ func (c *P2Papp) SendTextHandler(text string, rendezvous string) bool {
 		c.AddDm(x[0])
 	}
 
-	c.fmtPrintln(fmt.Sprintf("[*] %s [%s] %s  \n", date, rendezvous, text))
-
 	c.writeDataRendFunc(c.textproto, rendezvous, func(stream network.Stream) {
 
 		n, err := stream.Write([]byte(message))
-		c.fmtPrintln(fmt.Sprintf("Enviamos [*] %s [%s] %s = %s,%d \n", date, rendezvous, c.Host.ID(), text, n))
+		c.fmtPrintln(fmt.Sprintf("Sent [*] %s [%s] %s = %s,%d \n", date, rendezvous, c.Host.ID(), text, n))
 		if err != nil {
 			ok = false
 			c.disconnectHost(stream, err, string(stream.Protocol()))
@@ -77,7 +75,7 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 			c.AddDm(stream.Conn().RemotePeer())
 			rendezvous = stream.Conn().RemotePeer().String()
 		}
-		c.fmtPrintln(fmt.Sprintf("[*] %s [%s] %s = %s \n", date, rendezvous, stream.Conn().RemotePeer(), text))
+		c.fmtPrintln(fmt.Sprintf("received message [*] %s [%s] %s = %s \n", date, rendezvous, stream.Conn().RemotePeer(), text))
 		runtime.EventsEmit(c.ctx, "receiveMessage", rendezvous, text, stream.Conn().RemotePeer().String(), date)
 
 	}

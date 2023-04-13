@@ -1,9 +1,3 @@
-.offlineusers{
-
-}
-.onlineusers{
-
-}
 .useronline{
 
     margin: 5%;
@@ -44,3 +38,14 @@
     width: 90%;
     
 }
+.right-menu {
+    width: 300px; /* fixed width */
+    color: #eee;
+    display: flex; 
+    margin-top: 10px;
+    margin-bottom: 100px;
+    height: 80%;
+    overflow-y: auto;
+    flex-direction: column;
+  }
+  

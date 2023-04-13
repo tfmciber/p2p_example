@@ -6,7 +6,6 @@ import (
 	"log"
 	filepath "path/filepath"
 	"sync"
-	"time"
 
 	"strings"
 
@@ -44,7 +43,6 @@ type P2Papp struct {
 		peers []peer.ID
 		timer uint
 	}
-
 	direcmessages []peer.ID
 	refresh       uint
 	preferquic    bool
@@ -54,9 +52,8 @@ type P2Papp struct {
 	benchproto    protocol.ID
 	cmdproto      protocol.ID
 	fileproto     protocol.ID
-	//chanel of struct of 2 strings
-	useradded chan bool
-	chatadded chan string
+	useradded     chan bool
+	chatadded     chan string
 }
 
 type PathFilename struct {
@@ -119,6 +116,7 @@ func (c *P2Papp) SelectFiles() []PathFilename {
 
 	return pathFilenames
 }
+
 func (c *P2Papp) startup(ctx context.Context) {
 	c.ctx = ctx
 	c.DataChanged()
@@ -140,11 +138,12 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 		}()
 
 	} else {
-		c.data[key] = struct {
-			peers []peer.ID
-			timer uint
-		}{peers: append(c.data[key].peers, value), timer: c.refresh}
-
+		if !contains(c.data[key].peers, value) {
+			c.data[key] = struct {
+				peers []peer.ID
+				timer uint
+			}{peers: append(c.data[key].peers, value), timer: c.refresh}
+		}
 	}
 
 	if _, ok := c.data[""]; !ok {
@@ -153,7 +152,6 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 			timer uint
 		}{peers: []peer.ID{value}, timer: c.refresh}
 	} else {
-		//append peer only if not already in list of peer.ID in c.data[""]
 		if !contains(c.data[""].peers, value) {
 			c.data[""] = struct {
 				peers []peer.ID
@@ -175,7 +173,6 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 func (c *P2Papp) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.fmtPrintln("clear")
 	c.data = make(map[string]struct {
 		peers []peer.ID
 		timer uint
@@ -196,7 +193,6 @@ func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 	c.mu.Lock()
 
 	defer c.mu.Unlock()
-	c.fmtPrintln("Get", key, c.data[key].peers)
 	id := c.GetPeerIDfromstring(key)
 	if id != "" {
 
@@ -220,7 +216,7 @@ func (c *P2Papp) GetRend() []string {
 	for k := range c.data {
 		keys = append(keys, k)
 	}
-	c.fmtPrintln("keys=", keys)
+
 	return keys
 
 }
@@ -262,26 +258,17 @@ func (c *P2Papp) ListChats() []string {
 	return chats
 }
 
-//func that alerts if c.data has changed
 func (c *P2Papp) DataChanged() {
 
 	go func() {
 		for {
 			select {
 			case <-c.chatadded:
-				c.fmtPrintln("chatadded")
 				aux := c.ListChats()
-
 				runtime.EventsEmit(c.ctx, "updateChats", aux)
 			case <-c.useradded:
-				c.fmtPrintln("user added")
-				aux := c.ListUsers()
-
-				runtime.EventsEmit(c.ctx, "updateUsers", aux)
-			case <-time.After(30 * time.Second):
 				aux := c.ListUsers()
 				runtime.EventsEmit(c.ctx, "updateUsers", aux)
-
 			case <-c.ctx.Done():
 
 				return
@@ -393,7 +380,23 @@ func (c *P2Papp) NewHost() string {
 		log.Printf("Failed to instantiate the relay: %v", err)
 
 	}
+
 	c.fmtPrintln("\t[*] Host Done")
+	c.Host.Network().Notify(&network.NotifyBundle{
+		DisconnectedF: func(net network.Network, conn network.Conn) {
+			if contains(c.data[""].peers, conn.RemotePeer()) {
+				c.fmtPrintln("[*] Disconnected from ", conn.RemotePeer())
+				c.useradded <- true
+			}
+
+		},
+		ConnectedF: func(net network.Network, conn network.Conn) {
+			if contains(c.data[""].peers, conn.RemotePeer()) {
+				c.fmtPrintln("[*] Connected to ", conn.RemotePeer())
+				c.useradded <- true
+			}
+		},
+	})
 	return c.Host.ID().String()
 
 }
@@ -402,6 +405,7 @@ func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rend
 
 	if c.Host.Network().Connectedness(peeraddr.ID) == network.Connected {
 		c.fmtPrintln("\t\t\t Already connected to ", peeraddr.ID, peeraddr.Addrs)
+		c.Add(rendezvous, peeraddr.ID)
 		return true
 	}
 
