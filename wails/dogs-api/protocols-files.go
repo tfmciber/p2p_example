@@ -10,7 +10,6 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/schollz/progressbar/v3"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (c *P2Papp) SendFile(rendezvous string, path string) bool {
@@ -106,7 +105,7 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 	}
 	pa.Path = filepath
 	pa.Filename = fileName
-	runtime.EventsEmit(c.ctx, "receiveFile", fromrendezvous, stream.Conn().RemotePeer().String(), pa)
+	c.EmitEvent("receiveFile", fromrendezvous, stream.Conn().RemotePeer().String(), pa)
 	newFile, err := os.Create(filepath)
 	if err != nil {
 		fmt.Println(err)

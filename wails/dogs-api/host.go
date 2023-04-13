@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	filepath "path/filepath"
 	"sync"
 
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -95,26 +93,6 @@ func (c *P2Papp) ListUsers() []Users {
 
 	return users
 
-}
-
-func (c *P2Papp) SelectFiles() []PathFilename {
-
-	var pathFilenames []PathFilename
-
-	file, err := runtime.OpenMultipleFilesDialog(c.ctx, runtime.OpenDialogOptions{})
-	if err != nil {
-		return nil
-	}
-	//get file sizes
-	i := 0
-	for _, f := range file {
-		filename := filepath.Base(f)
-		pathFilenames = append(pathFilenames, PathFilename{Path: f, Filename: filename})
-
-		i += 1
-	}
-
-	return pathFilenames
 }
 
 func (c *P2Papp) startup(ctx context.Context) {
@@ -256,25 +234,6 @@ func (c *P2Papp) ListChats() []string {
 		}
 	}
 	return chats
-}
-
-func (c *P2Papp) DataChanged() {
-
-	go func() {
-		for {
-			select {
-			case <-c.chatadded:
-				aux := c.ListChats()
-				runtime.EventsEmit(c.ctx, "updateChats", aux)
-			case <-c.useradded:
-				aux := c.ListUsers()
-				runtime.EventsEmit(c.ctx, "updateUsers", aux)
-			case <-c.ctx.Done():
-
-				return
-			}
-		}
-	}()
 }
 
 func (c *P2Papp) GetData() map[string]struct {

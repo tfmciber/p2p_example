@@ -9,7 +9,6 @@ import (
 	"runtime"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func contains(s []peer.ID, e peer.ID) bool {
@@ -34,14 +33,7 @@ func PrintToVariable(args ...interface{}) (string, error) {
 
 	return buffer.String()[:buffer.Len()-1], nil
 }
-func (c *P2Papp) fmtPrintln(args ...interface{}) {
-	output, err := PrintToVariable(args...)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(output)
-	wailsruntime.EventsEmit(c.ctx, "receiveCommands", output)
-}
+
 func (c *P2Papp) OpenFileExplorer(path string) error {
 	c.fmtPrintln("open file explorer")
 	var cmd *exec.Cmd

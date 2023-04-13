@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (c *P2Papp) SendTextHandler(text string, rendezvous string) bool {
@@ -76,22 +74,7 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 			rendezvous = stream.Conn().RemotePeer().String()
 		}
 		c.fmtPrintln(fmt.Sprintf("received message [*] %s [%s] %s = %s \n", date, rendezvous, stream.Conn().RemotePeer(), text))
-		runtime.EventsEmit(c.ctx, "receiveMessage", rendezvous, text, stream.Conn().RemotePeer().String(), date)
-
-	}
-
-}
-
-func (c *P2Papp) AddDm(peerid peer.ID) {
-
-	if !contains(c.direcmessages, peerid) {
-		c.direcmessages = append(c.direcmessages, peerid)
-		//convert []peer.ID to []string
-		var peerids []string
-		for _, v := range c.direcmessages {
-			peerids = append(peerids, v.String())
-		}
-		runtime.EventsEmit(c.ctx, "directMessage", peerids)
+		c.EmitEvent("receiveMessage", rendezvous, text, stream.Conn().RemotePeer().String(), date)
 
 	}
 
