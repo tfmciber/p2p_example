@@ -15,9 +15,15 @@ export function Clear():Promise<void>;
 
 export function DataChanged():Promise<void>;
 
+export function DeleteChat(arg1:string):Promise<void>;
+
 export function DeriveKey(arg1:Array<number>,arg2:Array<number>):Promise<Array<number>|Array<number>>;
 
 export function DhtRoutine(arg1:boolean):Promise<void>;
+
+export function EmitEvent(arg1:string,arg2:Array<any>):Promise<void>;
+
+export function FakeUsers():Promise<Array<main.Users>>;
 
 export function Get(arg1:string):Promise<Array<peer.ID>|boolean>;
 
@@ -33,9 +39,13 @@ export function GetTimer(arg1:string):Promise<number>;
 
 export function InitDHT():Promise<void>;
 
+export function LeaveChat(arg1:string):Promise<void>;
+
 export function ListChats():Promise<Array<string>>;
 
 export function ListUsers():Promise<Array<main.Users>>;
+
+export function MoveQueue():Promise<void>;
 
 export function NewHost():Promise<string>;
 
@@ -45,14 +55,18 @@ export function OpenFileExplorer(arg1:string):Promise<void>;
 
 export function OpenID(arg1:Array<number>,arg2:string):Promise<string>;
 
+export function QueueFile(arg1:string,arg2:string):Promise<void>;
+
 export function ReadKeys(arg1:string):Promise<Array<number>>;
 
 export function Reconnect(arg1:string):Promise<void>;
 
 export function SelectFiles():Promise<Array<main.PathFilename>>;
 
-export function SendFile(arg1:string,arg2:string):Promise<boolean>;
+export function SendFile(arg1:string,arg2:string):Promise<void>;
 
 export function SendTextHandler(arg1:string,arg2:string):Promise<boolean>;
+
+export function SetPeers(arg1:string,arg2:Array<peer.ID>):Promise<void>;
 
 export function SetTimer(arg1:string,arg2:number):Promise<void>;

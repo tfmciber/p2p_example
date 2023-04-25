@@ -100,3 +100,12 @@ func appendToCSV(file string, data []string) {
 	}
 
 }
+func deleteValue[T comparable](arr []T, value T) []T {
+	result := []T{}
+	for _, v := range arr {
+		if v != value {
+			result = append(result, v)
+		}
+	}
+	return result
+}

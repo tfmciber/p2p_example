@@ -13,6 +13,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  
 }
 
 
@@ -135,10 +136,27 @@ left:0;
   
   display: flex; 
   margin-top: 10px;
-  overflow-y: auto;
+  
   flex-direction: column;
 }
+.chats-menu{
+  overflow-y: auto;
+  
+  display: flex; 
+  margin-top: 10px;
+  
+  flex-direction: column;
+  height: 77%;
+}
+.option{
+  
+  bottom: 0px;
+  padding-top: 10px;
+  margin-top: 10px;
 
+  margin-top: 10px;
+
+}
 .Home{
 
   width: 80%;
@@ -190,6 +208,13 @@ margin-left: 10%;
 border-radius: 5px;
 background-color: gray;  
 }
+.chatoptions-deleted{
+  width: fit-content;
+text-align: left;
+margin-left: 10%;
+border-radius: 5px;
+background-color: gray;  
+}
 
 .directmessages{
 
@@ -206,20 +231,6 @@ border-radius: 5px;
   flex-grow: 1; /* variable width */
   
 }
-
-.right-menu {
-  width: 300px; /* fixed width */
-  color: #eee;
-  display: flex; 
-  margin-top: 10px;
-  overflow-y: auto;
-  flex-direction: column;
-}
-
-
-/*Chat*/
-
-
 
 
 .message {

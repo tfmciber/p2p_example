@@ -38,6 +38,14 @@
     width: 90%;
     
 }
+#users{
+    overflow-y: auto;
+    direction: rtl;
+    height: 90%;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
 .right-menu {
     width: 300px; /* fixed width */
     color: #eee;
@@ -45,7 +53,7 @@
     margin-top: 10px;
     margin-bottom: 100px;
     height: 80%;
-    overflow-y: auto;
+    
     flex-direction: column;
   }
   

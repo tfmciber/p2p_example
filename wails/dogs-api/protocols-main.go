@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
@@ -33,7 +34,7 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
 	rend, _ := c.Get(rendezvous)
-	fmt.Print("rend", rend)
+
 	var wg sync.WaitGroup
 	for _, v := range rend {
 
@@ -48,10 +49,12 @@ func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f 
 
 				//run go func f and wait until all it intances are done waitgroup
 				wg.Add(1)
-				go func() {
+				go func(peerID peer.ID) {
+					defer stream.Close()
+
 					defer wg.Done()
 					f(stream)
-				}()
+				}(v)
 
 			}
 		}

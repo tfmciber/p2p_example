@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,78 +18,116 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 
 	buff := make([]byte, 2000)
 	n, err := stream.Read(buff)
+	c.fmtPrintln("receiveCommandhandler: ", string(buff[:n]))
+	var message []string
 	if err != nil {
-		fmt.Println("Error reading stream: ", err)
-		return
+		if err != io.EOF {
+			c.fmtPrintln("Error reading stream: ", err)
+			goto end
+		}
+
 	}
 
 	// split message by /
-	message := strings.Split(string(buff[:n]), "$")
+	message = strings.Split(string(buff[:n]), "$")
 	if len(message) < 2 {
-		fmt.Println("Invalid command")
-		return
+		c.fmtPrintln("Invalid command")
+		goto end
 	}
 
 	switch message[0] {
 	case "connect":
 		if len(message) < 4 {
-			fmt.Println("Invalid connect command")
-			return
+
+			c.fmtPrintln("Invalid connect command", message)
+			goto end
 		}
 		peersstr := message[1]
 		rendezvous := message[2]
 		quicstr := message[3]
 		quic, err := strconv.ParseBool(quicstr)
 		if err != nil {
-			fmt.Println("Error parsing quic bool: ", err)
-			return
+			c.fmtPrintln("Error parsing quic bool: ", err)
+			goto end
 		}
-		fmt.Println("quic: ", quic)
+		c.fmtPrintln("quic: ", quic)
 
 		// convert json string to peer.AddrInfo
 
 		var addrinf peer.AddrInfo
 		err = addrinf.UnmarshalJSON([]byte(peersstr))
 		if err != nil {
-			fmt.Println("Error unmarshalling json: ", err)
-			return
+			c.fmtPrintln("Error unmarshalling json: ", err)
+			goto end
 		} else {
 
-			fmt.Println("[*] Connecting to peer: ", addrinf.ID)
+			c.fmtPrintln("[*] Connecting to peer: ", addrinf.ID)
 
 			ok := c.connectToPeer(c.ctx, addrinf, rendezvous, quic, true)
 			if ok {
-				fmt.Println("\t [*] Connected to peer: ", addrinf.ID)
+				c.fmtPrintln("\t [*] Connected to peer: ", addrinf.ID)
 			} else {
-				fmt.Println("\t [*] Failed to connect to peer: ", addrinf.ID)
+				c.fmtPrintln("\t [*] Failed to connect to peer: ", addrinf.ID)
 			}
 		}
 
 	case "rendezvous":
 		if message[1] != "" {
-			fmt.Println("New user added: ", stream.Conn().RemotePeer())
+			c.fmtPrintln("New user added: ", stream.Conn().RemotePeer())
 			c.Add(message[1], stream.Conn().RemotePeer())
 			client.Reserve(context.Background(), c.Host, c.Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
 		}
 
 	case "request":
 		if len(message) < 4 {
-			fmt.Println("Invalid connect command")
-			return
+			c.fmtPrintln("Invalid connect command")
+			goto end
 		}
 		peers := strings.Split(string(message[1]), ",")
 		rendezvous := message[2]
 		quic, err := strconv.ParseBool(message[3])
 		if err != nil {
-			fmt.Println("Error parsing quic bool: ", err)
-			return
+			c.fmtPrintln("Error parsing quic bool: ", err)
+			goto end
 		}
 		c.receiveReqhandler(peers, rendezvous, quic, stream)
+	case "leave":
+		c.fmtPrintln("User ", stream.Conn().RemotePeer(), " left chat", message[1])
+		rendezvous := message[1]
+		peerid, err := peer.Decode(message[1])
+		c.fmtPrintln("Peerid: ", peerid, "err: ", err)
+		isrend := c.checkRend(rendezvous)
+		user := stream.Conn().RemotePeer()
+		c.fmtPrintln("Isrend: ", isrend)
+
+		if err == nil {
+			c.fmtPrintln("removing DM")
+			if peerid == c.Host.ID() {
+				c.fmtPrintln("Removing DM deleted ")
+				c.deleteDm(user)
+				c.EmitEvent("dmLeft")
+			} else {
+				c.fmtPrintln("User is not the owner of the DM")
+				goto end
+			}
+		} else if isrend {
+			c.fmtPrintln("Removing"+user, "from ", rendezvous)
+			aux := deleteValue(c.data[rendezvous].peers, user)
+			c.SetPeers(rendezvous, aux)
+			time := time.Now().Format("2006-01-02 15:04:05")
+			c.EmitEvent("userLeft", rendezvous, time, user)
+			c.useradded <- true
+
+		} else {
+			c.fmtPrintln("Error removing user")
+			goto end
+		}
+
 	default:
-		fmt.Println("Invalid command")
+		c.fmtPrintln("Invalid command")
 
 	}
-
+end:
 	stream.Close()
 
 }
@@ -97,47 +136,49 @@ func (c *P2Papp) receiveReqhandler(peers []string, rendezvous string, quic bool,
 
 	// read message from stream
 
-	fmt.Println("[*] Received request for connection to: ", peers[:len(peers)-1], "using quic: ", quic)
+	c.fmtPrintln("[*] Received request for connection to: ", peers, "using quic: ", quic)
 	addrinfostr, _ := c.Host.Peerstore().PeerInfo(stream.Conn().RemotePeer()).MarshalJSON()
 	message := "connect$" + string(addrinfostr) + "$" + rendezvous + "$" + strconv.FormatBool(quic)
 
 	conns := ""
+
 	for _, p := range peers[:len(peers)-1] {
 		peerID, err := peer.Decode(p)
 		if err != nil {
-			fmt.Println("Error decoding peer ID: ", err)
-			goto sendresponse
-		}
+			c.fmtPrintln("Error decoding", c.GetPeerIDfromstring(p), p, peerID, "ID: ", err)
 
-		if c.Host.Network().Connectedness(peerID) == network.Connected {
-			fmt.Println("\t[*] Starting connection to: ", p)
+		} else {
+			c.fmtPrintln("[*] Checking connection to: ", peerID)
+			if c.Host.Network().Connectedness(peerID) == network.Connected {
+				c.fmtPrintln("\t[*] Starting connection to: ", p)
 
-			stream, err := c.Host.NewStream(context.Background(), peerID, c.cmdproto)
-			if err != nil {
-				fmt.Println("Error creating stream: ", err)
-				goto sendresponse
+				stream, err := c.Host.NewStream(context.Background(), peerID, c.cmdproto)
+				if err != nil {
+					c.fmtPrintln("Error creating stream: ", err)
+
+				}
+				c.fmtPrintln("\t\t [*] Sending address")
+				_, err = stream.Write([]byte(message))
+				if err != nil {
+					c.fmtPrintln("Error writing to stream: ", err)
+
+				}
+				c.fmtPrintln("\r \t\t [*] Sent address")
+				conns += peerID.String() + ","
+
 			}
-			fmt.Println("\t\t [*] Sending address")
-			_, err = stream.Write([]byte(message))
-			if err != nil {
-				fmt.Println("Error writing to stream: ", err)
-				goto sendresponse
-			}
-			fmt.Print("\r \t\t [*] Sent address")
-			conns += peerID.String() + ","
-
 		}
 	}
 
 	//write to stream the conn var
-sendresponse:
+
 	if conns == "" {
 		conns = "0"
 	}
-	fmt.Println("[*] Sending response", conns)
+	c.fmtPrintln("[*] Sending response", conns)
 	_, err := stream.Write([]byte(conns))
 	if err != nil {
-		fmt.Println("Error writing to stream: ", err)
+		c.fmtPrintln("Error writing to stream: ", err)
 
 	}
 }
@@ -146,6 +187,7 @@ sendresponse:
 // list of the peer ID from failed var and the quic bool
 func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic bool, ctx context.Context, ctx2 context.Context) []peer.ID {
 
+	c.fmtPrintln("[*] Requesting connection to: ", failed, "using quic: ", quic)
 	if len(failed) == 0 {
 		return nil
 	}
@@ -154,7 +196,7 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 
 	// get random peer from rendezvous that is connected
 	go func() {
-		fmt.Println("[*] Starting connection request")
+		c.fmtPrintln("[*] Starting connection request")
 		Connectedpeers, _ := c.Get(rendezvous)
 
 		peers := make([]peer.AddrInfo, 0)
@@ -173,7 +215,7 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 		index := 0
 	selectpeer:
 
-		if index >= len(Connectedpeers) {
+		if index >= len(peers) {
 			peersID <- nil
 			return
 		}
@@ -181,56 +223,59 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 		selpeer := peers[index]
 		index++
 
-		fmt.Println("\t[*] Selected peer: ", selpeer)
+		c.fmtPrintln("\t[*] Selected peer: ", selpeer)
 		// create stream to random peer
 		stream, err := c.Host.NewStream(context.Background(), selpeer.ID, c.cmdproto)
+		defer stream.Close()
 		if err != nil {
-			fmt.Println("Error creating stream: ", err)
-			peersID = nil
+			c.fmtPrintln("Error creating stream: ", err)
+			peersID <- nil
 			return
 		}
 		// create message with failed peers and quic bool
 		var msg = "request$"
 		for _, peerid := range failed {
-			fmt.Println("\t\t[*] request for peer: ", peerid.String())
+			c.fmtPrintln("\t\t[*] request for peer: ", peerid.String())
 			msg += peerid.String() + ","
 		}
 		msg += "$" + rendezvous + "$" + strconv.FormatBool(quic)
 
-		fmt.Println("\t\t[*] request message: ", msg)
+		c.fmtPrintln("\t\t[*] request message: ", msg)
 
 		// write message to stream
 		n, err := stream.Write([]byte(msg))
-		fmt.Println("Wrote ", n, " bytes to stream, err: ", err)
+		c.fmtPrintln("Wrote ", n, " bytes to stream, err: ", err)
 
-		fmt.Println("\t [*] Waiting for response...")
+		c.fmtPrintln("\t [*] Waiting for response...")
 		buff := make([]byte, 2000)
 		n, err = stream.Read(buff)
 		if err != nil {
-			fmt.Println("Error reading stream hereee: ", err)
-			peersID = nil
-			return
+			c.fmtPrintln("Error reading stream hereee: ", err, n, string(buff[:n]))
+			if n == 0 {
+				goto selectpeer
+			}
 		}
-		fmt.Println("\t [*] Received response ", string(buff[:n]))
+		c.fmtPrintln("\t [*] Received response ", string(buff[:n]))
 
 		if string(buff[:n]) == "0" {
-			fmt.Println("Response indicates no peers can see Host")
+			c.fmtPrintln("Response indicates no peers can see Host")
 			goto selectpeer
 		} else {
 			//get peers from response
 			peers := strings.Split(string(buff[:n]), ",")
-			fmt.Println("[*] Received online peers that we cant reach")
+			c.fmtPrintln("[*] Received online peers that we cant reach")
 
 			//slice of string to slice of peer.ID
 			peersIDaux := make([]peer.ID, 0)
-			for _, p := range peers[:len(peers)-1] {
+			for _, p := range peers {
 				peerID, err := peer.Decode(p)
 				if err != nil {
-					fmt.Println("Error decoding peer ID: ", err)
-					peersID = nil
-					return
+					c.fmtPrintln("Error decoding peer ID: ", err, p)
+					continue
+				} else {
+					peersIDaux = append(peersIDaux, peerID)
 				}
-				peersIDaux = append(peersIDaux, peerID)
+
 			}
 			peersID <- peersIDaux
 
@@ -240,13 +285,13 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 	}()
 	select {
 	case <-ctx.Done():
-		fmt.Println("Context done")
+		c.fmtPrintln("Context done")
 		return nil
 	case <-ctx2.Done():
-		fmt.Println("Context done")
+		c.fmtPrintln("Context done")
 		return nil
 	case peersID := <-peersID:
-		fmt.Println("Request done")
+		c.fmtPrintln("Request done")
 		return peersID
 	}
 

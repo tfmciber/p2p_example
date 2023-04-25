@@ -33,6 +33,9 @@ import (
 type P2Papp struct {
 	Host             host.Host
 	mu               sync.Mutex
+	queueFiles       map[string][]string
+	movequeue        chan string
+	queueFilesMutex  sync.Mutex
 	ctx              context.Context
 	cancelRendezvous context.CancelFunc
 	priv             crypto.PrivKey
@@ -41,6 +44,7 @@ type P2Papp struct {
 		peers []peer.ID
 		timer uint
 	}
+	trashchats    map[string]bool //stores deleted of left chats
 	direcmessages []peer.ID
 	refresh       uint
 	preferquic    bool
@@ -86,10 +90,29 @@ func (c *P2Papp) ListUsers() []Users {
 			}
 
 		}
-
+		if len(aux) == 0 {
+			aux = []User{}
+		}
 		users = append(users, Users{Chat: chat, Peers: aux})
 
 	}
+
+	return users
+
+}
+func (c *P2Papp) FakeUsers() []Users {
+
+	var users []Users
+
+	var aux []User
+
+	for i := 0; i < 20; i++ {
+
+		aux = append(aux, User{Ip: fmt.Sprintf("user-%d", i), Status: true})
+
+	}
+
+	users = append(users, Users{Chat: "", Peers: aux})
 
 	return users
 
@@ -98,6 +121,19 @@ func (c *P2Papp) ListUsers() []Users {
 func (c *P2Papp) startup(ctx context.Context) {
 	c.ctx = ctx
 	c.DataChanged()
+	c.MoveQueue()
+
+}
+
+func (c *P2Papp) SetPeers(key string, values []peer.ID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if key != "" {
+		c.data[key] = struct {
+			peers []peer.ID
+			timer uint
+		}{peers: values, timer: c.refresh}
+	}
 }
 func (c *P2Papp) Add(key string, value peer.ID) {
 	c.mu.Lock()
@@ -105,10 +141,17 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 	c.fmtPrintln("Adding", key, value)
 	//if key not in data, add it
 	if _, ok := c.data[key]; !ok {
-		c.data[key] = struct {
-			peers []peer.ID
-			timer uint
-		}{peers: []peer.ID{value}, timer: c.refresh}
+		if key != "" {
+			c.data[key] = struct {
+				peers []peer.ID
+				timer uint
+			}{peers: []peer.ID{value}, timer: c.refresh}
+		} else {
+			c.data[key] = struct {
+				peers []peer.ID
+				timer uint
+			}{peers: []peer.ID{}, timer: c.refresh}
+		}
 		go func() {
 
 			c.chatadded <- key
@@ -168,18 +211,22 @@ func (c *P2Papp) Clear() {
 }
 func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 
-	c.mu.Lock()
-
-	defer c.mu.Unlock()
 	id := c.GetPeerIDfromstring(key)
 	if id != "" {
 
 		if contains(c.data[""].peers, c.GetPeerIDfromstring(key)) {
+
 			return []peer.ID{c.GetPeerIDfromstring(key)}, true
 		} else {
+
 			return nil, false
 		}
 	} else {
+
+		if !c.checkRend(key) {
+			return nil, false
+		}
+
 		return c.data[key].peers, false
 	}
 }
@@ -198,6 +245,17 @@ func (c *P2Papp) GetRend() []string {
 	return keys
 
 }
+
+func (c *P2Papp) checkRend(rend string) bool {
+	rendezvous := c.GetRend()
+	for _, rendez := range rendezvous {
+		if rend == rendez {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *P2Papp) GetTimer(key string) uint {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -233,6 +291,9 @@ func (c *P2Papp) ListChats() []string {
 			chats = append(chats, k)
 		}
 	}
+	if len(chats) == 0 {
+		chats = []string{}
+	}
 	return chats
 }
 
@@ -246,47 +307,47 @@ func (c *P2Papp) GetData() map[string]struct {
 // function to create a host with a private key and a resource manager to limit the number of connections and streams per peer and per protocol
 func (c *P2Papp) NewHost() string {
 
-	/*
-		limiter := rcmgr.InfiniteLimits
+	limiter := rcmgr.InfiniteLimits
 
-		rcm, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limiter))
-		if err != nil {
-			log.Fatal(err)
-		}
+	rcm, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limiter))
+	if err != nil {
+		log.Fatal(err)
+	}
+	/*
+			limiterCfg := `{
+		    "System":  {
+		      "StreamsInbound": 4096,
+		      "StreamsOutbound": 32768,
+		      "Conns": 64000,
+		      "ConnsInbound": 512,
+		      "ConnsOutbound": 32768,
+		      "FD": 64000
+		    },
+		    "Transient": {
+		      "StreamsInbound": 4096,
+		      "StreamsOutbound": 32768,
+		      "ConnsInbound": 512,
+		      "ConnsOutbound": 32768,
+		      "FD": 64000
+		    },
+		    "ProtocolDefault":{
+		      "StreamsInbound": 1024,
+		      "StreamsOutbound": 32768
+		    },
+		    "ServiceDefault":{
+		      "StreamsInbound": 2048,
+		      "StreamsOutbound": 32768
+		    }
+		  }`
+			limiter, err := rcmgr.NewDefaultLimiterFromJSON(strings.NewReader(limiterCfg))
+			if err != nil {
+				panic(err)
+			}
+			rcm, err := rcmgr.NewResourceManager(limiter)
+			if err != nil {
+				panic(err)
+			}
 	*/
-	limiterCfg := `{
-    "System":  {
-      "StreamsInbound": 4096,
-      "StreamsOutbound": 32768,
-      "Conns": 64000,
-      "ConnsInbound": 512,
-      "ConnsOutbound": 32768,
-      "FD": 64000
-    },
-    "Transient": {
-      "StreamsInbound": 4096,
-      "StreamsOutbound": 32768,
-      "ConnsInbound": 512,
-      "ConnsOutbound": 32768,
-      "FD": 64000
-    },
-    "ProtocolDefault":{
-      "StreamsInbound": 1024,
-      "StreamsOutbound": 32768
-    },
-    "ServiceDefault":{
-      "StreamsInbound": 2048,
-      "StreamsOutbound": 32768
-    }
-  }`
-	limiter, err := rcmgr.NewDefaultLimiterFromJSON(strings.NewReader(limiterCfg))
-	if err != nil {
-		panic(err)
-	}
-	rcm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		panic(err)
-	}
 	var DefaultTransports = libp2p.ChainOptions(
 
 		libp2p.Transport(tcp.NewTCPTransport),
@@ -428,6 +489,7 @@ func (c *P2Papp) connectToPeers(peeraddrs []peer.AddrInfo, rendezvous string, pr
 		c.fmtPrintln("[*] ctx2 done")
 		return nil
 	case <-end:
+		c.fmtPrintln("[*] end connectToPeers")
 		return failed
 
 	}
@@ -524,7 +586,7 @@ func (c *P2Papp) disconnectPeer(peerid string) {
 			for _, stream := range v.GetStreams() {
 
 				stream.Close()
-				stream.Reset()
+
 			}
 			v.Close()
 		}

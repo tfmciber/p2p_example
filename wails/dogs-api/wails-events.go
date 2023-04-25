@@ -3,13 +3,15 @@ package main
 import (
 	"fmt"
 	filepath "path/filepath"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (c *P2Papp) EmitEvent(event string, data ...interface{}) {
-	runtime.EventsEmit(c.ctx, event, data)
+
+	runtime.EventsEmit(c.ctx, event, data...)
 
 }
 
@@ -39,11 +41,16 @@ func (c *P2Papp) DataChanged() {
 		for {
 			select {
 			case <-c.chatadded:
+				c.fmtPrintln("chat added")
 				aux := c.ListChats()
+				c.fmtPrintln(aux)
+
 				runtime.EventsEmit(c.ctx, "updateChats", aux)
 			case <-c.useradded:
-				aux := c.ListUsers()
+				aux := c.FakeUsers()
 				runtime.EventsEmit(c.ctx, "updateUsers", aux)
+			//every 5 seconds
+
 			case <-c.ctx.Done():
 
 				return
@@ -56,9 +63,13 @@ func (c *P2Papp) fmtPrintln(args ...interface{}) {
 	if err != nil {
 		panic(err)
 	}
+	timemow := time.Now().Format("2006-01-02 15:04:05")
+	output = fmt.Sprintf("[%s] - %s", timemow, output)
+
 	fmt.Println(output)
 	runtime.EventsEmit(c.ctx, "receiveCommands", output)
 }
+
 func (c *P2Papp) AddDm(peerid peer.ID) {
 
 	if !contains(c.direcmessages, peerid) {

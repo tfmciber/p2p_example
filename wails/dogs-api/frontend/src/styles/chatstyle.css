@@ -251,7 +251,42 @@ position: relative;
   height: 3%;
  
   }
+.progress{
 
+  border-radius: 4px;
+  width: 100%;
+  height: 5px;
+
+  background-color: rgb(0, 0, 0);
+  overflow: hidden;
+
+}
+.progressbar{
+  border-radius: 4px;
+  width: 0%;
+  height: 5px;
+
+  background-color: rgb(255, 255, 255);
+  background-color: aliceblue;
+  overflow: hidden;
+}
+.leave-chat{
+  position: absolute;
+  padding: 0px;
+  left: 80%;
+  
+
+}
+.progress-buttons{
+
+  border-radius: 4px;
+  margin: 0px;
+  padding: 0px;
+  
+
+
+
+}
 .filecontainers{
 height: 30%;
 position: absolute;

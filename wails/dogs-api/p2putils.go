@@ -98,7 +98,11 @@ func (c *P2Papp) getStreamsFromPeerProto(peerID peer.ID, protocol protocol.ID) n
 			for _, s := range v.GetStreams() {
 
 				if s.Protocol() == protocol {
-					return s
+					//check if stream is open
+					if s.Stat().Direction == network.DirOutbound {
+						return s
+					}
+
 				}
 			}
 		}

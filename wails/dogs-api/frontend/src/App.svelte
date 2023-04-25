@@ -10,32 +10,27 @@
   import { CancelRendezvous } from "../wailsjs/go/main/P2Papp.js";
   import { SendTextHandler } from "../wailsjs/go/main/P2Papp.js";
   import { SelectFiles } from "../wailsjs/go/main/P2Papp.js";
-  import { SendFile } from "../wailsjs/go/main/P2Papp.js";
+  import { QueueFile } from "../wailsjs/go/main/P2Papp.js";
   import { OpenFileExplorer } from "../wailsjs/go/main/P2Papp.js";
-
-
+  import {LeaveChat} from "../wailsjs/go/main/P2Papp.js";
+  import {DeleteChat} from "../wailsjs/go/main/P2Papp.js";
   import uploadBtn from "./assets/images/uploadBtn.png";
-
   import fileIcon from "./assets/images/folder.png";
   import check from "./assets/images/check.png";
   import wrong from "./assets/images/wrong.png";
-  /*
-TODO: BUTTON TO DELETE A chat
-todo show progress when uploading and downloading a file
-
-*/
+  import queue from "./assets/images/queue.png";
+  import progressicon from "./assets/images/progress.png";
   let current_red = "";
   let ciphered = [];
-  //var of type number[]
   let id = "";
-  let Users = {}; // Users[""] will hold all users
-
+  let Users = {};
   let Files = {};
   var chats = [];
+  let thrash = [];
   var directmessages = [];
   let filename = "key.key";
   let password = "";
-  let login_register = true; // true for login, false for register
+  let login_register = true; 
   let loggedin = false;
 
   async function startup() {
@@ -50,10 +45,13 @@ todo show progress when uploading and downloading a file
       login_register = true;
     }
     current_red = "";
-    chats = [];
-    Users = {};
+    //chats = ["test1", "test2", "test3", "test4", "test5", "test6", "test7","test8","test9","test10","test11","test12","test13","test14","test15","test16"];
+    //Users = {"":[{"user":"user-0","online":true},{"user":"user-1","online":true},{"user":"user-2","online":true},{"user":"user-3","online":true},{"user":"user-4","online":true},{"user":"user-5","online":true},{"user":"user-6","online":true},{"user":"user-7","online":true},{"user":"user-8","online":true},{"user":"user-9","online":true},{"user":"user-10","online":true},{"user":"user-11","online":true},{"user":"user-12","online":true},{"user":"user-13","online":true},{"user":"user-14","online":true},{"user":"user-15","online":true},{"user":"user-16","online":true},{"user":"user-17","online":true},{"user":"user-18","online":true},{"user":"user-19","online":true}]};
+    chats=[];
+    Users={};
     Files = {};
     directmessages = [];
+  
   }
   startup();
 
@@ -145,13 +143,14 @@ todo show progress when uploading and downloading a file
 
   function updateChats() {
     window.runtime.EventsOn("updateChats", function (arg) {
+    
       chats = arg;
     });
   }
+  
   function updateUsers() {
     window.runtime.EventsOn("updateUsers", async function (arg) {
-      
-        
+
       Users = {};
       for (let i = 0; i < arg.length; i++) {
         Users[arg[i].chat] = [];
@@ -164,13 +163,30 @@ todo show progress when uploading and downloading a file
           Users[arg[i].chat].push(user);
         }
       }
-     
+
       await SetUsers();
     });
   }
-  async function receiveMessage() {
-    window.runtime.EventsOn("receiveMessage", async function (...arg) {
-      await createMessage(arg[0], arg[1], arg[2], arg[3]);
+
+function userLeft(){
+  window.runtime.EventsOn("userLeft", function (chat,time,user) {
+      
+      createMessage(chat, `User ${user} left the chat `, "", time, [] ,false);
+   });
+
+  }
+  function DMleft(){
+  window.runtime.EventsOn("dmLeft", async function () {
+      
+    await ChangeChat("");
+   });
+
+  }
+
+  function receiveMessage() {
+    window.runtime.EventsOn("receiveMessage", function (arg1,arg2,arg3,arg4) {
+      
+       createMessage(arg1, arg2, arg3, arg4, [] ,false);
     });
   }
   function direcMessage() {
@@ -179,8 +195,9 @@ todo show progress when uploading and downloading a file
     });
   }
   function receiveFile() {
-    window.runtime.EventsOn("receiveFile", function (...arg) {
-      createMessage(arg[0], arg[1], arg[2]);
+    window.runtime.EventsOn("receiveFile", async function (...arg) {
+     
+     await createMessage(arg[0],"", arg[1],"", [arg[2]]);
     });
   }
   function terminal() {
@@ -188,15 +205,61 @@ todo show progress when uploading and downloading a file
       createCommand(arg);
     });
   }
+  async function progressFile(){
+    window.runtime.EventsOn("progressFile", async function (...arg) {
+      
+      await updateProgress(arg[0],arg[1], arg[2], arg[3]);
+    });
+  }
+  function newThrash(){
+    window.runtime.EventsOn("newThrash", async function (arg) {
+   
+      thrash = arg;
+    });
+  }
+ newThrash();
+  userLeft();
   terminal();
   receiveMessage();
   receiveFile();
   updateUsers();
   updateChats();
   direcMessage();
+  progressFile();
+  DMleft();
+
+
+  
 
   function cancelRendezvous() {
     CancelRendezvous().then();
+  }
+
+  async function updateProgress(rend, peer, progress, fileName) {
+    let progressbar = document.getElementById("progress" + rend + peer+fileName);
+    let progressbuttons = document.getElementById("progressbuttons" + rend + peer+fileName);
+    //if there are several progress bars for the same rendezvous, the first one will be the one that is updated
+    
+    
+        progressbar.style.width = progress + "%";
+       
+        if (progress == 0){
+        progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
+      }
+        if (progress == 100) {
+        // progressbar.style.backgroundColor = "green";
+         progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
+         progressbar.id = "done";
+         progressbuttons.id = "done";
+        
+        }
+        if (progress == -1)
+        {
+                   
+          progressbar.id = "error";
+          progressbuttons.id = "error";
+          progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
+        }
   }
 
   async function addRend() {
@@ -209,6 +272,7 @@ todo show progress when uploading and downloading a file
     loader.style.display = "block";
     cancelBtn.style.display = "block";
     submitBtn.style.display = "none";
+    document.forms["rendform"].reset();
     await AddRendezvous(rend).then();
     loader.style.display = "none";
     cancelBtn.style.display = "none";
@@ -232,17 +296,24 @@ todo show progress when uploading and downloading a file
       sendBtn.style.opacity = "0%";
       sendBtn.style.pointerEvents = "none";
     }
+    
+    if (message != "") {
+      await SendTextHandler(message, current_red).then((result) => {
+        createMessage(current_red, message, "me", "", "", result);
+      });
+    }
+    
 
-    await SendTextHandler(message, current_red).then((result) => {
-      createMessage(current_red, message, "me", "", Files[current_red], result);
-    });
+    if (Files[current_red] != null && Files[current_red].length > 0) {
+      
 
-    if (Files[current_red] != null) {
+     
+      createMessage(current_red, "", "me", "", Files[current_red], false);
       for (let i = 0; i < Files[current_red].length; i++) {
         let file = Files[current_red][i];
         let path = file.path;
 
-        SendFile(current_red, path).then();
+        QueueFile(current_red, path).then();
       }
 
       Files[current_red] = [];
@@ -255,6 +326,8 @@ todo show progress when uploading and downloading a file
 
   //creates a new message div and returns it
   function createMessage(chat, message, sender, time, files, ok) {
+    
+     
     let chatbox = document.getElementById("chat-box" + chat);
     let newmessage = document.createElement("div");
     if (sender == "me") {
@@ -269,7 +342,15 @@ todo show progress when uploading and downloading a file
     let container = document.createElement("div");
     container.className = "fileIconmessageSCONTAINER";
     if (files != null) {
+
+      //loop over files
+
       for (let i = 0; i < files.length; i++) {
+        mutex = true;
+
+        filecounter++;
+        mutex = false;
+
         let text = document.createElement("div");
         text.innerText = files[i].filename;
         text.className = "textmessage";
@@ -290,24 +371,39 @@ todo show progress when uploading and downloading a file
         let path = file.path;
         //add path attribute to button
         button.setAttribute("path", path);
+        //create progress bar
+        let progress = document.createElement("div");
+        progress.className = "progress";
+        let progressbar = document.createElement("div");
+        progressbar.className = "progressbar";
+        progressbar.id = "progress" + chat + sender + files[i].filename;
+        
+        let progressbuttons = document.createElement("div");
+        progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
+        progressbuttons.className = "progress-buttons";
+        progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
+        progress.appendChild(progressbar);
         container.appendChild(button);
         container.appendChild(text);
+        container.appendChild(progress);
+        container.appendChild(progressbuttons);
       }
     }
-
+if (message != ""){
     newmessage.innerHTML = `<div class="message-header">
     <div class="message-sender">${sender}</div>
     <div class="message-time">${time}</div>
   </div>
     <div class="message-text">${message}</div>
     `;
-    if (sender == "me" && message != "") {
+    if (sender == "me" ) {
       if (ok == true) {
         newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
       } else {
         newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
       }
     }
+}
     if (files != null) {
       newmessage.appendChild(container);
     }
@@ -316,6 +412,25 @@ todo show progress when uploading and downloading a file
     //scroll to bottom
     chatbox.scrollTop = chatbox.scrollHeight;
   }
+
+async function leaveChat(arg){
+
+  
+  await LeaveChat(arg).then();
+  ChangeChat("");
+  
+
+}
+async function deleteChat(arg){
+
+  
+await DeleteChat(arg).then();
+ChangeChat("");
+
+
+}
+
+
 
   function checkPasswordMatch() {
     const passwordInput = document.querySelector("#password");
@@ -382,7 +497,14 @@ todo show progress when uploading and downloading a file
     }
     showsendBtn();
   }
-
+//Manually disable pinch zoom!
+document.addEventListener("wheel", event => {
+    const { ctrlKey } = event;
+    if (ctrlKey) {
+       event.preventDefault();
+       return
+    }
+}, { passive: false });
   async function ChangeChat(chat) {
     if (chat == current_red) {
       return;
@@ -391,10 +513,10 @@ todo show progress when uploading and downloading a file
     if (Files[chat] == null) {
       Files[chat] = [];
     }
-    setTimeout(auxchangechat, 100, current_red);
+    setTimeout(auxchangechat, 10, current_red);
 
     current_red = chat;
-    setTimeout(SetUsers, 100);
+    setTimeout(SetUsers, 10);
   }
 
   async function auxchangechat(last_rend) {
@@ -450,7 +572,7 @@ todo show progress when uploading and downloading a file
     var textarea = document.getElementById("inputtextarea" + current_red);
 
     textarea.style.height = "16px";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 80)}px`;
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 56)}px`;
 
     await showsendBtn();
   }
@@ -538,7 +660,7 @@ todo show progress when uploading and downloading a file
     {#if loggedin}
       <div class="left-menu">
         <button class="Home" on:click={() => ChangeChat("")}> Home </button>
-
+        <div class="chats-menu">
         {#each [...chats, ...directmessages] as chat}
           <button
             type="button"
@@ -550,16 +672,40 @@ todo show progress when uploading and downloading a file
             {chat}</button
           >
         {/each}
+        {#each [...thrash] as chat}
+        <button
+          type="button"
+          class="chatoptions"
+          id="chatoptions{chat}"
+          
+          on:click={() => ChangeChat(chat)}
+        >
+          {chat}</button
+        >
+      {/each}
+    </div>
+    <div class="option">
+
+      
+      <button on:click={() => startup()}>
+        Log out
+        <i class="fas fa-sign-out-alt" />
+      </button>
+      <button>Settings</button>
+      
+
+
+    </div>
       </div>
 
       <div class="data-container">
         <div id="home_container">
           <h4>Host ID: {id}</h4>
-          <h1>Join/Create channel</h1>
+        
 
           <div class="rend-container">
             <div class="rendform">
-              <form autocomplete="off" on:submit|preventDefault={addRend}>
+              <form autocomplete="off"  id="rendform" on:submit|preventDefault={addRend}>
                 <button
                   type="submit"
                   disabled
@@ -584,10 +730,7 @@ todo show progress when uploading and downloading a file
             <div class="loader">
               <div class="dot-flashing" />
             </div>
-            <button class="logout" on:click={() => startup()}>
-              Log out
-              <i class="fas fa-sign-out-alt" />
-            </button>
+            
           </div>
           <div id="terminal">
             Terminal
@@ -596,13 +739,25 @@ todo show progress when uploading and downloading a file
         </div>
 
         <div class="chatdiv" id="chatdiv">
+          
+          
+          {#each [...chats, ...directmessages,...thrash] as chat,i}
+          {#if  i < chats.length + directmessages.length }
+          <button class="leave-chat" on:click={() => leaveChat(current_red)}> Leave Chat </button>
+          {:else}
+          <button class="leave-chat" on:click={() => deleteChat(current_red)}> Delete Chat </button>
+          {/if}
+          
+          
           <h1 class="chatname">{current_red}</h1>
-          {#each [...chats, ...directmessages] as chat}
             <div class="chatdiveach" id="chat{chat}">
+              
               <div class="chat-box" id="chat-box{chat}">
                 <div class="filecontainers" id="filescontainer{chat}" />
               </div>
-
+              {#if i < chats.length + directmessages.length }
+          
+              
               <div class="inputcontainer">
                 <textarea
                   on:keyup={() => textareacheck()}
@@ -628,9 +783,12 @@ todo show progress when uploading and downloading a file
                   id="sendBtn{chat}"
                   on:click={() => sendmessage()}
                 />
+                
               </div>
+              {/if}
             </div>
           {/each}
+         
         </div>
       </div>
 
@@ -649,6 +807,7 @@ todo show progress when uploading and downloading a file
               id="textinpopup"
               type="text"
               placeholder="Send Direct Message"
+              required
             />
             <button type="submit">Send</button>
           </form>
