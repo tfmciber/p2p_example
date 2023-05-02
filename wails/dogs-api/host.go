@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"strings"
 
@@ -41,10 +42,10 @@ type P2Papp struct {
 	priv             crypto.PrivKey
 	kdht             *dht.IpfsDHT
 	data             map[string]struct {
-		peers []peer.ID
-		timer uint
+		Peers []peer.ID
+		Timer uint
 	}
-	trashchats    map[string]bool //stores deleted of left chats
+	trashchats    map[string]bool
 	direcmessages []peer.ID
 	refresh       uint
 	preferquic    bool
@@ -55,7 +56,10 @@ type P2Papp struct {
 	cmdproto      protocol.ID
 	fileproto     protocol.ID
 	useradded     chan bool
+	updateDHT     chan bool
 	chatadded     chan string
+	key           []byte
+	messages      map[string][]Message
 }
 
 type PathFilename struct {
@@ -71,6 +75,20 @@ type Users struct {
 	Chat  string `json:"chat"`
 	Peers []User `json:"user"`
 }
+type Statistics struct {
+	SysMemory               int64 `json:"sysMemory"`
+	SysNumFD                int   `json:"sysNumFD"`
+	SysNumConnsInbound      int   `json:"sysNumConnsInbound"`
+	SysNumConnsOutbound     int   `json:"sysNumConnsOutbound"`
+	SysNumStreamsInbound    int   `json:"sysNumStreamsInbound"`
+	SysNumStreamsOutbound   int   `json:"sysNumStreamsOutbound"`
+	TransMemory             int64 `json:"transMemory"`
+	TransNumFD              int   `json:"transNumFD"`
+	TransNumConnsInbound    int   `json:"transNumConnsInbound"`
+	TransNumConnsOutbound   int   `json:"transNumConnsOutbound"`
+	TransNumStreamsInbound  int   `json:"transNumStreamsInbound"`
+	TransNumStreamsOutbound int   `json:"transNumStreamsOutbound"`
+}
 
 func (c *P2Papp) ListUsers() []Users {
 
@@ -80,7 +98,7 @@ func (c *P2Papp) ListUsers() []Users {
 
 		var aux []User
 
-		for _, peer := range peers.peers {
+		for _, peer := range peers.Peers {
 
 			if peer != "" {
 
@@ -125,14 +143,28 @@ func (c *P2Papp) startup(ctx context.Context) {
 
 }
 
+func (c *P2Papp) close(ctx context.Context) bool {
+
+	c.saveData("direcmessages", c.direcmessages)
+	c.saveData("thrashchats", c.trashchats)
+	c.saveData("data", c.data)
+	c.saveData("message", c.messages)
+
+	c.ctx.Done()
+	c.Host.Close()
+	c.kdht.Close()
+	return false
+
+}
+
 func (c *P2Papp) SetPeers(key string, values []peer.ID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if key != "" {
 		c.data[key] = struct {
-			peers []peer.ID
-			timer uint
-		}{peers: values, timer: c.refresh}
+			Peers []peer.ID
+			Timer uint
+		}{Peers: values, Timer: c.refresh}
 	}
 }
 func (c *P2Papp) Add(key string, value peer.ID) {
@@ -143,14 +175,14 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 	if _, ok := c.data[key]; !ok {
 		if key != "" {
 			c.data[key] = struct {
-				peers []peer.ID
-				timer uint
-			}{peers: []peer.ID{value}, timer: c.refresh}
+				Peers []peer.ID
+				Timer uint
+			}{Peers: []peer.ID{value}, Timer: c.refresh}
 		} else {
 			c.data[key] = struct {
-				peers []peer.ID
-				timer uint
-			}{peers: []peer.ID{}, timer: c.refresh}
+				Peers []peer.ID
+				Timer uint
+			}{Peers: []peer.ID{}, Timer: c.refresh}
 		}
 		go func() {
 
@@ -159,25 +191,25 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 		}()
 
 	} else {
-		if !contains(c.data[key].peers, value) {
+		if !contains(c.data[key].Peers, value) {
 			c.data[key] = struct {
-				peers []peer.ID
-				timer uint
-			}{peers: append(c.data[key].peers, value), timer: c.refresh}
+				Peers []peer.ID
+				Timer uint
+			}{Peers: append(c.data[key].Peers, value), Timer: c.refresh}
 		}
 	}
 
 	if _, ok := c.data[""]; !ok {
 		c.data[""] = struct {
-			peers []peer.ID
-			timer uint
-		}{peers: []peer.ID{value}, timer: c.refresh}
+			Peers []peer.ID
+			Timer uint
+		}{Peers: []peer.ID{value}, Timer: c.refresh}
 	} else {
-		if !contains(c.data[""].peers, value) {
+		if !contains(c.data[""].Peers, value) {
 			c.data[""] = struct {
-				peers []peer.ID
-				timer uint
-			}{peers: append(c.data[""].peers, value), timer: c.refresh}
+				Peers []peer.ID
+				Timer uint
+			}{Peers: append(c.data[""].Peers, value), Timer: c.refresh}
 		}
 
 	}
@@ -195,8 +227,8 @@ func (c *P2Papp) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.data = make(map[string]struct {
-		peers []peer.ID
-		timer uint
+		Peers []peer.ID
+		Timer uint
 	})
 
 	c.priv = nil
@@ -214,7 +246,7 @@ func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 	id := c.GetPeerIDfromstring(key)
 	if id != "" {
 
-		if contains(c.data[""].peers, c.GetPeerIDfromstring(key)) {
+		if contains(c.data[""].Peers, c.GetPeerIDfromstring(key)) {
 
 			return []peer.ID{c.GetPeerIDfromstring(key)}, true
 		} else {
@@ -226,8 +258,13 @@ func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 		if !c.checkRend(key) {
 			return nil, false
 		}
-
-		return c.data[key].peers, false
+		var auxpeers []peer.ID
+		for _, peer := range c.data[key].Peers {
+			if peer != "" {
+				auxpeers = append(auxpeers, peer)
+			}
+		}
+		return auxpeers, false
 	}
 }
 func (c *P2Papp) GetRend() []string {
@@ -255,20 +292,28 @@ func (c *P2Papp) checkRend(rend string) bool {
 	}
 	return false
 }
+func (c *P2Papp) checkUser(user string) bool {
 
+	for _, us := range c.data[""].Peers {
+		if us.String() == user {
+			return true
+		}
+	}
+	return false
+}
 func (c *P2Papp) GetTimer(key string) uint {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.data[key].timer
+	return c.data[key].Timer
 }
 func (c *P2Papp) SetTimer(key string, value uint) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	aux := c.data[key]
 	c.data[key] = struct {
-		peers []peer.ID
-		timer uint
-	}{peers: aux.peers, timer: value}
+		Peers []peer.ID
+		Timer uint
+	}{Peers: aux.Peers, Timer: value}
 
 }
 func (c *P2Papp) GetKeys() []string {
@@ -298,8 +343,8 @@ func (c *P2Papp) ListChats() []string {
 }
 
 func (c *P2Papp) GetData() map[string]struct {
-	peers []peer.ID
-	timer uint
+	Peers []peer.ID
+	Timer uint
 } {
 	return c.data
 }
@@ -404,19 +449,32 @@ func (c *P2Papp) NewHost() string {
 	c.fmtPrintln("\t[*] Host Done")
 	c.Host.Network().Notify(&network.NotifyBundle{
 		DisconnectedF: func(net network.Network, conn network.Conn) {
-			if contains(c.data[""].peers, conn.RemotePeer()) {
+			if contains(c.data[""].Peers, conn.RemotePeer()) {
 				c.fmtPrintln("[*] Disconnected from ", conn.RemotePeer())
+				peerinfo := c.Host.Peerstore().PeerInfo(conn.RemotePeer())
+				//try to reconnect
+				err = c.Host.Connect(c.ctx, peerinfo)
+				if err != nil {
+					c.fmtPrintln("Error reconnecting to peer:", err)
+
+				}
+
 				c.useradded <- true
 			}
 
 		},
 		ConnectedF: func(net network.Network, conn network.Conn) {
-			if contains(c.data[""].peers, conn.RemotePeer()) {
+			if contains(c.data[""].Peers, conn.RemotePeer()) {
 				c.fmtPrintln("[*] Connected to ", conn.RemotePeer())
 				c.useradded <- true
 			}
 		},
 	})
+
+	//start dht
+	c.InitDHT()
+	c.DhtRoutine(c.preferquic)
+
 	return c.Host.ID().String()
 
 }
@@ -459,6 +517,7 @@ func (c *P2Papp) connectToPeer(ctx context.Context, peeraddr peer.AddrInfo, rend
 
 func (c *P2Papp) connectToPeers(peeraddrs []peer.AddrInfo, rendezvous string, preferQUIC bool, start bool, ctx context.Context, ctx2 context.Context) []peer.ID {
 
+	c.fmtPrintln("\t[*] Connecting to peers")
 	var failed []peer.ID
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -664,7 +723,7 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			quitchan <- true
 
 		case cmd == "stats":
-			c.hostStats()
+			c.HostStats()
 		case cmd == "conns":
 			c.listCons()
 		case cmd == "streams":
@@ -694,32 +753,51 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 	}
 }
 
-func (c *P2Papp) hostStats() {
+func (c *P2Papp) HostStats() {
+	go func() {
 
-	//get rcm from host
+		for {
+			var stats Statistics
+			var oldstats Statistics
+			select {
+			case <-c.ctx.Done():
+				return
+			case <-time.After(30 * time.Second):
+				rcm := c.Host.Network().ResourceManager()
 
-	rcm := c.Host.Network().ResourceManager()
-	rcm.ViewSystem(func(scope network.ResourceScope) error {
-		stat := scope.Stat()
-		c.fmtPrintln("System:",
-			"\n\t memory", stat.Memory,
-			"\n\t numFD", stat.NumFD,
-			"\n\t connsIn", stat.NumConnsInbound,
-			"\n\t connsOut", stat.NumConnsOutbound,
-			"\n\t streamIn", stat.NumStreamsInbound,
-			"\n\t streamOut", stat.NumStreamsOutbound)
-		return nil
-	})
-	rcm.ViewTransient(func(scope network.ResourceScope) error {
-		stat := scope.Stat()
-		c.fmtPrintln("Transient:",
-			"\n\t memory:", stat.Memory,
-			"\n\t numFD:", stat.NumFD,
-			"\n\t connsIn:", stat.NumConnsInbound,
-			"\n\t connsOut:", stat.NumConnsOutbound,
-			"\n\t streamIn:", stat.NumStreamsInbound,
-			"\n\t streamOut:", stat.NumStreamsOutbound)
-		return nil
-	})
+				rcm.ViewSystem(func(scope network.ResourceScope) error {
+					stat := scope.Stat()
 
+					stats.SysMemory = stat.Memory
+					stats.SysNumFD = stat.NumFD
+					stats.SysNumConnsInbound = stat.NumConnsInbound
+					stats.SysNumConnsOutbound = stat.NumConnsOutbound
+					stats.SysNumStreamsInbound = stat.NumStreamsInbound
+					stats.SysNumStreamsOutbound = stat.NumStreamsOutbound
+
+					return nil
+				})
+				rcm.ViewTransient(func(scope network.ResourceScope) error {
+					stat := scope.Stat()
+
+					stats.TransMemory = stat.Memory
+					stats.TransNumFD = stat.NumFD
+					stats.TransNumConnsInbound = stat.NumConnsInbound
+					stats.TransNumConnsOutbound = stat.NumConnsOutbound
+					stats.TransNumStreamsInbound = stat.NumStreamsInbound
+					stats.TransNumStreamsOutbound = stat.NumStreamsOutbound
+
+					return nil
+				})
+
+				//check if there is a change in the stats
+				if !compare(stats, oldstats) {
+					c.EmitEvent("Statistics", stats)
+				}
+
+				oldstats = stats
+
+			}
+		}
+	}()
 }

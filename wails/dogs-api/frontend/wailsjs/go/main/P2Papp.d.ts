@@ -11,9 +11,15 @@ export function AddRendezvous(arg1:string):Promise<void>;
 
 export function CancelRendezvous():Promise<void>;
 
+export function ChangePassword(arg1:string,arg2:string,arg3:Array<number>,arg4:string):Promise<boolean>;
+
 export function Clear():Promise<void>;
 
+export function ClearKey():Promise<void>;
+
 export function DataChanged():Promise<void>;
+
+export function DeleteAccount(arg1:string):Promise<boolean>;
 
 export function DeleteChat(arg1:string):Promise<void>;
 
@@ -35,7 +41,11 @@ export function GetPeerIDfromstring(arg1:string):Promise<peer.ID>;
 
 export function GetRend():Promise<Array<string>>;
 
+export function GetThrahs():Promise<void>;
+
 export function GetTimer(arg1:string):Promise<number>;
+
+export function HostStats():Promise<void>;
 
 export function InitDHT():Promise<void>;
 
@@ -44,6 +54,8 @@ export function LeaveChat(arg1:string):Promise<void>;
 export function ListChats():Promise<Array<string>>;
 
 export function ListUsers():Promise<Array<main.Users>>;
+
+export function LoadData():Promise<void>;
 
 export function MoveQueue():Promise<void>;
 
@@ -66,6 +78,8 @@ export function SelectFiles():Promise<Array<main.PathFilename>>;
 export function SendFile(arg1:string,arg2:string):Promise<void>;
 
 export function SendTextHandler(arg1:string,arg2:string):Promise<boolean>;
+
+export function SetKey(arg1:Array<number>):Promise<void>;
 
 export function SetPeers(arg1:string,arg2:Array<peer.ID>):Promise<void>;
 

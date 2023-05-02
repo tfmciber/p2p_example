@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"os"
 	"strconv"
@@ -22,38 +23,31 @@ func (c *P2Papp) QueueFile(rendezvous string, path string) {
 		return
 	}
 
-	if !c.checkRend(rendezvous) {
-		c.fmtPrintln("rendezvous not found: ", rendezvous)
+	if !c.checkRend(rendezvous) && !c.checkUser(rendezvous) {
+		c.fmtPrintln("rendezvous or user not found: ", rendezvous)
 		return
 	}
-	c.queueFilesMutex.Lock()
-	c.fmtPrintln("pass lock")
 
+	c.queueFilesMutex.Lock()
 	if _, ok := c.queueFiles[rendezvous]; !ok {
 		c.queueFiles[rendezvous] = make([]string, 0)
 	}
-	c.fmtPrintln("queueFiles: ", c.queueFiles)
-	//check if file is already in queue
-
 	c.queueFiles[rendezvous] = append(c.queueFiles[rendezvous], path)
-	c.fmtPrintln("queueFiles: ", c.queueFiles)
 	c.queueFilesMutex.Unlock()
 	c.movequeue <- rendezvous
 
 }
 func (c *P2Papp) MoveQueue() {
-	c.fmtPrintln("[*] MoveQueue")
+
 	go func() {
 
 		for {
 			select {
 			case rendezvous := <-c.movequeue:
-				c.fmtPrintln("[*] c.movequeue channel triggered")
 
 				c.queueFilesMutex.Lock()
 
 				files := c.queueFiles[rendezvous]
-				c.fmtPrintln("rendezvous: ", rendezvous, " files: ", files, " len: ", len(files))
 				if len(files) > 0 {
 					c.SendFile(rendezvous, files[0])
 					if len(files) > 1 {
@@ -81,21 +75,20 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 
 	x, _ := c.Get(rendezvous)
 	c.fmtPrintln("x: ", x)
+	file, err := os.Open(path)
+	// calculate file hash
+	hashString := c.getHash(file)
+	if err != nil {
+		c.fmtPrintln(err)
+		return
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	if x != nil {
-
-		file, err := os.Open(path)
-		// calculate file hash
-		hashString := c.getHash(file)
-		if err != nil {
-			c.fmtPrintln(err)
-			return
-		}
-
-		fileInfo, err := file.Stat()
-		if err != nil {
-			log.Println(err)
-			return
-		}
 
 		fileSize := fillString(fmt.Sprintf("%d", fileInfo.Size()), 10)
 		fileName := fillString(fmt.Sprintf("%s", fileInfo.Name()), 64)
@@ -107,6 +100,7 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 		progress := 0
 		last := 0
 		c.EmitEvent("progressFile", rendezvous, "me", 0, fileInfo.Name())
+
 		c.writeDataRendFunc(c.fileproto, rendezvous, func(stream network.Stream) {
 			if stream == nil {
 				return
@@ -167,12 +161,26 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 			if totalsent != int(fileInfo.Size()) {
 				ret = -1
 			}
+
 			c.fmtPrintln("totalsent: ", totalsent, " fileSize: ", fileInfo.Size(), "ret", ret)
 			stream.Close()
 			c.EmitEvent("progressFile", rendezvous, "me", ret, fileInfo.Name())
 
 		})
+	} else {
+		c.EmitEvent("progressFile", rendezvous, "me", -1, fileInfo.Name())
 	}
+	t := time.Now()
+	date := t.Format("02/01/2006 15:04")
+	var pa struct {
+		Path     string `json:"path"`
+		Filename string `json:"filename"`
+	}
+	pa.Path = path
+	pa.Filename = fileInfo.Name()
+	mess := Message{Text: "", Date: date, Src: c.Host.ID().String(), Pa: pa}
+
+	c.saveData("message", map[string][]Message{rendezvous: {mess}})
 }
 
 func fillString(retunString string, toLength int) string {
@@ -277,6 +285,12 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 		err = os.Rename(filepath, fmt.Sprintf("%s/%s", downloadDir, fileName))
 
 	}
+	t := time.Now()
+	date := t.Format("02/01/2006 15:04")
+
+	mess := Message{Text: "", Date: date, Src: stream.Conn().RemotePeer().String(), Pa: pa}
+
+	c.saveData("message", map[string][]Message{fromrendezvous: {mess}})
 	c.EmitEvent("progressFile", fromrendezvous, stream.Conn().RemotePeer().String(), ret, fileName)
 
 	return

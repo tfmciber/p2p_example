@@ -22,9 +22,9 @@ func main() {
 	var fileproto = protocol.ID("/file/1.0.0")
 
 	app := &P2Papp{data: make(map[string]struct {
-		peers []peer.ID
-		timer uint
-	}), preferquic: true, refresh: 15, trashchats: make(map[string]bool), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), useradded: make(chan bool), movequeue: make(chan string), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
+		Peers []peer.ID
+		Timer uint
+	}), preferquic: true, refresh: 15, trashchats: make(map[string]bool), messages: make(map[string][]Message), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), updateDHT: make(chan bool), useradded: make(chan bool), movequeue: make(chan string), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
 
 	err := wails.Run(&options.App{
 		Title:  "P2P",
@@ -39,6 +39,7 @@ func main() {
 		MinWidth:         1200,
 		MinHeight:        720,
 		OnStartup:        app.startup,
+		OnBeforeClose:    app.close,
 
 		Bind: []interface{}{
 			app,

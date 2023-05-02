@@ -101,7 +101,7 @@ func (c *P2Papp) CancelRendezvous() {
 }
 func (c *P2Papp) AddRendezvous(rendezvous string) {
 	c.fmtPrintln("[*] DHT Adding Rendezvous", rendezvous)
-	c.Add(rendezvous, "")
+
 	if _, ok := c.trashchats[rendezvous]; ok {
 		c.fmtPrintln("the chat was prevoiusly deleted, now it is restored")
 		c.DeleteChat(rendezvous)
@@ -118,7 +118,7 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 	go func() {
 		context1, cancelfunc1 = context.WithTimeout(context.Background(), 60*time.Second)
 		FoundPeersDHT := c.discoverPeers(rendezvous, ctx, context1)
-		if len(FoundPeersDHT) > 1 {
+		if len(FoundPeersDHT) > 0 {
 			context2, cancelfunc2 = context.WithTimeout(context.Background(), 30*time.Second)
 			failed := c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
 			connected, _ := c.Get(rendezvous)
@@ -171,18 +171,23 @@ func (c *P2Papp) DhtRoutine(quic bool) {
 			select {
 
 			case <-time.After(60 * time.Second):
-
 				for rendezvous, s := range c.data {
 					if rendezvous != "" {
-						if s.timer == 0 {
-
+						if s.Timer == 0 {
 							c.AddRendezvous(rendezvous)
 							c.SetTimer(rendezvous, c.refresh)
 						} else {
-
-							c.SetTimer(rendezvous, s.timer-1)
-
+							c.SetTimer(rendezvous, s.Timer-1)
 						}
+					}
+				}
+			case <-c.updateDHT:
+				for rendezvous := range c.data {
+					if rendezvous != "" {
+
+						c.AddRendezvous(rendezvous)
+						c.SetTimer(rendezvous, c.refresh)
+
 					}
 				}
 

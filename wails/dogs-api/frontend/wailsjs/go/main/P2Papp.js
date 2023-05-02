@@ -18,12 +18,24 @@ export function CancelRendezvous() {
   return window['go']['main']['P2Papp']['CancelRendezvous']();
 }
 
+export function ChangePassword(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['P2Papp']['ChangePassword'](arg1, arg2, arg3, arg4);
+}
+
 export function Clear() {
   return window['go']['main']['P2Papp']['Clear']();
 }
 
+export function ClearKey() {
+  return window['go']['main']['P2Papp']['ClearKey']();
+}
+
 export function DataChanged() {
   return window['go']['main']['P2Papp']['DataChanged']();
+}
+
+export function DeleteAccount(arg1) {
+  return window['go']['main']['P2Papp']['DeleteAccount'](arg1);
 }
 
 export function DeleteChat(arg1) {
@@ -66,8 +78,16 @@ export function GetRend() {
   return window['go']['main']['P2Papp']['GetRend']();
 }
 
+export function GetThrahs() {
+  return window['go']['main']['P2Papp']['GetThrahs']();
+}
+
 export function GetTimer(arg1) {
   return window['go']['main']['P2Papp']['GetTimer'](arg1);
+}
+
+export function HostStats() {
+  return window['go']['main']['P2Papp']['HostStats']();
 }
 
 export function InitDHT() {
@@ -84,6 +104,10 @@ export function ListChats() {
 
 export function ListUsers() {
   return window['go']['main']['P2Papp']['ListUsers']();
+}
+
+export function LoadData() {
+  return window['go']['main']['P2Papp']['LoadData']();
 }
 
 export function MoveQueue() {
@@ -128,6 +152,10 @@ export function SendFile(arg1, arg2) {
 
 export function SendTextHandler(arg1, arg2) {
   return window['go']['main']['P2Papp']['SendTextHandler'](arg1, arg2);
+}
+
+export function SetKey(arg1) {
+  return window['go']['main']['P2Papp']['SetKey'](arg1);
 }
 
 export function SetPeers(arg1, arg2) {

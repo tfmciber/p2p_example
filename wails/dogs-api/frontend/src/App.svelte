@@ -1,28 +1,43 @@
 <script>
+  import { getColorForUserId } from "./utils.js";
+  import { checkPasswordMatch } from "./utils.js";
+  import { createCommand } from "./utils.js";
+  import { updateProgress } from "./utils.js";
+  import { SetUsers } from "./utils.js";
+  import { createMessage } from "./utils.js";
+  import {auxchangechat} from "./utils.js";
+  import {showsendBtn} from "./utils.js";
+  import { addRend } from "./rend.js";
   import { NewHost } from "../wailsjs/go/main/P2Papp.js";
   import { ReadKeys } from "../wailsjs/go/main/P2Papp.js";
   import { NewID } from "../wailsjs/go/main/P2Papp.js";
   import { OpenID } from "../wailsjs/go/main/P2Papp.js";
   import { Clear } from "../wailsjs/go/main/P2Papp.js";
-  import { InitDHT } from "../wailsjs/go/main/P2Papp.js";
-  import { DhtRoutine } from "../wailsjs/go/main/P2Papp.js";
-  import { AddRendezvous } from "../wailsjs/go/main/P2Papp.js";
+  import {HostStats} from "../wailsjs/go/main/P2Papp.js";
+  import {ChangePassword} from "../wailsjs/go/main/P2Papp.js";
+  import {DeleteAccount} from "../wailsjs/go/main/P2Papp.js";
+  import {LoadData} from "../wailsjs/go/main/P2Papp.js";
+
   import { CancelRendezvous } from "../wailsjs/go/main/P2Papp.js";
   import { SendTextHandler } from "../wailsjs/go/main/P2Papp.js";
   import { SelectFiles } from "../wailsjs/go/main/P2Papp.js";
   import { QueueFile } from "../wailsjs/go/main/P2Papp.js";
-  import { OpenFileExplorer } from "../wailsjs/go/main/P2Papp.js";
-  import {LeaveChat} from "../wailsjs/go/main/P2Papp.js";
-  import {DeleteChat} from "../wailsjs/go/main/P2Papp.js";
+
+  import { LeaveChat } from "../wailsjs/go/main/P2Papp.js";
+  import { DeleteChat } from "../wailsjs/go/main/P2Papp.js";
   import uploadBtn from "./assets/images/uploadBtn.png";
   import fileIcon from "./assets/images/folder.png";
-  import check from "./assets/images/check.png";
-  import wrong from "./assets/images/wrong.png";
-  import queue from "./assets/images/queue.png";
-  import progressicon from "./assets/images/progress.png";
+
+  import Chart from 'chart.js/auto'
+
+  //TODO: close saves everything
+  
+
   let current_red = "";
   let ciphered = [];
   let id = "";
+  
+  
   let Users = {};
   let Files = {};
   var chats = [];
@@ -30,30 +45,203 @@
   var directmessages = [];
   let filename = "key.key";
   let password = "";
-  let login_register = true; 
+  let login_register = true;
   let loggedin = false;
+  
+  let sysMemorychart;
+  let sysNumFDchart;
+  let sysNumConnschart;
+  let sysNumStreamschart;
+
+  let transMemorychart;
+  let transNumFDchart;
+  let transNumConnschart;
+  let transNumStreamschart;
+
 
   async function startup() {
-    //check if file key.key exists, if exists login_register = true, else login_register = false
-
+    
     await ReadKeys(filename).then((result) => (ciphered = result));
+    
     loggedin = false;
+  
     await Clear().then();
     if (ciphered == null) {
       login_register = false;
     } else {
       login_register = true;
     }
+ 
     current_red = "";
-    //chats = ["test1", "test2", "test3", "test4", "test5", "test6", "test7","test8","test9","test10","test11","test12","test13","test14","test15","test16"];
-    //Users = {"":[{"user":"user-0","online":true},{"user":"user-1","online":true},{"user":"user-2","online":true},{"user":"user-3","online":true},{"user":"user-4","online":true},{"user":"user-5","online":true},{"user":"user-6","online":true},{"user":"user-7","online":true},{"user":"user-8","online":true},{"user":"user-9","online":true},{"user":"user-10","online":true},{"user":"user-11","online":true},{"user":"user-12","online":true},{"user":"user-13","online":true},{"user":"user-14","online":true},{"user":"user-15","online":true},{"user":"user-16","online":true},{"user":"user-17","online":true},{"user":"user-18","online":true},{"user":"user-19","online":true}]};
+    
     chats=[];
     Users={};
     Files = {};
     directmessages = [];
-  
   }
   startup();
+
+
+function startGraphs(){
+
+
+  let sysMemorychartcanvas = document.getElementById("sysMemorychart")
+  let sysNumFDchartcanvas = document.getElementById("sysNumFDchart")
+  let sysNumConnschartcanvas = document.getElementById("sysNumConnschart")
+  let sysNumStreamschartcanvas = document.getElementById("sysNumStreamschart")
+
+ 
+  let transMemorychartcanvas = document.getElementById("transMemorychart")
+  let transNumFDchartcanvas = document.getElementById("transNumFDchart")
+  let transNumConnschartcanvas = document.getElementById("transNumConnschart")
+  let transNumStreamschartcanvas = document.getElementById("transNumStreamschart")
+
+
+
+    
+     sysMemorychart = createGraph1(sysMemorychartcanvas,"System Memory Usage");
+      sysNumFDchart = createGraph1(sysNumFDchartcanvas,"System File Descriptors");
+      sysNumConnschart = createGraph2(sysNumConnschartcanvas,"System Connections","In","Out");
+      sysNumStreamschart = createGraph2(sysNumStreamschartcanvas,"System Streams","In","Out");
+
+   transMemorychart = createGraph1(transMemorychartcanvas,"Transient Memory Usage");
+   transNumFDchart = createGraph1(transNumFDchartcanvas,"Transient File Descriptors");
+   transNumConnschart = createGraph2(transNumConnschartcanvas,"Transient Connections","In","Out");
+      transNumStreamschart = createGraph2(transNumStreamschartcanvas,"Transient Streams","In","Out");
+
+
+  }
+ 
+function createGraph1(canvas,Name){
+  if (canvas == null) {
+    return;
+  }
+  let ctx = canvas.getContext('2d');
+  let chart = new Chart(ctx, {
+    type: 'line',
+    
+    data: {
+      datasets: [{
+        label: Name,
+        data: [],
+        backgroundColor: 'rgb(173, 216, 230)',
+        borderColor: 'rgb(173, 216, 230)',
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.1
+      }]
+    },
+    options:  {
+      
+      maintainAspectRatio: false,
+      plugins: {
+            title: {
+                display: true,
+                text: Name
+            },
+            legend: {
+    display: false
+  },
+        },
+			scales: {
+				xAxes: [{
+					type: 'time',
+					time: {
+						unit: 'hour',
+						displayFormats: {
+							hour: 'HH:mm:ss'
+						}
+					}
+				}],
+				yAxes: [{
+					scaleLabel: {
+						display: true,
+						labelString: 'My Y-Axis Label'
+					}
+				}]
+			}
+}
+		
+  });
+  return chart;
+}
+
+function createGraph2(canvas,Title,Name1,Name2){
+  if (canvas == null) {
+    return;
+  }
+  let ctx = canvas.getContext('2d');
+  let chart = new Chart(ctx, {
+    type: 'line',
+    
+    data: {
+      datasets: [{
+        label: Name1,
+        data: [],
+        backgroundColor: 'rgb(0, 128, 0)',
+        borderColor: 'rgb(0, 128, 0)',
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.1
+      },
+      {
+        label: Name2,
+        data: [],
+        backgroundColor: 'rgb(173, 216, 230)',
+        borderColor: 'rgb(173, 216, 230)',
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.1
+      }
+    ]
+    },
+    options:  {
+      
+      maintainAspectRatio: false,
+      plugins: {
+            title: {
+                display: true,
+                text: Title
+            },
+            
+        },
+			scales: {
+				xAxes: [{
+					type: 'time',
+					time: {
+						unit: 'hour',
+						displayFormats: {
+							hour: 'HH:mm:ss'
+						}
+					}
+				}],
+				yAxes: [{
+					scaleLabel: {
+						display: true,
+						labelString: 'My Y-Axis Label'
+					}
+				}]
+			}
+}
+		
+  });
+  return chart;
+}
+function addData1(chart,x, y) {
+  chart.data.labels.push(x);
+  chart.data.datasets[0].data.push(y);
+  chart.update();
+  }
+  function addData2(chart,x, y1,y2) {
+  chart.data.labels.push(x);
+  chart.data.datasets[0].data.push(y1);
+  chart.data.datasets[1].data.push(y2);
+  chart.update();
+  }
+
 
   function login() {
     ciphered = document.getElementById("ciphered").value;
@@ -64,7 +252,7 @@
     {
       if (result == "") {
         //show error message in html
-        startHost();
+        startHost().then((result) => (loggedin = result));
       } else {
         //change ciphered item in html to text in red
         let text = "~ Id or password are not correct";
@@ -74,88 +262,48 @@
         document.getElementById("plabel").style.color = "red";
       }
     }
-  }
-  async function SetUsers() {
-    let usersAux = Users[current_red];
-    if (directmessages.includes(current_red)) {
-      usersAux = Users[""].filter((user) => user.user == current_red);
-    }
 
-    //set users in html periodically in right side
-    let userscurrent = document.getElementById("users");
-    //get offline users container inside the users container
-    let offline = userscurrent.getElementsByClassName("offlineusers")[0];
-    let online = userscurrent.getElementsByClassName("onlineusers")[0];
-    offline.innerHTML = "";
-    online.innerHTML = "";
-    let onlinenum = 0;
-    let offlinenum = 0;
-    if (usersAux != null) {
-      onlinenum = usersAux.filter((user) => user.online).length;
-      offlinenum = usersAux.length - onlinenum;
-    }
-    if (onlinenum > 0) {
-      online.innerHTML =
-        "<h1 class='onlineheader'>Online - " + onlinenum + " </h1>";
-    }
-    if (offlinenum > 0) {
-      offline.innerHTML =
-        "<h1 class='offlineheader'>Offline - " + offlinenum + "</h1>";
-    }
-    if (usersAux != null) {
-      usersAux.forEach((user) => {
-        if (user.online) {
-          //add div with onlick event listener
-          online.innerHTML += `<div class="useronline" id="${user.user}">${user.user}</div>`;
-        } else {
-          offline.innerHTML += `<div class="useroffline" id="${user.user}">${user.user}</div>`;
-        }
-      });
-    }
-
-    //add event listener for every user, online and offline
-
-    let allusers = userscurrent.getElementsByClassName("useronline");
-    let allusers2 = userscurrent.getElementsByClassName("useroffline");
-    let users = [...allusers, ...allusers2];
-
-    for (let i = 0; i < users.length; i++) {
-      users[i].addEventListener("click", function (event) {
-        showpopup(users[i].id, event);
-      });
-    }
   }
 
   function register() {
+   
     password = document.getElementById("password").value;
     NewID(password, filename).then();
-    startHost();
+    startHost().then((result) => (loggedin = result));
+    
+
+
+  }
+  function loadData(){
+    LoadData().then();
   }
   async function startHost() {
-    loggedin = true;
     await NewHost().then((result) => (id = result));
-    //wait for host to be created
+      
+ 
+    HostStats().then();
 
-    await InitDHT();
-    DhtRoutine(true).then();
+    setTimeout(loadData,0);
     
+    setTimeout(startGraphs,0);
+    
+
+    return true;
   }
 
   function updateChats() {
     window.runtime.EventsOn("updateChats", function (arg) {
-    
+      
       chats = arg;
     });
   }
-  
+
   function updateUsers() {
     window.runtime.EventsOn("updateUsers", async function (arg) {
-
       Users = {};
       for (let i = 0; i < arg.length; i++) {
         Users[arg[i].chat] = [];
         for (let j = 0; j < arg[i].user.length; j++) {
-        
           let user = {
             user: arg[i].user[j].ip,
             online: arg[i].user[j].status,
@@ -164,30 +312,56 @@
         }
       }
 
-      await SetUsers();
+      await SetUsers(Users, current_red, directmessages);
     });
   }
 
-function userLeft(){
-  window.runtime.EventsOn("userLeft", function (chat,time,user) {
-      
-      createMessage(chat, `User ${user} left the chat `, "", time, [] ,false);
-   });
 
+
+
+  function DMleft() {
+    window.runtime.EventsOn("dmLeft", async function () {
+      await ChangeChat("");
+    });
   }
-  function DMleft(){
-  window.runtime.EventsOn("dmLeft", async function () {
+function Statistics(){
+    window.runtime.EventsOn("Statistics", async function (stats) {
       
-    await ChangeChat("");
-   });
+      let date = new Date().toLocaleTimeString();
+      addData1(sysMemorychart,date, stats.sysMemory);
+      addData1(sysNumFDchart,date, stats.sysNumFD);
+      addData2(sysNumConnschart,date, stats.sysNumConnsInbound, stats.sysNumConnsOutbound);
+      addData2(sysNumStreamschart,date, stats.sysNumStreamsInbound, stats.sysNumStreamsOutbound);
 
+      addData1(transMemorychart,date, stats.transMemory);
+      addData1(transNumFDchart,date, stats.transNumFD);
+      addData2(transNumConnschart,date, stats.transNumConnsInbound, stats.transNumConnsOutbound);
+      addData2(transNumStreamschart,date, stats.sysNumStreamsInbound, stats.sysNumStreamsOutbound);
+      
+
+      
+    });
   }
 
   function receiveMessage() {
-    window.runtime.EventsOn("receiveMessage", function (arg1,arg2,arg3,arg4) {
-      
-       createMessage(arg1, arg2, arg3, arg4, [] ,false);
-    });
+    window.runtime.EventsOn(
+      "receiveMessage",
+      function (arg1, arg2, arg3, arg4) {
+
+        createMessage(arg1, arg2, arg3, arg4, [], false);
+      }
+    );
+  }
+
+  function loadMessages() {
+    window.runtime.EventsOn(
+      "loadMessages",
+      function (arg1, arg2, arg3, arg4,arg5) {
+        
+        createMessage(arg1, arg2, arg3, arg4, arg5, false);
+        
+      }
+    );
   }
   function direcMessage() {
     window.runtime.EventsOn("directMessage", function (arg) {
@@ -196,8 +370,7 @@ function userLeft(){
   }
   function receiveFile() {
     window.runtime.EventsOn("receiveFile", async function (...arg) {
-     
-     await createMessage(arg[0],"", arg[1],"", [arg[2]]);
+      await createMessage(arg[0], "", arg[1], "", [arg[2]]);
     });
   }
   function terminal() {
@@ -205,20 +378,21 @@ function userLeft(){
       createCommand(arg);
     });
   }
-  async function progressFile(){
+  async function progressFile() {
     window.runtime.EventsOn("progressFile", async function (...arg) {
-      
-      await updateProgress(arg[0],arg[1], arg[2], arg[3]);
+      await updateProgress(arg[0], arg[1], arg[2], arg[3]);
     });
   }
-  function newThrash(){
+  function newThrash() {
     window.runtime.EventsOn("newThrash", async function (arg) {
-   
       thrash = arg;
     });
   }
- newThrash();
-  userLeft();
+
+  loadMessages();
+
+  newThrash();
+
   terminal();
   receiveMessage();
   receiveFile();
@@ -227,227 +401,117 @@ function userLeft(){
   direcMessage();
   progressFile();
   DMleft();
+  Statistics();
 
 
+async function deleteAccount() {
+
+
+  await  DeleteAccount(filename).then((result)=>
+  {
+    if (result == false){
+      
+      let spandi = document.getElementById("account-delete-error");
+      spandi.style.display = "block";
+    }
+
+  }
   
+  );
+  startup();
 
-  function cancelRendezvous() {
-    CancelRendezvous().then();
+
   }
 
-  async function updateProgress(rend, peer, progress, fileName) {
-    let progressbar = document.getElementById("progress" + rend + peer+fileName);
-    let progressbuttons = document.getElementById("progressbuttons" + rend + peer+fileName);
-    //if there are several progress bars for the same rendezvous, the first one will be the one that is updated
+   async function changePassword(){
+
+    let currentpassword=document.getElementById("currentpassword").value;
+    let newpassword=document.getElementById("newpassword").value;
+
     
     
-        progressbar.style.width = progress + "%";
-       
-        if (progress == 0){
-        progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
+    document.forms["changepassword"].reset();
+
+    if (ciphered == null){
+      await ReadKeys(filename).then((result) => (ciphered = result));
+    }
+
+    ChangePassword(currentpassword,newpassword,ciphered,filename).then((result)=> async function()
+    {
+      if (result == true){
+
+        let spandi = document.getElementById("password-change-success");
+        spandi.style.display = "block";
+        await ReadKeys(filename).then((result) => (ciphered = result));
+        //set style to display none after 5 seconds
+        setTimeout(function(){ spandi.style.display = "none"; }, 5000);
       }
-        if (progress == 100) {
-        // progressbar.style.backgroundColor = "green";
-         progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
-         progressbar.id = "done";
-         progressbuttons.id = "done";
+      else{
         
-        }
-        if (progress == -1)
-        {
-                   
-          progressbar.id = "error";
-          progressbuttons.id = "error";
-          progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
-        }
+        let spandi = document.getElementById("password-change-error");
+        spandi.style.display = "block";
+      }
+    
+    }
+    );
+    
   }
 
-  async function addRend() {
-    const loader = document.querySelector(".loader");
-    const submitBtn = document.getElementById("submit-btn");
-    const cancelBtn = document.getElementById("cancel-btn");
-    let rend = document.getElementById("rend").value;
+  async function sendmessage(message, setmsg,dest) {
 
-    //show loader
-    loader.style.display = "block";
-    cancelBtn.style.display = "block";
-    submitBtn.style.display = "none";
-    document.forms["rendform"].reset();
-    await AddRendezvous(rend).then();
-    loader.style.display = "none";
-    cancelBtn.style.display = "none";
-    submitBtn.style.display = "";
-  }
-  function createCommand(cmd) {
-    let terminal = document.getElementById("terminal-box");
-    let command = document.createElement("div");
-    command.className = "command";
-    command.innerHTML = cmd;
-    terminal.scrollTop = terminal.scrollHeight + 20;
-    terminal.appendChild(command);
-  }
-  async function sendmessage(message, setmsg) {
     if (setmsg != true) {
-      message = document.getElementById("inputtextarea" + current_red).value;
-      let input = document.getElementById("inputtextarea" + current_red);
-      var sendBtn = document.getElementById("sendBtn" + current_red);
+      message = document.getElementById("inputtextarea" + dest).value;
+      let input = document.getElementById("inputtextarea" + dest);
+      var sendBtn = document.getElementById("sendBtn" + dest);
 
       input.value = "";
       sendBtn.style.opacity = "0%";
       sendBtn.style.pointerEvents = "none";
     }
-    
+
     if (message != "") {
-      await SendTextHandler(message, current_red).then((result) => {
-        createMessage(current_red, message, "me", "", "", result);
+      await SendTextHandler(message, dest).then((result) => {
+        createMessage(dest, message, "me", new Date().toLocaleString(), "", result);
       });
     }
-    
 
-    if (Files[current_red] != null && Files[current_red].length > 0) {
-      
-
-     
-      createMessage(current_red, "", "me", "", Files[current_red], false);
-      for (let i = 0; i < Files[current_red].length; i++) {
-        let file = Files[current_red][i];
+    if (Files[dest] != null && Files[dest].length > 0) {
+      createMessage(dest, "", "me", new Date().toLocaleString(), Files[dest], false);
+      for (let i = 0; i < Files[dest].length; i++) {
+        let file = Files[dest][i];
         let path = file.path;
 
-        QueueFile(current_red, path).then();
+        QueueFile(dest, path).then();
       }
 
-      Files[current_red] = [];
+      Files[dest] = [];
 
       //clear files in html
-      let files = document.getElementById("filescontainer" + current_red);
+      let files = document.getElementById("filescontainer" + dest);
       files.innerHTML = "";
+
+    files.style.display = "none";
+
+  
     }
   }
 
-  //creates a new message div and returns it
-  function createMessage(chat, message, sender, time, files, ok) {
-    
-     
-    let chatbox = document.getElementById("chat-box" + chat);
-    let newmessage = document.createElement("div");
-    if (sender == "me") {
-      newmessage.className = "messagesent";
-      //get time and date dd/mm/yyyy hh:mm
-      time = new Date().toLocaleString();
-    } else {
-      newmessage.className = "messagereceived";
-    }
-    //if files are not null, add them to the message
-
-    let container = document.createElement("div");
-    container.className = "fileIconmessageSCONTAINER";
-    if (files != null) {
-
-      //loop over files
-
-      for (let i = 0; i < files.length; i++) {
-        mutex = true;
-
-        filecounter++;
-        mutex = false;
-
-        let text = document.createElement("div");
-        text.innerText = files[i].filename;
-        text.className = "textmessage";
-
-        let button = document.createElement("img");
-        // Add a click event listener to the button
-        button.addEventListener("click", async () => {
-          //get path attribute
-          let path = button.getAttribute("path");
-          await OpenFileExplorer(path).then();
-        });
-        //add and image inside the button
-        let name = document.createElement("div");
-        name.innerText = files[i].filename;
-        button.src = fileIcon;
-        button.className = "fileIconmessage";
-        let file = files[i];
-        let path = file.path;
-        //add path attribute to button
-        button.setAttribute("path", path);
-        //create progress bar
-        let progress = document.createElement("div");
-        progress.className = "progress";
-        let progressbar = document.createElement("div");
-        progressbar.className = "progressbar";
-        progressbar.id = "progress" + chat + sender + files[i].filename;
-        
-        let progressbuttons = document.createElement("div");
-        progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
-        progressbuttons.className = "progress-buttons";
-        progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
-        progress.appendChild(progressbar);
-        container.appendChild(button);
-        container.appendChild(text);
-        container.appendChild(progress);
-        container.appendChild(progressbuttons);
-      }
-    }
-if (message != ""){
-    newmessage.innerHTML = `<div class="message-header">
-    <div class="message-sender">${sender}</div>
-    <div class="message-time">${time}</div>
-  </div>
-    <div class="message-text">${message}</div>
-    `;
-    if (sender == "me" ) {
-      if (ok == true) {
-        newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
-      } else {
-        newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
-      }
-    }
-}
-    if (files != null) {
-      newmessage.appendChild(container);
-    }
-
-    chatbox.appendChild(newmessage);
-    //scroll to bottom
-    chatbox.scrollTop = chatbox.scrollHeight;
+  async function leaveChat(arg) {
+    await LeaveChat(arg).then();
+   
+    setTimeout(ChangeChat,0,"");
+ 
   }
-
-async function leaveChat(arg){
-
-  
-  await LeaveChat(arg).then();
-  ChangeChat("");
-  
-
-}
-async function deleteChat(arg){
-
-  
-await DeleteChat(arg).then();
-ChangeChat("");
-
-
-}
-
-
-
-  function checkPasswordMatch() {
-    const passwordInput = document.querySelector("#password");
-    const confirmPasswordInput = document.querySelector("#confirm-password");
-    const passwordMatchError = document.querySelector("#password-match-error");
-
-    if (passwordInput.value !== confirmPasswordInput.value) {
-      passwordMatchError.style.display = "block";
-    } else {
-      passwordMatchError.style.display = "none";
-    }
+  async function deleteChat(arg) {
+    await DeleteChat(arg).then();
+    setTimeout(ChangeChat,0,"");
   }
 
   async function addfile() {
     //files is array of struct of path and size
     let newfiles = [];
     const container = document.getElementById("filescontainer" + current_red);
+    container.style.display = "flex";
 
     await SelectFiles().then((result) => {
       result.forEach((pathfilename) => {
@@ -481,8 +545,12 @@ ChangeChat("");
         const name =
           button.parentElement.querySelector(".filedivname").innerText;
         button.parentElement.querySelector(".filedivname").parentNode.remove();
+        
         deleteFile(name);
-        showsendBtn();
+        if (Files[current_red].length == 0){
+          container.style.display = "none";
+        }
+        showsendBtn(Files,current_red);
       });
       button.innerHTML = '<i class="fas fa-trash"></i>';
       button.className = "removefilebtn";
@@ -495,60 +563,44 @@ ChangeChat("");
       filediv.appendChild(button);
       container.appendChild(filediv);
     }
-    showsendBtn();
+    showsendBtn(Files,current_red);
   }
-//Manually disable pinch zoom!
-document.addEventListener("wheel", event => {
-    const { ctrlKey } = event;
-    if (ctrlKey) {
-       event.preventDefault();
-       return
-    }
-}, { passive: false });
+  //Manually disable pinch zoom!
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      const { ctrlKey } = event;
+      if (ctrlKey) {
+        event.preventDefault();
+        return;
+      }
+    },
+    { passive: false }
+  );
   async function ChangeChat(chat) {
+   
     if (chat == current_red) {
       return;
     }
+    
 
+    
+    auxchangechat(current_red,chat,Users,directmessages);
+   
+    current_red = chat;
+    if (chat != "settings" && chat != ""){
     if (Files[chat] == null) {
       Files[chat] = [];
     }
-    setTimeout(auxchangechat, 10, current_red);
-
-    current_red = chat;
-    setTimeout(SetUsers, 10);
+    //scroll chats-menu to the current chat button
+    let chatsmenu = document.getElementById("chats-menu");
+    let button = document.getElementById("chatoptions" + chat);
+    let scrollHeight = button.offsetTop - 100;
+    chatsmenu.scrollTo(0, scrollHeight);
+    }
   }
 
-  async function auxchangechat(last_rend) {
-    if (current_red != "") {
-      let currentchatdiv = document.getElementById("chat" + current_red);
-      currentchatdiv.style.display = "block";
-    } else {
-      let home_container = document.getElementById("home_container");
-      home_container.style.display = "block";
-    }
-    if (last_rend != "") {
-      let lastchatdiv = document.getElementById("chat" + last_rend);
-      lastchatdiv.style.display = "none";
-    } else {
-      let home_container = document.getElementById("home_container");
-      home_container.style.display = "none";
-    }
-    let nowchatoptionsbutton = document.getElementById(
-      "chatoptions" + current_red
-    );
-    if (nowchatoptionsbutton) {
-      nowchatoptionsbutton.style.border = "1px solid #fff";
-    }
-    let lastchatoptionsbutton = document.getElementById(
-      "chatoptions" + last_rend
-    );
-    if (lastchatoptionsbutton) {
-      lastchatoptionsbutton.style.border = "none";
-    }
 
-    return;
-  }
   function deleteFile(element) {
     for (let i = 0; i < Files[current_red].length; i++) {
       if (Files[current_red][i].filename == element) {
@@ -557,37 +609,16 @@ document.addEventListener("wheel", event => {
       }
     }
   }
-  function showpopup(text, event) {
-    var modal = document.getElementById("popup");
-    var buttonRect = event.target.getBoundingClientRect();
-    var buttonTop = buttonRect.top + window.scrollY;
-    var poputname = modal.querySelector("#popupname");
-    poputname.innerText = text;
 
-    modal.style.top = buttonTop + "px";
-    modal.style.display = "block";
-    modal.style.right = "300px";
-  }
   async function textareacheck() {
     var textarea = document.getElementById("inputtextarea" + current_red);
 
     textarea.style.height = "16px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 56)}px`;
 
-    await showsendBtn();
+    await showsendBtn(Files,current_red);
   }
-  async function showsendBtn() {
-    var sendBtn = document.getElementById("sendBtn" + current_red);
-    var textarea = document.getElementById("inputtextarea" + current_red);
 
-    if (textarea.value.trim() !== "" || Files[current_red].length > 0) {
-      sendBtn.style.opacity = "100%";
-      sendBtn.style.pointerEvents = "auto";
-    } else {
-      sendBtn.style.opacity = "0%";
-      sendBtn.style.pointerEvents = "none";
-    }
-  }
 
   function hidepopup() {
     //detect click outside of popup, if so hide popup
@@ -609,7 +640,7 @@ document.addEventListener("wheel", event => {
   }
   hidepopup();
 
-  function sendAndAddtoChat() {
+  async function sendAndAddtoChat() {
     var modal = document.getElementById("popup");
     var poputname = modal.querySelector("#popupname");
 
@@ -620,34 +651,17 @@ document.addEventListener("wheel", event => {
       auxdirectmessages.push(poputname.innerText);
     }
     directmessages = auxdirectmessages;
-    ChangeChat(poputname.innerText);
+   
+   var mess = document.getElementById("textinpopup");
 
-    //change chat, update chatbox, update files
-
-    setTimeout(SendMessageFrompopup, 100);
-  }
-
-  function SendMessageFrompopup() {
-    var mess = document.getElementById("textinpopup");
-    sendmessage(mess.value, true);
+  
+    sendmessage(mess.value, true, poputname.innerText);
     document.forms["chatinpopup"].reset();
+   setTimeout(ChangeChat,0,poputname.innerText);
+    
   }
 
-  function getColorForUserId(userId) {
-    // Convert the user ID to a number
-    const num = parseInt(userId, 36);
 
-    // Choose a large prime number as the modulus
-    const prime = 65537;
-
-    // Generate random RGB values between 0 and 255
-    const r = Math.floor(Math.abs(Math.sin(num) * prime) % 256);
-    const g = Math.floor(Math.abs(Math.cos(num) * prime) % 256);
-    const b = Math.floor(Math.abs(Math.tan(num) * prime) % 256);
-
-    // Return the random color in RGB format
-    return `rgb(${r}, ${g}, ${b})`;
-  }
 </script>
 
 <link
@@ -656,56 +670,217 @@ document.addEventListener("wheel", event => {
 />
 
 <body>
+  
   <div class="app-container">
+    
     {#if loggedin}
       <div class="left-menu">
         <button class="Home" on:click={() => ChangeChat("")}> Home </button>
-        <div class="chats-menu">
-        {#each [...chats, ...directmessages] as chat}
-          <button
-            type="button"
-            class="chatoptions"
-            id="chatoptions{chat}"
-            style="background-color: {getColorForUserId(chat)}"
-            on:click={() => ChangeChat(chat)}
-          >
-            {chat}</button
-          >
-        {/each}
-        {#each [...thrash] as chat}
-        <button
-          type="button"
-          class="chatoptions"
-          id="chatoptions{chat}"
-          
-          on:click={() => ChangeChat(chat)}
-        >
-          {chat}</button
-        >
-      {/each}
-    </div>
-    <div class="option">
-
-      
-      <button on:click={() => startup()}>
-        Log out
-        <i class="fas fa-sign-out-alt" />
-      </button>
-      <button>Settings</button>
-      
-
-
-    </div>
+        <div class="chats-menu" id ="chats-menu">
+       
+       
+          {#each [...chats, ...directmessages] as chat}
+            <button
+              type="button"
+              class="chatoptions"
+              id="chatoptions{chat}"
+              style="background-color: {getColorForUserId(chat)}"
+              on:click={() => ChangeChat(chat)}
+            >
+              {chat}</button
+            >
+          {/each}
+          {#each [...thrash] as chat}
+            <button
+              type="button"
+              class="chatoptions"
+              id="chatoptions{chat}"
+              on:click={() => ChangeChat(chat)}
+            >
+              {chat}</button
+            >
+          {/each}
+        </div>
+        <div class="option">
+          <button on:click={() => startup()}>
+            Log out
+            <i class="fas fa-sign-out-alt" />
+          </button>
+          <button on:click={() => ChangeChat("settings")}> Settings </button>
+        </div>
       </div>
 
       <div class="data-container">
-        <div id="home_container">
-          <h4>Host ID: {id}</h4>
+        <div id="settings">
+<h1> Settings</h1>
+<table class="settingstable">
+  <tr>
+    <td>Host ID</td>
+    <td>{id}</td>
+  </tr>
+
+
+  <tr>
+    <td>Change password</td>
+    <td>
+      <form
+      class = "settingsform"
+        autocomplete="off"
+        id="changepassword"
+        on:input={() => checkPasswordMatch("#newpassword", "#confirmnewpassword", "#password-match-error2","changepassword")}
+        on:submit|preventDefault={changePassword}
         
+      >
+      <label for="currentpassword">Current Password</label>
+        <input
+          type="password"
+          placeholder="Enter current password"
+          id="currentpassword"
+          class = "settingsinput"
+          name="currentpassword"
+          required
+        />
+        <label for="newpassword">New Password</label>
+        <input
+          type="password"
+          placeholder="Enter new password"
+          id="newpassword"
+          
+          name="newpassword"
+          required
+        />
+        <label for="confirmnewpassword">Confirm New Password</label>
+        <input
+          type="password"
+          placeholder="Confirm new password"
+          id="confirmnewpassword"
+          
+          name="confirmnewpassword"
+          required
+        />
+        
+        <button id="submit-btn" class="submit-btn"  type="submit" > Change </button>
+       
+      <span id="password-change-error" style="color: red; display: none; top:57%"
+        >Error Changing Password</span
+      >
+
+      <span id="password-change-success" style=" color: green; display: none; top:28%;left: 20%"
+      >Password changed Succesfully</span
+    >
+
+      
+
+      <span id="password-match-error2" style="color: red; display: none; top:57%"
+      >Passwords do not match</span
+    >
+
+    
+
+
+
+      </form>
+      
+    </td>
+  </tr>
+  <tr>
+    <td>Delete account</td>
+
+    <td> 
+      
+      <form
+      autocomplete="off"
+      id="changepassword"
+      
+      on:submit|preventDefault={deleteAccount}
+    >
+      <button
+        type="submit"
+        disabled
+        style="display: none"
+        aria-hidden="true"
+      />
+      <input
+        type="password"
+        placeholder="Enter current password"
+        id="currentpassword"
+        
+        name="currentpassword"
+        required
+      />
+
+      <button id="submit-btn" class="submit-btn"> Delete Account </button>
+    </form>
+    <span id="account-delete-error" style="color: red; display: none; top:57%"
+    >Error deleting account</span
+  >
+    </td>
+  </tr>
+</table>
+<br>
+<h1>Advanced</h1>
+<div id="terminal">
+  Terminal
+  <div id="terminal-box" />
+</div>
+<br>
+  <h1>Network Statistics</h1>
+
+<br>
+
+  <h2>System Statistics</h2>
+
+<div class= "chartsboxes">
+  
+
+  <div class = "chart" >
+  <canvas id="sysMemorychart"></canvas>
+</div>
+<div class = "chart" >
+  <canvas id="sysNumFDchart"></canvas>
+</div>
+<div class = "chart" >
+  <canvas id="sysNumConnschart"></canvas>
+</div>
+<div class = "chart" >
+  <canvas id="sysNumStreamschart"></canvas>
+</div>
+  
+
+</div>
+<h2>Transient Statistics</h2>
+
+<div class= "chartsboxes">
+   
+<div class = "chart" >
+
+
+  <canvas id="transMemorychart"></canvas>
+</div>
+<div class = "chart" >
+  <canvas  id="transNumFDchart"></canvas>
+</div>
+<div class = "chart" >
+
+  <canvas  id="transNumConnschart"></canvas>
+</div>
+<div class = "chart" >
+  <canvas  id="transNumStreamschart"></canvas>
+</div>
+
+</div>
+
+</div>
+        <div id="home_container" class="homecontainer">
+          <h4>Host ID: {id}</h4>
 
           <div class="rend-container">
             <div class="rendform">
-              <form autocomplete="off"  id="rendform" on:submit|preventDefault={addRend}>
+              <form
+                autocomplete="off"
+                id="rendform"
+                on:submit|preventDefault={addRend}
+              >
                 <button
                   type="submit"
                   disabled
@@ -723,74 +898,78 @@ document.addEventListener("wheel", event => {
                 />
                 <button id="submit-btn" class="submit-btn"> Join </button>
               </form>
-              <button id="cancel-btn" on:click={() => cancelRendezvous()}>
+              <button id="cancel-btn" on:click={() => CancelRendezvous()}>
                 Cancel
               </button>
             </div>
             <div class="loader">
               <div class="dot-flashing" />
             </div>
-            
           </div>
-          <div id="terminal">
-            Terminal
-            <div id="terminal-box" />
-          </div>
+
         </div>
 
-        <div class="chatdiv" id="chatdiv">
-          
-          
-          {#each [...chats, ...directmessages,...thrash] as chat,i}
-          {#if  i < chats.length + directmessages.length }
-          <button class="leave-chat" on:click={() => leaveChat(current_red)}> Leave Chat </button>
-          {:else}
-          <button class="leave-chat" on:click={() => deleteChat(current_red)}> Delete Chat </button>
-          {/if}
-          
-          
-          <h1 class="chatname">{current_red}</h1>
-            <div class="chatdiveach" id="chat{chat}">
-              
+        <div class="chatdiv">
+          {#each [...chats, ...directmessages, ...thrash] as chat, i}
+          <div class="chatdiveach" id="chat{chat}">
+            {#if i < chats.length + directmessages.length}
+              <button
+                class="leave-chat"
+                id="buttonleave{chat}"
+                title="Leave chat"
+                on:click={() => leaveChat(current_red)}
+              >
+              &#x2715
+              </button>
+            {:else}
+              <button
+                class="leave-chat"
+                id="buttonleave{chat}"
+                title="Delete chat"
+                on:click={() => deleteChat(current_red)}
+              >
+              &#xF5DE
+              </button>
+            {/if}
+
+            <h1 class="chatname">{current_red}</h1>
+            
               <div class="chat-box" id="chat-box{chat}">
                 <div class="filecontainers" id="filescontainer{chat}" />
               </div>
-              {#if i < chats.length + directmessages.length }
-          
-              
-              <div class="inputcontainer">
-                <textarea
-                  on:keyup={() => textareacheck()}
-                  class="input-textarea"
-                  id="inputtextarea{chat}"
-                  placeholder="Send message ..."
-                />
-                <img
-                  class="uploadlabed"
-                  src={uploadBtn}
-                  alt="img"
-                  on:click={() => addfile()}
-                />
-                <input
-                  type="file"
-                  name="myfile"
-                  id="file{chat}"
-                  style="display:none"
-                />
+              {#if i < chats.length + directmessages.length}
+                <div class="inputcontainer">
+                  <textarea
+                    on:keyup={() => textareacheck()}
+                    class="input-textarea"
+                    id="inputtextarea{chat}"
+                    placeholder="Send message ..."
+                  />
+                  <img
+                    class="uploadlabed"
+                    src={uploadBtn}
+                    alt="img"
+                    on:click={() => addfile()}
+                  />
+                  <input
+                    type="file"
+                    name="myfile"
+                    id="file{chat}"
+                    style="display:none"
+                  />
 
-                <button
-                  class="sendBtn"
-                  id="sendBtn{chat}"
-                  on:click={() => sendmessage()}
-                />
-                
-              </div>
+                  <button
+                    class="sendBtn"
+                    id="sendBtn{chat}"
+                    on:click={() => sendmessage(null,null,chat)}
+                  />
+                </div>
               {/if}
             </div>
           {/each}
-         
         </div>
       </div>
+     
 
       <div class="right-menu">
         <div id="popup">
@@ -838,8 +1017,10 @@ document.addEventListener("wheel", event => {
             >
           </p>
         {:else}
-          <!-- Create a register form checking password confirmation matches  -->
-          <form class="login-form" on:submit|preventDefault={register}>
+          <form class="login-form"  id="login-form" on:submit|preventDefault={register}
+          
+          on:input={() => checkPasswordMatch("#password", "#confirm-password", "#password-match-error","login-form")}
+          >
             <label for="password">Password</label>
             <input type="password" id="password" name="password" />
 
@@ -848,13 +1029,14 @@ document.addEventListener("wheel", event => {
               type="password"
               id="confirm-password"
               name="confirm-password"
-              on:input={checkPasswordMatch}
+              
               required
             />
-            <span id="password-match-error" style="color: red; display: none"
+            <button type="submit">Register</button>
+            <span id="password-match-error" style="position:absolute; color: red; display: none; top:57%"
               >Passwords do not match</span
             >
-            <button type="submit">Register</button>
+           
           </form>
           <p>Already have an account?</p>
           <button on:click={() => (login_register = true)}>Login</button>

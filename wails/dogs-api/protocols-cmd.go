@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -73,9 +77,18 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 
 	case "rendezvous":
 		if message[1] != "" {
+
 			c.fmtPrintln("New user added: ", stream.Conn().RemotePeer())
 			c.Add(message[1], stream.Conn().RemotePeer())
 			client.Reserve(context.Background(), c.Host, c.Host.Network().Peerstore().PeerInfo(stream.Conn().RemotePeer()))
+			date := time.Now().Format("2006-01-02 15:04:05")
+			text := fmt.Sprintf("User %s joined the chat", stream.Conn().RemotePeer().String())
+
+			c.EmitEvent("receiveMessage", message[1], text, stream.Conn().RemotePeer().String(), date)
+
+			mess := Message{Text: text, Date: date, Src: stream.Conn().RemotePeer().String()}
+			c.saveMessages(map[string]Message{message[1]: mess})
+
 		}
 
 	case "request":
@@ -112,10 +125,15 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 			}
 		} else if isrend {
 			c.fmtPrintln("Removing"+user, "from ", rendezvous)
-			aux := deleteValue(c.data[rendezvous].peers, user)
+			aux := deleteValue(c.data[rendezvous].Peers, user)
 			c.SetPeers(rendezvous, aux)
-			time := time.Now().Format("2006-01-02 15:04:05")
-			c.EmitEvent("userLeft", rendezvous, time, user)
+			date := time.Now().Format("2006-01-02 15:04:05")
+			text := fmt.Sprintf("User %s left the chat", stream.Conn().RemotePeer().String())
+			c.EmitEvent("receiveMessage", message[1], text, stream.Conn().RemotePeer().String(), date)
+
+			mess := Message{Text: text, Date: date, Src: stream.Conn().RemotePeer().String()}
+			c.saveMessages(map[string]Message{rendezvous: mess})
+
 			c.useradded <- true
 
 		} else {
@@ -226,11 +244,14 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 		c.fmtPrintln("\t[*] Selected peer: ", selpeer)
 		// create stream to random peer
 		stream, err := c.Host.NewStream(context.Background(), selpeer.ID, c.cmdproto)
-		defer stream.Close()
+
 		if err != nil {
+
 			c.fmtPrintln("Error creating stream: ", err)
 			peersID <- nil
 			return
+		} else {
+			defer stream.Close()
 		}
 		// create message with failed peers and quic bool
 		var msg = "request$"
@@ -295,4 +316,21 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 		return peersID
 	}
 
+}
+
+func (c *P2Papp) computePOW(ctx context.Context, difficulty int, nonce int, hash string) string {
+	for i := nonce; i < math.MaxInt64; i++ {
+
+		select {
+		case <-ctx.Done():
+			return ""
+		default:
+			hash := sha256.Sum256([]byte(hash + strconv.Itoa(i)))
+			hashString := hex.EncodeToString(hash[:])
+			if strings.HasPrefix(hashString, strings.Repeat("0", difficulty)) {
+				return hashString
+			}
+		}
+	}
+	return ""
 }

@@ -104,7 +104,9 @@ color: rgb(7, 7, 7);
 
 width: 100px;
 height: 100px;
-flex: 1;
+bottom: 100px;
+
+
 }
 .removefilebtn{
 position: relative;
@@ -163,17 +165,19 @@ color: aliceblue;
 width: 20%;
 
 
+
+
 }
 
 
 .chatdiv{
 
-width: 90%;
-background-color: rgb(75, 75, 75) ;
-height: 90%;  
-margin: 5%;
-  position: relative;
+  width: 80%;
+  height: 90%;
+  margin-left: 5%;
+  background-color: rgb(115, 112, 112);
   border-radius: 10px;
+
 }
 
 .inputcontainer{
@@ -186,18 +190,24 @@ flex-direction: row;
 padding-top: 2%;
 
 }
-#home_container{
+.homecontainer{
   width: 100%;
   height: 100%;
   display: block;
 }
 .chatdiveach{
   display: none;
+  margin: 20px;
+  box-sizing: border-box;
+  width: 95%;
+  height: 95%;
+}
 
+#settings{
+  display: none;
   width: 100%;
   height: 100%;
 }
-
 .input-textarea{
   position: relative;
   width: 70%;
@@ -270,10 +280,22 @@ position: relative;
   background-color: aliceblue;
   overflow: hidden;
 }
+td:first-child {
+  vertical-align: top; /* Align text in first column to the top */
+}
+
 .leave-chat{
-  position: absolute;
+  position: relative;
+top : -2%;
+left: 52%;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  background-color: red;
+  color: white;
+  justify-content: center;
   padding: 0px;
-  left: 80%;
+  
   
 
 }
@@ -288,17 +310,19 @@ position: relative;
 
 }
 .filecontainers{
+
+  display: none;
+ 
+  pointer-events: auto;
 height: 30%;
 position: absolute;
-display: flex;
+
 flex-direction: row;
-width: 100%;
+width: 470px;
 overflow-x: auto;
-overflow-y: none;
+overflow-y: hidden;
 opacity: 70%;
-
-top: 55%;
-
+top: 47%;
 
 }
 

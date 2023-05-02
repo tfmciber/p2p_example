@@ -171,7 +171,6 @@ func (c *P2Papp) connecToPeersMDNS(peerChan <-chan peer.AddrInfo, rendezvous str
 	}
 }
 
-// func to disconnect from all peers and close connections
 func (c *P2Papp) clear() {
 	for _, v := range c.Host.Network().Conns() {
 

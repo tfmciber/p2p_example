@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,11 +17,24 @@ import (
 	"golang.org/x/term"
 )
 
+func (c *P2Papp) SetKey(key []byte) {
+	c.key = key
+	// clear key from memory when it is no longer needed
+	defer c.ClearKey()
+}
+func (c *P2Papp) ClearKey() {
+	for i := 0; i < len(c.key); i++ {
+		c.key[i] = 0
+	}
+}
+
 //derive key using argon2id
 
 func (c *P2Papp) NewID(password string, filename string) {
+	fmt.Println("NewID")
 
 	key, salt := c.DeriveKey([]byte(password), nil)
+	c.SetKey(key)
 
 	sk := c.setID()
 
@@ -44,6 +58,7 @@ func (c *P2Papp) OpenID(data []byte, password string) string {
 
 	pwd := []byte(password)
 	key, _ := c.DeriveKey(pwd, salt)
+	c.SetKey(key)
 	sk, err := c.decrypt(data, key)
 
 	if err != nil {
@@ -100,6 +115,7 @@ func (c *P2Papp) requestPwd() []byte {
 
 }
 func (c *P2Papp) ReadKeys(filename string) []byte {
+	c.fmtPrintln("[*] Reading keys")
 	// Let's first read the `config.json` file
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -172,13 +188,80 @@ func (c *P2Papp) decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	nonceSize := aesGCM.NonceSize()
 
 	//Extract the nonce from the encrypted data
+
+	if len(ciphertext) < nonceSize {
+
+		return nil, errors.New("ciphertext too short")
+	}
+
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 
-	//Decrypt the data
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return plaintext, nil
+}
+
+func (c *P2Papp) DeleteAccount(filename string) bool {
+
+	c.fmtPrintln("Deleting account")
+	//delete file
+	err := os.Remove(filename)
+	c.Host.Close()
+	if err != nil {
+		return false
+	}
+	return true
+
+}
+
+func (c *P2Papp) ChangePassword(currentpaswd string, newpassword string, data []byte, filename string) bool {
+	c.fmtPrintln("Changing password", data)
+
+	if len(data) < 16 {
+		return false
+	}
+	//extract salt from ciphertext
+	salt := data[len(data)-16:]
+	//remove salt from ciphertext
+	data = data[:len(data)-16]
+
+	pwd := []byte(currentpaswd)
+	key, _ := c.DeriveKey(pwd, salt)
+	sk, err := c.decrypt(data, key)
+
+	if err != nil {
+		c.fmtPrintln("Error decrypting key: ", err)
+		return false
+	}
+	_, err = crypto.UnmarshalPrivateKey(sk)
+	if err != nil {
+		c.fmtPrintln("Error unmarshalling key: ", err)
+		return false
+	}
+
+	key, salt = c.DeriveKey([]byte(newpassword), nil)
+	c.SetKey(key)
+
+	ciphertext := c.encrypt(sk, key)
+
+	//append salt to ciphertext
+	ciphertext = append(ciphertext, salt...)
+	//remove file name
+	err = os.Remove(filename)
+	if err != nil {
+		c.fmtPrintln("Error removing file: ", err)
+		return false
+	}
+
+	err = os.WriteFile(filename, []byte(base64.StdEncoding.EncodeToString(ciphertext)), 0644)
+	if err != nil {
+		c.fmtPrintln("Error writing file: ", err)
+		return false
+	}
+
+	return true
+
 }

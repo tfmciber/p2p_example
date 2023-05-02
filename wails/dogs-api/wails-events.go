@@ -41,14 +41,11 @@ func (c *P2Papp) DataChanged() {
 		for {
 			select {
 			case <-c.chatadded:
-				c.fmtPrintln("chat added")
-				aux := c.ListChats()
-				c.fmtPrintln(aux)
 
-				runtime.EventsEmit(c.ctx, "updateChats", aux)
+				runtime.EventsEmit(c.ctx, "updateChats", c.ListChats())
 			case <-c.useradded:
-				aux := c.FakeUsers()
-				runtime.EventsEmit(c.ctx, "updateUsers", aux)
+
+				runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
 			//every 5 seconds
 
 			case <-c.ctx.Done():
@@ -79,6 +76,7 @@ func (c *P2Papp) AddDm(peerid peer.ID) {
 		for _, v := range c.direcmessages {
 			peerids = append(peerids, v.String())
 		}
+		c.saveData("direcmessages", c.direcmessages)
 		runtime.EventsEmit(c.ctx, "directMessage", peerids)
 
 	}

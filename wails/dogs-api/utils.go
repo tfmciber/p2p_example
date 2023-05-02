@@ -11,6 +11,12 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+func compare(a Statistics, b Statistics) bool {
+	if a.SysMemory == b.SysMemory && a.SysNumFD == b.SysNumFD && a.SysNumConnsInbound == b.SysNumConnsInbound && a.SysNumConnsOutbound == b.SysNumConnsOutbound && a.SysNumStreamsInbound == b.SysNumStreamsInbound && a.SysNumStreamsOutbound == b.SysNumStreamsOutbound && a.TransMemory == b.TransMemory && a.TransNumFD == b.TransNumFD && a.TransNumConnsInbound == b.TransNumConnsInbound && a.TransNumConnsOutbound == b.TransNumConnsOutbound && a.TransNumStreamsInbound == b.TransNumStreamsInbound && a.TransNumStreamsOutbound == b.TransNumStreamsOutbound {
+		return true
+	}
+	return false
+}
 func contains(s []peer.ID, e peer.ID) bool {
 	for _, a := range s {
 		if a == e {
