@@ -15,13 +15,36 @@ import (
 )
 
 type Message struct {
-	Text string       `json:"text"`
-	Date string       `json:"date"`
-	Src  string       `json:"src"`
-	Pa   PathFilename `json:"pa"`
+	Text   string       `json:"text"`
+	Date   string       `json:"date"`
+	Src    string       `json:"src"`
+	Pa     PathFilename `json:"pa"`
+	Status int          `json:"status"`
 }
 
-func (c *P2Papp) SendTextHandler(text string, rendezvous string) bool {
+func (c *P2Papp) SendDM(aux string) {
+
+	for _, v := range c.direcmessages {
+		if v.String() == aux {
+			return
+		}
+	}
+	peerid, err := peer.Decode(aux)
+	if err == nil {
+		// add to direct messages if not already there
+
+		for _, v := range c.direcmessages {
+			if v.String() == peerid.String() {
+				return
+			}
+		}
+
+		c.direcmessages = append(c.direcmessages, peerid)
+	}
+
+}
+
+func (c *P2Papp) SendTextHandler(text string, rendezvous string) int {
 	c.fmtPrintln("SendTextHandler " + text + " " + rendezvous)
 	////get time and date dd/mm/yyyy hh:mm
 	t := time.Now()
@@ -31,15 +54,12 @@ func (c *P2Papp) SendTextHandler(text string, rendezvous string) bool {
 	message := (rendezvous + "$" + text + "$" + date)
 
 	x, y := c.Get(rendezvous)
-	mess := Message{Text: text, Date: date, Src: c.Host.ID().String()}
-
-	c.saveMessages(map[string]Message{rendezvous: mess})
 
 	if y == true {
 		//we are sending a direct message
 		c.AddDm(x[0])
 	} else if x == nil || len(x) == 0 {
-		return false
+		return -1
 	}
 
 	c.writeDataRendFunc(c.textproto, rendezvous, func(stream network.Stream) {
@@ -55,8 +75,16 @@ func (c *P2Papp) SendTextHandler(text string, rendezvous string) bool {
 		}
 
 	})
+	intstatus := 1
+	if !ok {
+		intstatus = -1
+	}
 
-	return ok
+	mess := Message{Text: text, Date: date, Src: c.Host.ID().String(), Status: intstatus}
+
+	c.saveMessages(map[string]Message{rendezvous: mess})
+
+	return 1
 
 }
 func (c *P2Papp) LeaveChat(rendezvous string) {
@@ -68,14 +96,22 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 		c.useradded <- true
 		return
 	}
-	peerid := c.GetPeerIDfromstring(rendezvous)
-	isrend := c.checkRend(rendezvous)
+	peerid, err := peer.Decode(rendezvous)
+	fmt.Println(peerid, err)
+	if err == nil {
 
-	if !isrend && peerid == "" {
+		//delete from direct messages
+		c.deleteDm(peerid)
+		c.EmitEvent("directMessage", c.direcmessages)
+	} else if c.checkRend(rendezvous) == false {
+
 		c.fmtPrintln("rendezvous does not exist or is not a peerid")
 		c.chatadded <- rendezvous
 		c.useradded <- true
 		return
+	} else {
+		c.fmtPrintln("rendezvous deleted "+rendezvous, "c.data:", c.data)
+		c.leaveChat(rendezvous)
 	}
 
 	c.writeDataRendFunc(c.cmdproto, rendezvous, func(stream network.Stream) {
@@ -99,16 +135,6 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 
 	})
 
-	if isrend {
-		c.fmtPrintln("rendezvous deleted "+rendezvous, "c.data:", c.data)
-		c.leaveChat(rendezvous)
-
-	}
-
-	if peerid != "" {
-		c.fmtPrintln("DM deleted " + peerid)
-		c.leaveChat(peerid.String())
-	}
 	c.chatadded <- rendezvous
 	c.useradded <- true
 
@@ -249,7 +275,6 @@ func (c *P2Papp) LoadData() {
 		fmt.Println("c.decrypt(data, c.key)", err)
 		return
 	}
-	fmt.Println("aux", string(aux))
 
 	if err := json.Unmarshal(aux, &dat); err != nil {
 
@@ -292,32 +317,41 @@ func (c *P2Papp) LoadData() {
 			c.trashchats[k] = v.(bool)
 		}
 	}
-	if dat["directMessages"] != nil {
-		c.direcmessages = dat["directMessages"].([]peer.ID)
-	}
 
-	c.fmtPrintln("updating chats")
+	if dat["direcmessages"] != nil {
+		aux := dat["direcmessages"].([]interface{})
+		for _, v := range aux {
+			peerid, err := peer.Decode(v.(string))
+			if err == nil {
+				c.direcmessages = append(c.direcmessages, peerid)
+			}
+
+		}
+
+	}
 
 	c.updateDHT <- true
 
 	runtime.EventsEmit(c.ctx, "updateChats", c.ListChats())
-
-	uses := c.ListUsers()
-
-	runtime.EventsEmit(c.ctx, "updateUsers", uses)
+	runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
 
 	c.GetThrahs()
 
+	if c.direcmessages == nil {
+		c.direcmessages = []peer.ID{}
+	}
+	runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
+
 	if dat["message"] != nil {
-		c.fmtPrintln("messages", dat["message"])
+
 		for chat, v := range dat["message"].(map[string]interface{}) {
 
 			aux := v.([]interface{})
 			for _, m := range aux {
-				fmt.Println("m", m)
 
 				var textstr, datestr, srcstr string
 				var path PathFilename
+				var intstatus int
 
 				text := m.(map[string]interface{})["text"]
 				if text != nil {
@@ -341,15 +375,22 @@ func (c *P2Papp) LoadData() {
 
 					path.Filename = pa.(map[string]interface{})["filename"].(string)
 					path.Path = pa.(map[string]interface{})["path"].(string)
+					path.Progress = int(pa.(map[string]interface{})["progress"].(float64))
+
 				}
 
 				if srcstr == c.Host.ID().String() {
 					srcstr = "me"
 				}
+				status := m.(map[string]interface{})["status"]
+				if status != nil {
+					intstatus = int(status.(float64))
+				}
+
 				if path.Path != "" {
-					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, []PathFilename{path})
+					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, []PathFilename{path}, intstatus)
 				} else {
-					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, nil)
+					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, nil, intstatus)
 				}
 
 			}
@@ -376,7 +417,6 @@ func (c *P2Papp) saveData(typ string, data interface{}) { //type message, chats 
 
 	if data != nil {
 
-		fmt.Println("[*] saveData", typ, data)
 		file := fmt.Sprintf("data%s.json", c.Host.ID().String())
 
 		err := c.updateJSONField(file, typ, data)
@@ -437,16 +477,13 @@ func (c *P2Papp) updateJSONField(filename string, field string, value interface{
 				fmt.Println("map[string][]Message", value)
 				aux := map[string][]Message{}
 
-				for chat, v := range value.(map[string][]Message) {
-					aux[chat] = v
-				}
-
 				for chat, v := range data[field].(map[string]interface{}) {
 
 					for _, m := range v.([]interface{}) {
 
 						var textstr, datestr, srcstr string
 						var path PathFilename
+						var intstatus int
 
 						text := m.(map[string]interface{})["text"]
 						if text != nil {
@@ -469,10 +506,22 @@ func (c *P2Papp) updateJSONField(filename string, field string, value interface{
 
 							path.Filename = pa.(map[string]interface{})["filename"].(string)
 							path.Path = pa.(map[string]interface{})["path"].(string)
+
 						}
-						aux[chat] = append(aux[chat], Message{Text: textstr, Date: datestr, Src: srcstr, Pa: path})
+						status := m.(map[string]interface{})["status"]
+						if status != nil {
+							intstatus = int(status.(float64))
+							if intstatus != 1 {
+								intstatus = -1
+							}
+						}
+
+						aux[chat] = append(aux[chat], Message{textstr, datestr, srcstr, path, intstatus})
 					}
 
+				}
+				for chat, v := range value.(map[string][]Message) {
+					aux[chat] = append(aux[chat], v...)
 				}
 
 				data[field] = aux

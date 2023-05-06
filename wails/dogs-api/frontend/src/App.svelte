@@ -9,6 +9,7 @@
   import {showsendBtn} from "./utils.js";
   import { addRend } from "./rend.js";
   import { NewHost } from "../wailsjs/go/main/P2Papp.js";
+  import {Close} from "../wailsjs/go/main/P2Papp.js";
   import { ReadKeys } from "../wailsjs/go/main/P2Papp.js";
   import { NewID } from "../wailsjs/go/main/P2Papp.js";
   import { OpenID } from "../wailsjs/go/main/P2Papp.js";
@@ -17,6 +18,7 @@
   import {ChangePassword} from "../wailsjs/go/main/P2Papp.js";
   import {DeleteAccount} from "../wailsjs/go/main/P2Papp.js";
   import {LoadData} from "../wailsjs/go/main/P2Papp.js";
+  import {SendDM} from "../wailsjs/go/main/P2Papp.js";
 
   import { CancelRendezvous } from "../wailsjs/go/main/P2Papp.js";
   import { SendTextHandler } from "../wailsjs/go/main/P2Papp.js";
@@ -58,7 +60,10 @@
   let transNumConnschart;
   let transNumStreamschart;
 
-
+async function logout(){
+Close().then();
+  startup() 
+}
   async function startup() {
     
     await ReadKeys(filename).then((result) => (ciphered = result));
@@ -348,7 +353,7 @@ function Statistics(){
       "receiveMessage",
       function (arg1, arg2, arg3, arg4) {
 
-        createMessage(arg1, arg2, arg3, arg4, [], false);
+        createMessage(arg1, arg2, arg3, arg4, [],false);
       }
     );
   }
@@ -356,9 +361,8 @@ function Statistics(){
   function loadMessages() {
     window.runtime.EventsOn(
       "loadMessages",
-      function (arg1, arg2, arg3, arg4,arg5) {
-        
-        createMessage(arg1, arg2, arg3, arg4, arg5, false);
+      function (arg1, arg2, arg3, arg4,arg5,arg6) {
+        createMessage(arg1, arg2, arg3, arg4, arg5, arg6);
         
       }
     );
@@ -370,7 +374,7 @@ function Statistics(){
   }
   function receiveFile() {
     window.runtime.EventsOn("receiveFile", async function (...arg) {
-      await createMessage(arg[0], "", arg[1], "", [arg[2]]);
+      await createMessage(arg[0], "", arg[1], "", [arg[2]],false);
     });
   }
   function terminal() {
@@ -518,13 +522,14 @@ async function deleteAccount() {
         let path = pathfilename.path;
 
         let filename = pathfilename.filename;
+        let progress = pathfilename.progress;
         if (!Files[current_red]) {
           Files[current_red] = [];
         }
 
         if (!Files[current_red].find((file) => file.path === path)) {
-          Files[current_red].push({ path, filename });
-          newfiles.push({ path, filename });
+          Files[current_red].push({ path, filename,progress });
+          newfiles.push({ path, filename ,progress});
         }
       });
     });
@@ -650,6 +655,7 @@ async function deleteAccount() {
     if (!directmessages.find((ch) => ch === poputname.innerText)) {
       auxdirectmessages.push(poputname.innerText);
     }
+    SendDM(poputname.innerText).then();
     directmessages = auxdirectmessages;
    
    var mess = document.getElementById("textinpopup");
@@ -702,7 +708,7 @@ async function deleteAccount() {
           {/each}
         </div>
         <div class="option">
-          <button on:click={() => startup()}>
+          <button on:click={() => logout()}>
             Log out
             <i class="fas fa-sign-out-alt" />
           </button>

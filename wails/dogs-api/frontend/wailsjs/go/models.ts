@@ -3,6 +3,7 @@ export namespace main {
 	export class PathFilename {
 	    path: string;
 	    filename: string;
+	    progress: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PathFilename(source);
@@ -12,6 +13,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.filename = source["filename"];
+	        this.progress = source["progress"];
 	    }
 	}
 	export class User {

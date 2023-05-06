@@ -35,7 +35,6 @@ type P2Papp struct {
 	Host             host.Host
 	mu               sync.Mutex
 	queueFiles       map[string][]string
-	movequeue        chan string
 	queueFilesMutex  sync.Mutex
 	ctx              context.Context
 	cancelRendezvous context.CancelFunc
@@ -65,6 +64,7 @@ type P2Papp struct {
 type PathFilename struct {
 	Path     string `json:"path"`
 	Filename string `json:"filename"`
+	Progress int    `json:"progress"`
 }
 
 type User struct {
@@ -138,23 +138,53 @@ func (c *P2Papp) FakeUsers() []Users {
 
 func (c *P2Papp) startup(ctx context.Context) {
 	c.ctx = ctx
+
 	c.DataChanged()
-	c.MoveQueue()
 
 }
 
 func (c *P2Papp) close(ctx context.Context) bool {
 
+	if c.Host == nil {
+		return false
+	}
+
+	c.Close()
+	return false
+
+}
+func (c *P2Papp) Close() {
+	fmt.Println("saving")
 	c.saveData("direcmessages", c.direcmessages)
 	c.saveData("thrashchats", c.trashchats)
 	c.saveData("data", c.data)
 	c.saveData("message", c.messages)
-
 	c.ctx.Done()
 	c.Host.Close()
 	c.kdht.Close()
-	return false
 
+}
+func (c *P2Papp) saveall() {
+	go func() {
+		for {
+
+			select {
+			case <-c.ctx.Done():
+				return
+			case <-time.After(time.Second * 600):
+
+				if c.Host != nil {
+
+					c.saveData("direcmessages", c.direcmessages)
+					c.saveData("thrashchats", c.trashchats)
+					c.saveData("data", c.data)
+					c.saveData("message", c.messages)
+				}
+
+			}
+
+		}
+	}()
 }
 
 func (c *P2Papp) SetPeers(key string, values []peer.ID) {
@@ -474,6 +504,7 @@ func (c *P2Papp) NewHost() string {
 	//start dht
 	c.InitDHT()
 	c.DhtRoutine(c.preferquic)
+	c.saveall()
 
 	return c.Host.ID().String()
 

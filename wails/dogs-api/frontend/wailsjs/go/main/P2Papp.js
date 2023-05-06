@@ -30,6 +30,10 @@ export function ClearKey() {
   return window['go']['main']['P2Papp']['ClearKey']();
 }
 
+export function Close() {
+  return window['go']['main']['P2Papp']['Close']();
+}
+
 export function DataChanged() {
   return window['go']['main']['P2Papp']['DataChanged']();
 }
@@ -110,8 +114,8 @@ export function LoadData() {
   return window['go']['main']['P2Papp']['LoadData']();
 }
 
-export function MoveQueue() {
-  return window['go']['main']['P2Papp']['MoveQueue']();
+export function MoveQueue(arg1) {
+  return window['go']['main']['P2Papp']['MoveQueue'](arg1);
 }
 
 export function NewHost() {
@@ -144,6 +148,10 @@ export function Reconnect(arg1) {
 
 export function SelectFiles() {
   return window['go']['main']['P2Papp']['SelectFiles']();
+}
+
+export function SendDM(arg1) {
+  return window['go']['main']['P2Papp']['SendDM'](arg1);
 }
 
 export function SendFile(arg1, arg2) {

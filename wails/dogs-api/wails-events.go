@@ -11,6 +11,7 @@ import (
 
 func (c *P2Papp) EmitEvent(event string, data ...interface{}) {
 
+	fmt.Println("emit event: ", event, " data ", data)
 	runtime.EventsEmit(c.ctx, event, data...)
 
 }
@@ -27,7 +28,7 @@ func (c *P2Papp) SelectFiles() []PathFilename {
 	i := 0
 	for _, f := range file {
 		filename := filepath.Base(f)
-		pathFilenames = append(pathFilenames, PathFilename{Path: f, Filename: filename})
+		pathFilenames = append(pathFilenames, PathFilename{Path: f, Filename: filename, Progress: -2})
 
 		i += 1
 	}
@@ -46,7 +47,6 @@ func (c *P2Papp) DataChanged() {
 			case <-c.useradded:
 
 				runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
-			//every 5 seconds
 
 			case <-c.ctx.Done():
 

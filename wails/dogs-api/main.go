@@ -24,7 +24,7 @@ func main() {
 	app := &P2Papp{data: make(map[string]struct {
 		Peers []peer.ID
 		Timer uint
-	}), preferquic: true, refresh: 15, trashchats: make(map[string]bool), messages: make(map[string][]Message), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), updateDHT: make(chan bool), useradded: make(chan bool), movequeue: make(chan string), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
+	}), preferquic: false, refresh: 15, trashchats: make(map[string]bool), messages: make(map[string][]Message), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), updateDHT: make(chan bool), useradded: make(chan bool), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto}
 
 	err := wails.Run(&options.App{
 		Title:  "P2P",

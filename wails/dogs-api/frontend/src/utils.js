@@ -49,6 +49,8 @@ export function getColorForUserId(userId) {
   };
 
  export async function updateProgress(rend, peer, progress, fileName) {
+
+ 
     let progressbar = document.getElementById("progress" + rend + peer+fileName);
     let progressbuttons = document.getElementById("progressbuttons" + rend + peer+fileName);
     //if there are several progress bars for the same rendezvous, the first one will be the one that is updated
@@ -56,22 +58,22 @@ export function getColorForUserId(userId) {
     
         progressbar.style.width = progress + "%";
        
-        if (progress == 0){
-        progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
-      }
+       
         if (progress == 100) {
-        // progressbar.style.backgroundColor = "green";
+        
          progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
          progressbar.id = "done";
          progressbuttons.id = "done";
-        
-        }
-        if (progress == -1)
+         
+        }else  if (progress == -1)
         {
+      
                    
           progressbar.id = "error";
           progressbuttons.id = "error";
           progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
+        } else {
+          progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
         }
   };
 
@@ -192,12 +194,34 @@ export function getColorForUserId(userId) {
           progress.className = "progress";
           let progressbar = document.createElement("div");
           progressbar.className = "progressbar";
-          progressbar.id = "progress" + chat + sender + files[i].filename;
+          
           
           let progressbuttons = document.createElement("div");
-          progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
+          
           progressbuttons.className = "progress-buttons";
-          progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
+   
+          if (file.progress == -2)
+          {
+            progressbar.id = "progress" + chat + sender + files[i].filename;
+            progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
+            progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
+
+          }
+          if (file.progress == 100)
+          {
+            progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
+            progressbar.id = "done";
+            progressbuttons.id = "done";
+           
+
+          }
+          if (file.progress == -1)
+          {
+            progressbar.id = "error";
+            progressbuttons.id = "error";
+            progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
+          }
+      
           progress.appendChild(progressbar);
           container.appendChild(button);
           container.appendChild(text);
@@ -213,7 +237,7 @@ export function getColorForUserId(userId) {
       <div class="message-text">${message}</div>
       `;
       if (sender == "me" ) {
-        if (ok == true) {
+        if (ok == 1) {
           newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
         } else {
           newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;

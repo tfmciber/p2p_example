@@ -17,6 +17,8 @@ export function Clear():Promise<void>;
 
 export function ClearKey():Promise<void>;
 
+export function Close():Promise<void>;
+
 export function DataChanged():Promise<void>;
 
 export function DeleteAccount(arg1:string):Promise<boolean>;
@@ -57,7 +59,7 @@ export function ListUsers():Promise<Array<main.Users>>;
 
 export function LoadData():Promise<void>;
 
-export function MoveQueue():Promise<void>;
+export function MoveQueue(arg1:string):Promise<void>;
 
 export function NewHost():Promise<string>;
 
@@ -75,9 +77,11 @@ export function Reconnect(arg1:string):Promise<void>;
 
 export function SelectFiles():Promise<Array<main.PathFilename>>;
 
+export function SendDM(arg1:string):Promise<void>;
+
 export function SendFile(arg1:string,arg2:string):Promise<void>;
 
-export function SendTextHandler(arg1:string,arg2:string):Promise<boolean>;
+export function SendTextHandler(arg1:string,arg2:string):Promise<number>;
 
 export function SetKey(arg1:Array<number>):Promise<void>;
 
