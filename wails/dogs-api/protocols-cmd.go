@@ -119,6 +119,7 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 				c.fmtPrintln("Removing DM deleted ")
 				c.deleteDm(user)
 				c.EmitEvent("dmLeft")
+				c.EmitEvent("directMessage", c.direcmessages)
 			} else {
 				c.fmtPrintln("User is not the owner of the DM")
 				goto end
@@ -163,7 +164,7 @@ func (c *P2Papp) receiveReqhandler(peers []string, rendezvous string, quic bool,
 	for _, p := range peers[:len(peers)-1] {
 		peerID, err := peer.Decode(p)
 		if err != nil {
-			c.fmtPrintln("Error decoding", c.GetPeerIDfromstring(p), p, peerID, "ID: ", err)
+			c.fmtPrintln("Error decoding", p, peerID, "ID: ", err)
 
 		} else {
 			c.fmtPrintln("[*] Checking connection to: ", peerID)
@@ -215,13 +216,13 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 	// get random peer from rendezvous that is connected
 	go func() {
 		c.fmtPrintln("[*] Starting connection request")
-		Connectedpeers, _ := c.Get(rendezvous)
+		Connectedpeers, _ := c.Get(rendezvous, true)
 
 		peers := make([]peer.AddrInfo, 0)
 		for _, peer := range Connectedpeers {
-			if c.Host.Network().Connectedness(peer) == network.Connected {
-				peers = append(peers, c.Host.Peerstore().PeerInfo(peer))
-			}
+
+			peers = append(peers, c.Host.Peerstore().PeerInfo(peer))
+
 		}
 
 		if len(peers) == 0 {

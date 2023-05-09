@@ -37,7 +37,7 @@ type P2Papp struct {
 	queueFiles       map[string][]string
 	queueFilesMutex  sync.Mutex
 	ctx              context.Context
-	cancelRendezvous context.CancelFunc
+	cancelRendezvous map[string]context.CancelFunc
 	priv             crypto.PrivKey
 	kdht             *dht.IpfsDHT
 	data             map[string]struct {
@@ -271,14 +271,20 @@ func (c *P2Papp) Clear() {
 	}
 
 }
-func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
+func (c *P2Papp) Get(key string, getonlineonly bool) ([]peer.ID, bool) {
 
-	id := c.GetPeerIDfromstring(key)
-	if id != "" {
+	id, err := peer.Decode(key)
+	if err == nil {
 
-		if contains(c.data[""].Peers, c.GetPeerIDfromstring(key)) {
+		if contains(c.data[""].Peers, id) {
+			if getonlineonly {
+				if c.Host.Network().Connectedness(id) == network.Connected {
+					return []peer.ID{id}, true
+				}
 
-			return []peer.ID{c.GetPeerIDfromstring(key)}, true
+			}
+			return []peer.ID{id}, true
+
 		} else {
 
 			return nil, false
@@ -291,7 +297,14 @@ func (c *P2Papp) Get(key string) ([]peer.ID, bool) {
 		var auxpeers []peer.ID
 		for _, peer := range c.data[key].Peers {
 			if peer != "" {
-				auxpeers = append(auxpeers, peer)
+				if getonlineonly {
+					if c.Host.Network().Connectedness(peer) == network.Connected {
+						auxpeers = append(auxpeers, peer)
+					}
+				} else {
+					auxpeers = append(auxpeers, peer)
+				}
+
 			}
 		}
 		return auxpeers, false
@@ -480,7 +493,8 @@ func (c *P2Papp) NewHost() string {
 	c.Host.Network().Notify(&network.NotifyBundle{
 		DisconnectedF: func(net network.Network, conn network.Conn) {
 			if contains(c.data[""].Peers, conn.RemotePeer()) {
-				c.fmtPrintln("[*] Disconnected from ", conn.RemotePeer())
+				//say why we disconnected
+
 				peerinfo := c.Host.Peerstore().PeerInfo(conn.RemotePeer())
 				//try to reconnect
 				err = c.Host.Connect(c.ctx, peerinfo)
@@ -686,7 +700,7 @@ func (c *P2Papp) disconnectPeer(peerid string) {
 
 func (c *P2Papp) Reconnect(rendezvous string) {
 
-	peerids, _ := c.Get(rendezvous)
+	peerids, _ := c.Get(rendezvous, false)
 	var peeraddrs []peer.AddrInfo
 	for _, peerid := range peerids {
 		peeraddrs = append(peeraddrs, c.Host.Peerstore().PeerInfo(peerid))
@@ -694,19 +708,7 @@ func (c *P2Papp) Reconnect(rendezvous string) {
 	c.connectToPeers(peeraddrs, rendezvous, true, true, c.ctx, context.Background())
 
 }
-func (c *P2Papp) GetPeerIDfromstring(peerid string) peer.ID {
 
-	for _, v := range c.Host.Network().Conns() {
-
-		if v.RemotePeer().String() == peerid {
-
-			return v.RemotePeer()
-		}
-
-	}
-	return peer.ID("")
-
-}
 func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
 	var quitchan chan bool
 
@@ -767,8 +769,8 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			nMess := 1000
 			nBytes := 1024
 			times := 1
-			peerid := c.GetPeerIDfromstring(rendezvous)
-			if peerid != "" {
+			peerid, err := peer.Decode(rendezvous)
+			if err == nil {
 				c.benchTCPQUIC(peerid, nBytes, nMess, times)
 			}
 
@@ -793,7 +795,7 @@ func (c *P2Papp) HostStats() {
 			select {
 			case <-c.ctx.Done():
 				return
-			case <-time.After(30 * time.Second):
+			case <-time.After(60 * time.Second):
 				rcm := c.Host.Network().ResourceManager()
 
 				rcm.ViewSystem(func(scope network.ResourceScope) error {

@@ -51,7 +51,7 @@ func (c *P2Papp) setPeersTRansport(ctx context.Context, rendezvous string, prefe
 	ret := false
 	//get all peers connected using rendezvous
 
-	Peers, _ := c.Get(rendezvous)
+	Peers, _ := c.Get(rendezvous, true)
 
 	for _, v := range Peers {
 		aux := c.setTransport(v, preferQUIC)
@@ -76,18 +76,6 @@ func (c *P2Papp) closeConns(ID peer.ID) {
 	for _, v := range c.Host.Network().ConnsToPeer(ID) {
 		v.Close()
 	}
-}
-
-func (c *P2Papp) onlinePeers(rendezvous string) []peer.ID {
-	var peers []peer.ID
-	rendezvousPeers, _ := c.Get(rendezvous)
-	for _, v := range rendezvousPeers {
-		if c.Host.Network().Connectedness(v) == network.Connected {
-			peers = append(peers, v)
-
-		}
-	}
-	return peers
 }
 
 // func to get a stream with a peer of a given protcol
@@ -223,7 +211,7 @@ func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, prefe
 	c.fmtPrintln("[*] Connecting to peers through Relays")
 	var end = make(chan bool)
 	go func() {
-		peers, _ := c.Get(rendezvous)
+		peers, _ := c.Get(rendezvous, true)
 		for _, server := range peers {
 			serverpeerinfo := c.Host.Network().Peerstore().PeerInfo(server)
 			if serverpeerinfo.Addrs == nil {
@@ -279,7 +267,7 @@ func (c *P2Papp) connectthrougRelays(peersid []peer.ID, rendezvous string, prefe
 
 // func to reserve circuit with relay server and return all successful connections
 func (c *P2Papp) connectRelay(rendezvous string, ctx context.Context, ctx2 context.Context) {
-	aux, _ := c.Get(rendezvous)
+	aux, _ := c.Get(rendezvous, true)
 	if len(aux) == 0 {
 		return
 	}
@@ -291,13 +279,11 @@ func (c *P2Papp) connectRelay(rendezvous string, ctx context.Context, ctx2 conte
 		for _, v := range aux {
 
 			// check if peer is  connected
-			if c.Host.Network().Connectedness(v) == network.Connected {
 
-				_, err := client.Reserve(c.ctx, c.Host, c.Host.Network().Peerstore().PeerInfo(v))
-				if err == nil {
-					c.fmtPrintln("\t[*] Reserved circuit with:", v.String())
+			_, err := client.Reserve(c.ctx, c.Host, c.Host.Network().Peerstore().PeerInfo(v))
+			if err == nil {
+				c.fmtPrintln("\t[*] Reserved circuit with:", v.String())
 
-				}
 			}
 
 		}

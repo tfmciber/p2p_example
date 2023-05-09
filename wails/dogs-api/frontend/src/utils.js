@@ -48,23 +48,27 @@ export function getColorForUserId(userId) {
     terminal.appendChild(command);
   };
 
- export async function updateProgress(rend, peer, progress, fileName) {
+ export async function updateProgress(rend, peer, progress, fileName,path) {
 
  
     let progressbar = document.getElementById("progress" + rend + peer+fileName);
     let progressbuttons = document.getElementById("progressbuttons" + rend + peer+fileName);
+    
     //if there are several progress bars for the same rendezvous, the first one will be the one that is updated
     
     
         progressbar.style.width = progress + "%";
-       
-       
         if (progress == 100) {
+        
         
          progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
          progressbar.id = "done";
          progressbuttons.id = "done";
-         
+         //change button atribute to path
+         if (peer != "me"){
+            let button = document.getElementById("button" + rend + peer+fileName);
+            button.setAttribute("path", path);
+         }
         }else  if (progress == -1)
         {
       
@@ -174,10 +178,12 @@ export function getColorForUserId(userId) {
           text.className = "textmessage";
   
           let button = document.createElement("img");
+          
           // Add a click event listener to the button
           button.addEventListener("click", async () => {
             //get path attribute
             let path = button.getAttribute("path");
+            
             await OpenFileExplorer(path).then();
           });
           //add and image inside the button
@@ -187,6 +193,7 @@ export function getColorForUserId(userId) {
           button.className = "fileIconmessage";
           let file = files[i];
           let path = file.path;
+          
           //add path attribute to button
           button.setAttribute("path", path);
           //create progress bar
@@ -199,24 +206,28 @@ export function getColorForUserId(userId) {
           let progressbuttons = document.createElement("div");
           
           progressbuttons.className = "progress-buttons";
-   
+
           if (file.progress == -2)
           {
             progressbar.id = "progress" + chat + sender + files[i].filename;
             progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
+            button.id = "button" + chat + sender + files[i].filename;
             progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
 
           }
           if (file.progress == 100)
           {
             progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
+            button.id ="done"
             progressbar.id = "done";
+            progressbar.style.width = file.progress + "%";
             progressbuttons.id = "done";
            
 
           }
           if (file.progress == -1)
           {
+            button.id ="error"
             progressbar.id = "error";
             progressbuttons.id = "error";
             progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;

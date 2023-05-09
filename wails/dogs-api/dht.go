@@ -95,13 +95,15 @@ func (c *P2Papp) discoverPeers(RendezvousString string, ctx context.Context, ctx
 	}
 
 }
-func (c *P2Papp) CancelRendezvous() {
-	c.fmtPrintln("[*] DHT canceling")
-	c.cancelRendezvous()
+func (c *P2Papp) CancelRendezvous(rend string) {
+	c.fmtPrintln("[*] DHT canceling", c.cancelRendezvous[rend])
+	if c.cancelRendezvous[rend] != nil {
+		c.cancelRendezvous[rend]()
+	}
 }
 func (c *P2Papp) AddRendezvous(rendezvous string) {
 	c.fmtPrintln("[*] DHT Adding Rendezvous", rendezvous)
-
+	c.EmitEvent("searchRend", rendezvous)
 	if _, ok := c.trashchats[rendezvous]; ok {
 		c.fmtPrintln("the chat was prevoiusly deleted, now it is restored")
 		c.DeleteChat(rendezvous)
@@ -111,8 +113,8 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 	var ctx context.Context
 	var end = make(chan bool)
 	c.kdht, _ = dht.New(c.ctx, c.Host)
-	ctx, c.cancelRendezvous = context.WithTimeout(context.Background(), 120*time.Second)
-	defer c.cancelRendezvous()
+	ctx, c.cancelRendezvous[rendezvous] = context.WithTimeout(context.Background(), 120*time.Second)
+	defer c.cancelRendezvous[rendezvous]()
 	var cancelfunc1, cancelfunc2, cancelfunc3, cancelfunc4, cancelfunc5 context.CancelFunc
 	var context1, context2, context3, context4, context5 context.Context
 	go func() {
@@ -121,7 +123,7 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 		if len(FoundPeersDHT) > 0 {
 			context2, cancelfunc2 = context.WithTimeout(context.Background(), 30*time.Second)
 			failed := c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
-			connected, _ := c.Get(rendezvous)
+			connected, _ := c.Get(rendezvous, true)
 			c.fmtPrintln("connected Users=", connected, "len:", len(connected))
 			if len(connected) > 0 {
 				context3, cancelfunc3 = context.WithTimeout(context.Background(), 15*time.Second)
@@ -156,10 +158,12 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 		}
 		c.Add(rendezvous, "")
 		c.fmtPrintln("[*] ctx done")
+		c.EmitEvent("endRend", rendezvous)
 		return
 	case <-end:
 		c.Add(rendezvous, "")
 		c.fmtPrintln("[*] DHT Ended")
+		c.EmitEvent("endRend", rendezvous)
 		return
 
 	}

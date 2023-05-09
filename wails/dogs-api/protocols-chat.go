@@ -48,42 +48,43 @@ func (c *P2Papp) SendTextHandler(text string, rendezvous string) int {
 	c.fmtPrintln("SendTextHandler " + text + " " + rendezvous)
 	////get time and date dd/mm/yyyy hh:mm
 	t := time.Now()
-	date := t.Format("02/01/2006 15:04")
+	date := t.Format("02/01/2006 15:04:30")
 
 	ok := true
 	message := (rendezvous + "$" + text + "$" + date)
 
-	x, y := c.Get(rendezvous)
+	x, y := c.Get(rendezvous, true)
 
+	mess := Message{Text: text, Date: date, Src: c.Host.ID().String()}
 	if y == true {
 		//we are sending a direct message
 		c.AddDm(x[0])
 	} else if x == nil || len(x) == 0 {
+		mess.Status = -1
+		c.saveMessages(map[string]Message{rendezvous: mess})
 		return -1
 	}
 
 	c.writeDataRendFunc(c.textproto, rendezvous, func(stream network.Stream) {
 
 		n, err := stream.Write([]byte(message))
-		c.fmtPrintln(fmt.Sprintf("Sent [*] %s [%s] %s = %s,%d \n", date, rendezvous, c.Host.ID(), text, n))
+		c.fmtPrintln(fmt.Sprintf("Sent [*] %s [%s] %s = %s,%d \n", date, rendezvous, c.Host.ID(), text, n), "err:", err)
 		if err != nil {
 			if err != io.EOF {
 				ok = false
 				c.fmtPrintln("SendTextHandler error", err)
-				c.disconnectHost(stream, err, string(stream.Protocol()))
+				//c.disconnectHost(stream, err, string(stream.Protocol()))
 			}
 		}
 
 	})
+
 	intstatus := 1
 	if !ok {
 		intstatus = -1
 	}
-
-	mess := Message{Text: text, Date: date, Src: c.Host.ID().String(), Status: intstatus}
-
+	mess.Status = intstatus
 	c.saveMessages(map[string]Message{rendezvous: mess})
-
 	return 1
 
 }
@@ -134,6 +135,9 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 		c.fmtPrintln("leave sent to " + rendezvous + " " + c.Host.ID().String() + " " + fmt.Sprintf("%d", n))
 
 	})
+
+	//stop searching for rendezvous
+	//c.stopSearchRend(rendezvous)
 
 	c.chatadded <- rendezvous
 	c.useradded <- true
@@ -213,7 +217,7 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 			if err != nil {
 				if err != io.EOF {
 					c.fmtPrintln("SendTextHandler error", err)
-					c.disconnectHost(stream, err, string(stream.Protocol()))
+					//c.disconnectHost(stream, err, string(stream.Protocol()))
 
 				}
 			}
@@ -233,7 +237,7 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 			date = data[2]
 		} else {
 			t := time.Now()
-			date = t.Format("02/01/2006 15:04")
+			date = t.Format("02/01/2006 15:04:30")
 		}
 		if rendezvous == c.Host.ID().String() {
 			// if we receive our ID as rendezvous, it means we are receiving a direct message
@@ -256,9 +260,8 @@ func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 }
 
 func (c *P2Papp) LoadData() {
-	c.fmtPrintln("loadData")
 
-	file := fmt.Sprintf("data%s.json", c.Host.ID().String())
+	file := fmt.Sprintf("%s.data", c.Host.ID().String())
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		c.fmtPrintln("data file not found")
 		return
@@ -417,7 +420,7 @@ func (c *P2Papp) saveData(typ string, data interface{}) { //type message, chats 
 
 	if data != nil {
 
-		file := fmt.Sprintf("data%s.json", c.Host.ID().String())
+		file := fmt.Sprintf("%s.data", c.Host.ID().String())
 
 		err := c.updateJSONField(file, typ, data)
 		if err != nil {
@@ -506,6 +509,7 @@ func (c *P2Papp) updateJSONField(filename string, field string, value interface{
 
 							path.Filename = pa.(map[string]interface{})["filename"].(string)
 							path.Path = pa.(map[string]interface{})["path"].(string)
+							path.Progress = int(pa.(map[string]interface{})["progress"].(float64))
 
 						}
 						status := m.(map[string]interface{})["status"]

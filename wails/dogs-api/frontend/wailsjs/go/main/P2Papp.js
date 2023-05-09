@@ -14,8 +14,8 @@ export function AddRendezvous(arg1) {
   return window['go']['main']['P2Papp']['AddRendezvous'](arg1);
 }
 
-export function CancelRendezvous() {
-  return window['go']['main']['P2Papp']['CancelRendezvous']();
+export function CancelRendezvous(arg1) {
+  return window['go']['main']['P2Papp']['CancelRendezvous'](arg1);
 }
 
 export function ChangePassword(arg1, arg2, arg3, arg4) {
@@ -62,8 +62,8 @@ export function FakeUsers() {
   return window['go']['main']['P2Papp']['FakeUsers']();
 }
 
-export function Get(arg1) {
-  return window['go']['main']['P2Papp']['Get'](arg1);
+export function Get(arg1, arg2) {
+  return window['go']['main']['P2Papp']['Get'](arg1, arg2);
 }
 
 export function GetData() {
@@ -72,10 +72,6 @@ export function GetData() {
 
 export function GetKeys() {
   return window['go']['main']['P2Papp']['GetKeys']();
-}
-
-export function GetPeerIDfromstring(arg1) {
-  return window['go']['main']['P2Papp']['GetPeerIDfromstring'](arg1);
 }
 
 export function GetRend() {
@@ -144,6 +140,10 @@ export function ReadKeys(arg1) {
 
 export function Reconnect(arg1) {
   return window['go']['main']['P2Papp']['Reconnect'](arg1);
+}
+
+export function RestartApplication() {
+  return window['go']['main']['P2Papp']['RestartApplication']();
 }
 
 export function SelectFiles() {

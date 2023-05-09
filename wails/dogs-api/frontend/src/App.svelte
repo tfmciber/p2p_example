@@ -8,8 +8,10 @@
   import {auxchangechat} from "./utils.js";
   import {showsendBtn} from "./utils.js";
   import { addRend } from "./rend.js";
+  import { cancelRendezvous } from "./rend.js";
+  
   import { NewHost } from "../wailsjs/go/main/P2Papp.js";
-  import {Close} from "../wailsjs/go/main/P2Papp.js";
+  import { RestartApplication } from "../wailsjs/go/main/P2Papp.js";
   import { ReadKeys } from "../wailsjs/go/main/P2Papp.js";
   import { NewID } from "../wailsjs/go/main/P2Papp.js";
   import { OpenID } from "../wailsjs/go/main/P2Papp.js";
@@ -20,7 +22,7 @@
   import {LoadData} from "../wailsjs/go/main/P2Papp.js";
   import {SendDM} from "../wailsjs/go/main/P2Papp.js";
 
-  import { CancelRendezvous } from "../wailsjs/go/main/P2Papp.js";
+
   import { SendTextHandler } from "../wailsjs/go/main/P2Papp.js";
   import { SelectFiles } from "../wailsjs/go/main/P2Papp.js";
   import { QueueFile } from "../wailsjs/go/main/P2Papp.js";
@@ -29,11 +31,10 @@
   import { DeleteChat } from "../wailsjs/go/main/P2Papp.js";
   import uploadBtn from "./assets/images/uploadBtn.png";
   import fileIcon from "./assets/images/folder.png";
+  import micBtn from "./assets/images/microphone.png";
+  import pauseBtn from "./assets/images/pause.png";
 
   import Chart from 'chart.js/auto'
-
-  //TODO: close saves everything
-  
 
   let current_red = "";
   let ciphered = [];
@@ -60,10 +61,7 @@
   let transNumConnschart;
   let transNumStreamschart;
 
-async function logout(){
-Close().then();
-  startup() 
-}
+
   async function startup() {
     
     await ReadKeys(filename).then((result) => (ciphered = result));
@@ -367,6 +365,32 @@ function Statistics(){
       }
     );
   }
+
+  function seachRend() {
+    window.runtime.EventsOn("searchRend", function (arg) {
+
+      let chatbutton = document.getElementById("chatoptions"+arg);
+      if ( chatbutton!=null){       
+    chatbutton.className = "chatoptions-loading"
+  }
+   
+    });
+  }
+
+
+  function endRend() {
+    window.runtime.EventsOn("endRend", function (arg) {
+     
+            let chatbutton = document.getElementById("chatoptions"+arg);
+            if ( chatbutton!=null){       
+                chatbutton.className = "chatoptions"
+    }
+    });
+  }
+  seachRend();
+  endRend();
+
+  
   function direcMessage() {
     window.runtime.EventsOn("directMessage", function (arg) {
       directmessages = arg;
@@ -384,7 +408,7 @@ function Statistics(){
   }
   async function progressFile() {
     window.runtime.EventsOn("progressFile", async function (...arg) {
-      await updateProgress(arg[0], arg[1], arg[2], arg[3]);
+      await updateProgress(arg[0], arg[1], arg[2], arg[3],arg[4]);
     });
   }
   function newThrash() {
@@ -406,6 +430,34 @@ function Statistics(){
   progressFile();
   DMleft();
   Statistics();
+
+  function stopAudio(chat){
+    alert("stop audio");
+
+    //change audioBtn source to stop
+    let audioBtn = document.getElementById("micBtn"+chat);
+    audioBtn.src = micBtn;
+
+ 
+    audioBtn.onclick = function(){sendAudio(chat)};
+
+
+  }
+
+function sendAudio(chat){
+  alert("send audio");
+
+  //change audioBtn source to stop
+  let audioBtn = document.getElementById("micBtn"+chat);
+  audioBtn.src = pauseBtn;
+
+  
+  audioBtn.onclick = function(){stopAudio(chat)};
+
+
+
+
+}
 
 
 async function deleteAccount() {
@@ -708,7 +760,7 @@ async function deleteAccount() {
           {/each}
         </div>
         <div class="option">
-          <button on:click={() => logout()}>
+          <button on:click={() => RestartApplication().then()}>
             Log out
             <i class="fas fa-sign-out-alt" />
           </button>
@@ -904,7 +956,7 @@ async function deleteAccount() {
                 />
                 <button id="submit-btn" class="submit-btn"> Join </button>
               </form>
-              <button id="cancel-btn" on:click={() => CancelRendezvous()}>
+              <button id="cancel-btn" on:click={() => cancelRendezvous()}>
                 Cancel
               </button>
             </div>
@@ -969,6 +1021,7 @@ async function deleteAccount() {
                     id="sendBtn{chat}"
                     on:click={() => sendmessage(null,null,chat)}
                   />
+
                 </div>
               {/if}
             </div>

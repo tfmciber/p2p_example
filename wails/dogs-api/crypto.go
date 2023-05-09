@@ -207,12 +207,12 @@ func (c *P2Papp) decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 func (c *P2Papp) DeleteAccount(filename string) bool {
 
 	c.fmtPrintln("Deleting account")
-	//delete file
-	err := os.Remove(filename)
+
+	os.Remove(filename)
+	datafile := fmt.Sprintf("%s.data", c.Host.ID().String())
+	os.Remove(datafile)
 	c.Host.Close()
-	if err != nil {
-		return false
-	}
+
 	return true
 
 }

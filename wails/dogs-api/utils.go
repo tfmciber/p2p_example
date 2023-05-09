@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -54,6 +55,24 @@ func (c *P2Papp) OpenFileExplorer(path string) error {
 	return cmd.Run()
 }
 
+func (c *P2Papp) RestartApplication() {
+	c.Close()
+	self, _ := os.Executable()
+	args := os.Args
+	env := os.Environ()
+	// Windows does not support exec syscall.
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command(self, args[1:]...)
+		cmd.Env = env
+		if err := cmd.Start(); err == nil {
+			os.Exit(0)
+		}
+	} else {
+		syscall.Exec(self, args, env)
+	}
+
+}
+
 // func to get the default download directory os independent
 func getDefaultDownloadDir() string {
 	home := os.Getenv("HOME")
@@ -61,6 +80,7 @@ func getDefaultDownloadDir() string {
 		home = os.Getenv("USERPROFILE") // windows
 	}
 	downloadir := home + "/Downloads"
+
 	return downloadir
 }
 

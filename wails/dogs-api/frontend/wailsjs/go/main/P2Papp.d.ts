@@ -9,7 +9,7 @@ export function AddDm(arg1:peer.ID):Promise<void>;
 
 export function AddRendezvous(arg1:string):Promise<void>;
 
-export function CancelRendezvous():Promise<void>;
+export function CancelRendezvous(arg1:string):Promise<void>;
 
 export function ChangePassword(arg1:string,arg2:string,arg3:Array<number>,arg4:string):Promise<boolean>;
 
@@ -33,13 +33,11 @@ export function EmitEvent(arg1:string,arg2:Array<any>):Promise<void>;
 
 export function FakeUsers():Promise<Array<main.Users>>;
 
-export function Get(arg1:string):Promise<Array<peer.ID>|boolean>;
+export function Get(arg1:string,arg2:boolean):Promise<Array<peer.ID>|boolean>;
 
 export function GetData():Promise<{[key: string]: any}>;
 
 export function GetKeys():Promise<Array<string>>;
-
-export function GetPeerIDfromstring(arg1:string):Promise<peer.ID>;
 
 export function GetRend():Promise<Array<string>>;
 
@@ -74,6 +72,8 @@ export function QueueFile(arg1:string,arg2:string):Promise<void>;
 export function ReadKeys(arg1:string):Promise<Array<number>>;
 
 export function Reconnect(arg1:string):Promise<void>;
+
+export function RestartApplication():Promise<void>;
 
 export function SelectFiles():Promise<Array<main.PathFilename>>;
 

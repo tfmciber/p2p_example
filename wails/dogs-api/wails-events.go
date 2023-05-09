@@ -11,7 +11,7 @@ import (
 
 func (c *P2Papp) EmitEvent(event string, data ...interface{}) {
 
-	fmt.Println("emit event: ", event, " data ", data)
+	c.fmtPrintln("emit event: ", event, " data ", data)
 	runtime.EventsEmit(c.ctx, event, data...)
 
 }

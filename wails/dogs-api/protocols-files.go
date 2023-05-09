@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	filepath "path/filepath"
 	"time"
 
 	"os"
@@ -13,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (c *P2Papp) QueueFile(rendezvous string, path string) {
@@ -51,8 +51,8 @@ func (c *P2Papp) MoveQueue(rendezvous string) {
 func (c *P2Papp) SendFile(rendezvous string, path string) {
 	c.fmtPrintln("[*] SendFile", rendezvous, path)
 
-	x, _ := c.Get(rendezvous)
-	c.fmtPrintln("x: ", x)
+	x, _ := c.Get(rendezvous, true)
+
 	file, err := os.Open(path)
 	// calculate file hash
 
@@ -63,6 +63,7 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 	}
 
 	totalprogress := -1
+	c.fmtPrintln("x: ", x, "len", len(x))
 	if x != nil {
 		hashString := c.getHash(file)
 		if err != nil {
@@ -96,6 +97,7 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 			c.fmtPrintln("write fileName: ", n, err)
 			n, err = stream.Write([]byte(hashString))
 			c.fmtPrintln("write hash: ", n, err)
+			file.Seek(0, 0)
 			for {
 
 				sendBuffer := make([]byte, 1024)
@@ -103,12 +105,13 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 				n, err := file.Read(sendBuffer)
 
 				if err == io.EOF {
+
 					break
-				} else {
+				} else if err == nil {
 					tries := 0
 				retry:
 					if stream == nil {
-						return
+						break
 					}
 					n_write, err := stream.Write([]byte(sendBuffer)[:n])
 
@@ -117,7 +120,7 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 						aux := (float64(totalsent)) / (float64(fileInfo.Size()))
 						progress = int(aux*100) / len(x)
 
-						if progress%7 == 0 && progress != last {
+						if progress%7 == 0 && progress != last && progress != 100 {
 							c.EmitEvent("progressFile", rendezvous, "me", progress, fileInfo.Name())
 
 						}
@@ -137,13 +140,17 @@ func (c *P2Papp) SendFile(rendezvous string, path string) {
 
 					}
 
+				} else {
+					c.fmtPrintln("error reading file: ", err)
+					break
 				}
 			}
 
 			file.Close()
 			totalprogress += progress
-
-			stream.Close()
+			if stream != nil {
+				stream.Close()
+			}
 
 		})
 		if totalsent != len(x)*int(fileInfo.Size()) {
@@ -207,25 +214,24 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 	n, err = stream.Read(hashoffile)
 	fileName := strings.Trim(string(fileNameBuffer), ":")
 	c.fmtPrintln("fileName: ", fileName, " err: ", err, " n: ", n)
-	temporaryfilename := fmt.Sprintf("Uncompleted_%s.tmp", fileName)
 
-	filepath := fmt.Sprintf("%s/%s", downloadDir, temporaryfilename)
+	filePath := filepath.Join(downloadDir, fmt.Sprintf("Uncompleted_%s.tmp", fileName))
 
 	c.fmtPrintln("Receiving file: ", fileName, " of size: ", fileSize, " bytes from rendezvous ", fromrendezvous, " from peer ", stream.Conn().RemotePeer(), "with hash:", string(hashoffile))
 
 	var pa PathFilename
-	pa.Path = filepath
+	pa.Path = filePath
 	pa.Filename = fileName
 	pa.Progress = -2 // queued
 
 	var newFile *os.File
-	runtime.EventsEmit(c.ctx, "receiveFile", fromrendezvous, stream.Conn().RemotePeer().String(), pa)
-	newFile, err = os.Create(filepath)
+
+	c.EmitEvent("receiveFile", fromrendezvous, stream.Conn().RemotePeer().String(), pa)
+	newFile, err = os.Create(filePath)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer newFile.Close()
 
 	var receivedBytes int
 
@@ -250,7 +256,7 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 		}
 		aux := (float64(receivedBytes)) / (float64(fileSize))
 		progress := int(aux * 100)
-		if progress%7 == 0 && progress != last || progress == 100 {
+		if progress%7 == 0 && progress != last && progress != 100 {
 			c.EmitEvent("progressFile", fromrendezvous, stream.Conn().RemotePeer().String(), progress, fileName)
 		}
 		last = progress
@@ -264,20 +270,53 @@ func (c *P2Papp) receiveFilehandler(stream network.Stream) {
 	//get hash of file
 	hashString := c.getHash(newFile)
 	newFile.Close()
+
 	c.fmtPrintln("hashString: ", hashString, " hashoffile: ", string(hashoffile))
+
 	if hashString != string(hashoffile) {
 		ret = -1
 
 	} else {
+		c.fmtPrintln("Received correctly")
 
-		err = os.Rename(filepath, fmt.Sprintf("%s/%s", downloadDir, fileName))
+		// check if a file with the same name exists
+
+		ext := filepath.Ext(fileName)
+		name := strings.TrimSuffix(fileName, ext)
+		if _, err := os.Stat(filePath); err != nil {
+			i := 1
+			for {
+				newFileName := name + "(" + strconv.Itoa(i) + ")" + ext // cambia el nombre del archivo agregando el número entre paréntesis antes de la extensión
+				newFilePath := filepath.Join(downloadDir, newFileName)
+				_, err := os.Stat(newFilePath)
+
+				if err != nil { // si el nuevo nombre de archivo no existe
+
+					err = os.Rename(filePath, newFilePath)
+					if err == nil {
+						pa.Path = newFilePath
+					}
+					break
+				}
+
+				i++
+			}
+		} else {
+			newFilePath := filepath.Join(downloadDir, fileName)
+
+			err = os.Rename(filePath, newFilePath)
+			if err == nil {
+				pa.Path = newFilePath
+			}
+
+		}
 
 	}
 	t := time.Now()
-	date := t.Format("02/01/2006 15:04")
+	date := t.Format("02/01/2006 15:04:30")
 	pa.Progress = ret
 	mess := Message{Text: "", Date: date, Src: stream.Conn().RemotePeer().String(), Pa: pa, Status: ret}
-	c.EmitEvent("progressFile", fromrendezvous, stream.Conn().RemotePeer().String(), ret, fileName)
+	c.EmitEvent("progressFile", fromrendezvous, stream.Conn().RemotePeer().String(), ret, fileName, pa.Path)
 	c.saveMessages(map[string]Message{fromrendezvous: mess})
 
 	return
@@ -293,6 +332,7 @@ func (c *P2Papp) getHash(file *os.File) string {
 	file.Seek(0, 0)
 	hashInBytes := hash.Sum(nil)
 	hashString := hex.EncodeToString(hashInBytes)
+
 	return hashString
 
 }

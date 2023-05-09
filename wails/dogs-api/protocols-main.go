@@ -33,7 +33,7 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 //funt to send data to all peers in a rendezvous in a effient way from a channel
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
-	rend, _ := c.Get(rendezvous)
+	rend, _ := c.Get(rendezvous, true)
 
 	var wg sync.WaitGroup
 	for _, v := range rend {
