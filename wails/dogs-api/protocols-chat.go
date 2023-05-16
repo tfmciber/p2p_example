@@ -67,8 +67,11 @@ func (c *P2Papp) SendTextHandler(text string, rendezvous string) int {
 
 	c.writeDataRendFunc(c.textproto, rendezvous, func(stream network.Stream) {
 
+		fmt.Println("sending data to: ", stream.Conn().RemotePeer().String())
+
 		n, err := stream.Write([]byte(message))
 		c.fmtPrintln(fmt.Sprintf("Sent [*] %s [%s] %s = %s,%d \n", date, rendezvous, c.Host.ID(), text, n), "err:", err)
+
 		if err != nil {
 			if err != io.EOF {
 				ok = false

@@ -697,6 +697,10 @@ async function deleteAccount() {
   }
   hidepopup();
 
+  function getContrastColor(color){
+    return (parseInt(color.replace("#",""), 16) > 0xffffff/2) ? 'black':'white';
+  }
+
   async function sendAndAddtoChat() {
     var modal = document.getElementById("popup");
     var poputname = modal.querySelector("#popupname");
@@ -742,7 +746,7 @@ async function deleteAccount() {
               type="button"
               class="chatoptions"
               id="chatoptions{chat}"
-              style="background-color: {getColorForUserId(chat)}"
+              style="background-color: {getColorForUserId(chat)};color: {getContrastColor(getColorForUserId(chat))}"
               on:click={() => ChangeChat(chat)}
             >
               {chat}</button
