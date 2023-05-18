@@ -8,7 +8,8 @@
   import {auxchangechat} from "./utils.js";
   import {showsendBtn} from "./utils.js";
   import { addRend } from "./rend.js";
-  import { cancelRendezvous } from "./rend.js";
+  import { reload } from "./rend.js";
+  import { cancelRendezvousstr } from "./rend.js";
   
   import { NewHost } from "../wailsjs/go/main/P2Papp.js";
   import { RestartApplication } from "../wailsjs/go/main/P2Papp.js";
@@ -369,9 +370,19 @@ function Statistics(){
   function seachRend() {
     window.runtime.EventsOn("searchRend", function (arg) {
 
-      let chatbutton = document.getElementById("chatoptions"+arg);
-      if ( chatbutton!=null){       
-    chatbutton.className = "chatoptions-loading"
+      let chatbuttondiv = document.getElementById("chatoptions"+arg);
+      
+      if ( chatbuttondiv!=null){  
+        
+        //get button in div with class chatoption
+        let but = chatbuttondiv.getElementsByClassName("chatoptions")[0];
+
+        let reloadbtn = chatbuttondiv.getElementsByClassName("reloadchatbtn")[0];
+        let cancelbtn = chatbuttondiv.getElementsByClassName("removechatbtn")[0];
+        cancelbtn.style.display = "inline";
+        reloadbtn.style.display = "none";
+            
+        but.className = "chatoptions-loading"
   }
    
     });
@@ -381,10 +392,20 @@ function Statistics(){
   function endRend() {
     window.runtime.EventsOn("endRend", function (arg) {
      
-            let chatbutton = document.getElementById("chatoptions"+arg);
-            if ( chatbutton!=null){       
-                chatbutton.className = "chatoptions"
-    }
+      let chatbuttondiv = document.getElementById("chatoptions"+arg);
+      
+      if ( chatbuttondiv!=null){  
+        
+        //get button in div with class chatoption
+        let but = chatbuttondiv.getElementsByClassName("chatoptions-loading")[0];
+
+        let reloadbtn = chatbuttondiv.getElementsByClassName("reloadchatbtn")[0];
+        let cancelbtn = chatbuttondiv.getElementsByClassName("removechatbtn")[0];
+        cancelbtn.style.display = "none";
+        reloadbtn.style.display = "inline";
+            
+        but.className = "chatoptions"
+  }
     });
   }
   seachRend();
@@ -431,33 +452,7 @@ function Statistics(){
   DMleft();
   Statistics();
 
-  function stopAudio(chat){
-    alert("stop audio");
 
-    //change audioBtn source to stop
-    let audioBtn = document.getElementById("micBtn"+chat);
-    audioBtn.src = micBtn;
-
- 
-    audioBtn.onclick = function(){sendAudio(chat)};
-
-
-  }
-
-function sendAudio(chat){
-  alert("send audio");
-
-  //change audioBtn source to stop
-  let audioBtn = document.getElementById("micBtn"+chat);
-  audioBtn.src = pauseBtn;
-
-  
-  audioBtn.onclick = function(){stopAudio(chat)};
-
-
-
-
-}
 
 
 async function deleteAccount() {
@@ -527,7 +522,7 @@ async function deleteAccount() {
 
     if (message != "") {
       await SendTextHandler(message, dest).then((result) => {
-        createMessage(dest, message, "me", new Date().toLocaleString(), "", result);
+        createMessage(dest, message, "me,, sent to:"+dest, new Date().toLocaleString(), "", result);
       });
     }
 
@@ -559,6 +554,7 @@ async function deleteAccount() {
  
   }
   async function deleteChat(arg) {
+    
     await DeleteChat(arg).then();
     setTimeout(ChangeChat,0,"");
   }
@@ -635,6 +631,7 @@ async function deleteAccount() {
     { passive: false }
   );
   async function ChangeChat(chat) {
+    
    
     if (chat == current_red) {
       return;
@@ -645,6 +642,7 @@ async function deleteAccount() {
     auxchangechat(current_red,chat,Users,directmessages);
    
     current_red = chat;
+
     if (chat != "settings" && chat != ""){
     if (Files[chat] == null) {
       Files[chat] = [];
@@ -742,25 +740,30 @@ async function deleteAccount() {
        
        
           {#each [...chats, ...directmessages] as chat}
+          <div  id="chatoptions{chat}">
             <button
               type="button"
               class="chatoptions"
-              id="chatoptions{chat}"
               style="background-color: {getColorForUserId(chat)};color: {getContrastColor(getColorForUserId(chat))}"
               on:click={() => ChangeChat(chat)}
             >
               {chat}</button
             >
+            <button class="reloadchatbtn" on:click={() => reload(chat)}>&#x21bb;</button>
+            <button  class ="removechatbtn" on:click={() => cancelRendezvousstr(chat)}> &#x2715 </button>
+          </div>
           {/each}
           {#each [...thrash] as chat}
+          <div  id="chatoptions{chat}">
             <button
               type="button"
               class="chatoptions"
-              id="chatoptions{chat}"
+             
               on:click={() => ChangeChat(chat)}
             >
               {chat}</button
             >
+          </div>
           {/each}
         </div>
         <div class="option">
@@ -960,13 +963,9 @@ async function deleteAccount() {
                 />
                 <button id="submit-btn" class="submit-btn"> Join </button>
               </form>
-              <button id="cancel-btn" on:click={() => cancelRendezvous()}>
-                Cancel
-              </button>
+
             </div>
-            <div class="loader">
-              <div class="dot-flashing" />
-            </div>
+           
           </div>
 
         </div>
@@ -979,7 +978,7 @@ async function deleteAccount() {
                 class="leave-chat"
                 id="buttonleave{chat}"
                 title="Leave chat"
-                on:click={() => leaveChat(current_red)}
+                on:click={() => leaveChat(chat)}
               >
               &#x2715
               </button>
@@ -988,8 +987,9 @@ async function deleteAccount() {
                 class="leave-chat"
                 id="buttonleave{chat}"
                 title="Delete chat"
-                on:click={() => deleteChat(current_red)}
+                on:click={() => deleteChat(chat)}
               >
+              {chat}
               &#xF5DE
               </button>
             {/if}
@@ -1005,7 +1005,7 @@ async function deleteAccount() {
                     on:keyup={() => textareacheck()}
                     class="input-textarea"
                     id="inputtextarea{chat}"
-                    placeholder="Send message ..."
+                    placeholder="Send message to {chat} ..."
                   />
                   <img
                     class="uploadlabed"
@@ -1024,7 +1024,8 @@ async function deleteAccount() {
                     class="sendBtn"
                     id="sendBtn{chat}"
                     on:click={() => sendmessage(null,null,chat)}
-                  />
+                  
+                    />
 
                 </div>
               {/if}

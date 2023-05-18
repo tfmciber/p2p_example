@@ -177,8 +177,9 @@ func (c *P2Papp) clear() {
 // func to start a stream with a peer only if there is no stream open and return the stream in any cases
 func (c *P2Papp) streamStart(peerid peer.ID, ProtocolID protocol.ID) network.Stream {
 
-	stream := c.getStreamsFromPeerProto(peerid, ProtocolID)
-
+	//stream := c.getStreamsFromPeerProto(peerid, ProtocolID)
+	var stream network.Stream
+	stream = nil
 	if stream == nil {
 		var err error
 		stream, err = c.Host.NewStream(c.ctx, peerid, ProtocolID)

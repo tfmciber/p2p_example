@@ -264,7 +264,9 @@ width: fit-content;
 text-align: left;
 margin-left: 20px;
 border-radius: 5px;
-background-color: gray;  
+
+float: left;
+ 
 }
 .chatoptions-loading {
   width: fit-content;
@@ -273,7 +275,7 @@ margin-left: 20px;
 border-radius: 5px;
   --border-size: 3px;
   --border-angle: 0turn;
-
+  float: left;
   background-image: conic-gradient(
       from var(--border-angle),
       #213,

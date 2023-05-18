@@ -267,7 +267,7 @@ export function getColorForUserId(userId) {
   
    export function auxchangechat(last_rend,current_redaux,Users,directmessages) {
 
-
+alert("last_rend: " + last_rend + " current_redaux: " + current_redaux);
       var currentchatdivid;
       var lastchatdivid;
       if (current_redaux == "settings")
@@ -286,10 +286,12 @@ export function getColorForUserId(userId) {
         lastchatdivid="home_container";
       }
       let currentchatdiv = document.getElementById(currentchatdivid);
+      alert("currentchatdiv"+currentchatdivid);
       if (currentchatdiv) {
         currentchatdiv.style.display = "block";
       }
       let lastchatdiv = document.getElementById(lastchatdivid);
+      alert("lastchatdiv"+lastchatdivid);
       if (lastchatdiv) {
         lastchatdiv.style.display = "none";
       }
@@ -297,14 +299,18 @@ export function getColorForUserId(userId) {
       let nowchatoptionsbutton = document.getElementById(
         "chatoptions" + current_redaux
       );
-      if (nowchatoptionsbutton) {
-        nowchatoptionsbutton.style.border = "1px solid #fff";
+      if (nowchatoptionsbutton) {  
+        let but = nowchatoptionsbutton.getElementsByTagName("button")[0]; 
+        alert(but);     
+          but.style.border = "1px solid #fff";
+
       }
       let lastchatoptionsbutton = document.getElementById(
         "chatoptions" + last_rend
       );
       if (lastchatoptionsbutton) {
-        lastchatoptionsbutton.style.border = "none";
+        let but = lastchatoptionsbutton.getElementsByTagName("button")[0];  
+        but.style.border = "none";
       }
      
       return;

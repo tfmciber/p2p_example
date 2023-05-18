@@ -56,6 +56,7 @@ type P2Papp struct {
 	fileproto     protocol.ID
 	useradded     chan bool
 	updateDHT     chan bool
+	reloadChat    chan string
 	chatadded     chan string
 	key           []byte
 	messages      map[string][]Message
