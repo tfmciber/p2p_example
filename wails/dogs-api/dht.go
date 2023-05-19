@@ -106,7 +106,7 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 		c.Add(rendezvous, "")
 		c.fmtPrintln("[*] DHT Adding Rendezvous", rendezvous)
 		c.EmitEvent("searchRend", rendezvous)
-		if _, ok := c.trashchats[rendezvous]; ok {
+		if c.data[rendezvous].Status == false {
 			c.fmtPrintln("the chat was prevoiusly deleted, now it is restored")
 			c.DeleteChat(rendezvous)
 

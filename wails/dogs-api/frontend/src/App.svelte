@@ -44,9 +44,9 @@
   
   let Users = {};
   let Files = {};
-  var chats = [];
-  let thrash = [];
-  var directmessages = [];
+  var chats = {};
+ 
+  var directmessages = {};
   let filename = "key.key";
   let password = "";
   let login_register = true;
@@ -78,10 +78,10 @@
  
     current_red = "";
     
-    chats=[];
+    chats= {};
     Users={};
     Files = {};
-    directmessages = [];
+    directmessages = {};
   }
   startup();
 
@@ -296,8 +296,7 @@ function addData1(chart,x, y) {
   }
 
   function updateChats() {
-    window.runtime.EventsOn("updateChats", function (arg) {
-      
+    window.runtime.EventsOn("updateChats", function (arg) {   
       chats = arg;
     });
   }
@@ -305,6 +304,7 @@ function addData1(chart,x, y) {
   function updateUsers() {
     window.runtime.EventsOn("updateUsers", async function (arg) {
       Users = {};
+     
       for (let i = 0; i < arg.length; i++) {
         Users[arg[i].chat] = [];
         for (let j = 0; j < arg[i].user.length; j++) {
@@ -315,6 +315,7 @@ function addData1(chart,x, y) {
           Users[arg[i].chat].push(user);
         }
       }
+      
 
       await SetUsers(Users, current_red, directmessages);
     });
@@ -432,15 +433,10 @@ function Statistics(){
       await updateProgress(arg[0], arg[1], arg[2], arg[3],arg[4]);
     });
   }
-  function newThrash() {
-    window.runtime.EventsOn("newThrash", async function (arg) {
-      thrash = arg;
-    });
-  }
+
 
   loadMessages();
 
-  newThrash();
 
   terminal();
   receiveMessage();
@@ -522,7 +518,7 @@ async function deleteAccount() {
 
     if (message != "") {
       await SendTextHandler(message, dest).then((result) => {
-        createMessage(dest, message, "me,, sent to:"+dest, new Date().toLocaleString(), "", result);
+        createMessage(dest, message, "me", new Date().toLocaleString(), "", result);
       });
     }
 
@@ -738,9 +734,11 @@ async function deleteAccount() {
         <button class="Home" on:click={() => ChangeChat("")}> Home </button>
         <div class="chats-menu" id ="chats-menu">
        
-       
-          {#each [...chats, ...directmessages] as chat}
+          {#each Object.entries({...chats, ...directmessages})  as [chat, item]}
+          {#if chat != ""}
+         
           <div  id="chatoptions{chat}">
+            {#if item.Status == true}
             <button
               type="button"
               class="chatoptions"
@@ -749,22 +747,21 @@ async function deleteAccount() {
             >
               {chat}</button
             >
-            <button class="reloadchatbtn" on:click={() => reload(chat)}>&#x21bb;</button>
-            <button  class ="removechatbtn" on:click={() => cancelRendezvousstr(chat)}> &#x2715 </button>
-          </div>
-          {/each}
-          {#each [...thrash] as chat}
-          <div  id="chatoptions{chat}">
+            {:else}
             <button
               type="button"
               class="chatoptions"
-             
               on:click={() => ChangeChat(chat)}
             >
               {chat}</button
             >
+            {/if}
+            <button class="reloadchatbtn" on:click={() => reload(chat)}>&#x21bb;</button>
+            <button  class ="removechatbtn" on:click={() => cancelRendezvousstr(chat)}> &#x2715 </button>
           </div>
+          {/if}
           {/each}
+          
         </div>
         <div class="option">
           <button on:click={() => RestartApplication().then()}>
@@ -782,7 +779,7 @@ async function deleteAccount() {
   <tr>
     <td>Host ID</td>
     <td>{id}</td>
-  </tr>
+  </tr> 4n
 
 
   <tr>
@@ -833,19 +830,10 @@ async function deleteAccount() {
       <span id="password-change-success" style=" color: green; display: none; top:28%;left: 20%"
       >Password changed Succesfully</span
     >
-
-      
-
       <span id="password-match-error2" style="color: red; display: none; top:57%"
       >Passwords do not match</span
     >
-
-    
-
-
-
-      </form>
-      
+      </form>   
     </td>
   </tr>
   <tr>
@@ -971,9 +959,11 @@ async function deleteAccount() {
         </div>
 
         <div class="chatdiv">
-          {#each [...chats, ...directmessages, ...thrash] as chat, i}
+         
+          {#each Object.entries({...chats, ...directmessages})  as [chat, item]}
+          {#if chat != ""}
           <div class="chatdiveach" id="chat{chat}">
-            {#if i < chats.length + directmessages.length}
+            {#if item.Status == true}
               <button
                 class="leave-chat"
                 id="buttonleave{chat}"
@@ -989,23 +979,23 @@ async function deleteAccount() {
                 title="Delete chat"
                 on:click={() => deleteChat(chat)}
               >
-              {chat}
-              &#xF5DE
+               &#xF5DE
               </button>
             {/if}
 
-            <h1 class="chatname">{current_red}</h1>
+            <h1 class="chatname">{chat}</h1>
             
               <div class="chat-box" id="chat-box{chat}">
                 <div class="filecontainers" id="filescontainer{chat}" />
               </div>
-              {#if i < chats.length + directmessages.length}
+
+              {#if item.Status == true}
                 <div class="inputcontainer">
                   <textarea
                     on:keyup={() => textareacheck()}
                     class="input-textarea"
                     id="inputtextarea{chat}"
-                    placeholder="Send message to {chat} ..."
+                    placeholder="Send message ..."
                   />
                   <img
                     class="uploadlabed"
@@ -1028,8 +1018,9 @@ async function deleteAccount() {
                     />
 
                 </div>
-              {/if}
+                {/if}
             </div>
+            {/if}
           {/each}
         </div>
       </div>

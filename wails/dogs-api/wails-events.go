@@ -69,15 +69,13 @@ func (c *P2Papp) fmtPrintln(args ...interface{}) {
 
 func (c *P2Papp) AddDm(peerid peer.ID) {
 
-	if !contains(c.direcmessages, peerid) {
-		c.direcmessages = append(c.direcmessages, peerid)
+	if _, ok := c.direcmessages[peerid.String()]; !ok {
+
+		c.direcmessages[peerid.String()] = DmData{Status: true}
 		//convert []peer.ID to []string
-		var peerids []string
-		for _, v := range c.direcmessages {
-			peerids = append(peerids, v.String())
-		}
+
 		c.saveData("direcmessages", c.direcmessages)
-		runtime.EventsEmit(c.ctx, "directMessage", peerids)
+		runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
 
 	}
 

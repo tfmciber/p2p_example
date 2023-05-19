@@ -35,13 +35,11 @@ export function FakeUsers():Promise<Array<main.Users>>;
 
 export function Get(arg1:string,arg2:boolean):Promise<Array<peer.ID>|boolean>;
 
-export function GetData():Promise<{[key: string]: any}>;
+export function GetData():Promise<{[key: string]: main.HostData}>;
 
 export function GetKeys():Promise<Array<string>>;
 
 export function GetRend():Promise<Array<string>>;
-
-export function GetThrahs():Promise<void>;
 
 export function GetTimer(arg1:string):Promise<number>;
 
@@ -51,7 +49,7 @@ export function InitDHT():Promise<void>;
 
 export function LeaveChat(arg1:string):Promise<void>;
 
-export function ListChats():Promise<Array<string>>;
+export function ListChats():Promise<{[key: string]: main.HostData}>;
 
 export function ListUsers():Promise<Array<main.Users>>;
 

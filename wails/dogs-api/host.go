@@ -40,12 +40,9 @@ type P2Papp struct {
 	cancelRendezvous map[string]context.CancelFunc
 	priv             crypto.PrivKey
 	kdht             *dht.IpfsDHT
-	data             map[string]struct {
-		Peers []peer.ID
-		Timer uint
-	}
-	trashchats    map[string]bool
-	direcmessages []peer.ID
+	data             map[string]HostData
+
+	direcmessages map[string]DmData
 	refresh       uint
 	preferquic    bool
 	rendezvousS   chan string
@@ -61,7 +58,14 @@ type P2Papp struct {
 	key           []byte
 	messages      map[string][]Message
 }
-
+type HostData struct {
+	Peers  []peer.ID `json:"Peers"`
+	Timer  uint      `json:"Timer"`
+	Status bool      `json:"Status"`
+}
+type DmData struct {
+	Status bool `json:"status"`
+}
 type PathFilename struct {
 	Path     string `json:"path"`
 	Filename string `json:"filename"`
@@ -157,7 +161,6 @@ func (c *P2Papp) close(ctx context.Context) bool {
 func (c *P2Papp) Close() {
 	fmt.Println("saving")
 	c.saveData("direcmessages", c.direcmessages)
-	c.saveData("thrashchats", c.trashchats)
 	c.saveData("data", c.data)
 	c.saveData("message", c.messages)
 	c.ctx.Done()
@@ -177,7 +180,6 @@ func (c *P2Papp) saveall() {
 				if c.Host != nil {
 
 					c.saveData("direcmessages", c.direcmessages)
-					c.saveData("thrashchats", c.trashchats)
 					c.saveData("data", c.data)
 					c.saveData("message", c.messages)
 				}
@@ -192,10 +194,7 @@ func (c *P2Papp) SetPeers(key string, values []peer.ID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if key != "" {
-		c.data[key] = struct {
-			Peers []peer.ID
-			Timer uint
-		}{Peers: values, Timer: c.refresh}
+		c.data[key] = HostData{Peers: values, Timer: c.refresh, Status: true}
 	}
 }
 func (c *P2Papp) Add(key string, value peer.ID) {
@@ -205,15 +204,9 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 	//if key not in data, add it
 	if _, ok := c.data[key]; !ok {
 		if key != "" {
-			c.data[key] = struct {
-				Peers []peer.ID
-				Timer uint
-			}{Peers: []peer.ID{value}, Timer: c.refresh}
+			c.data[key] = HostData{Peers: []peer.ID{value}, Timer: c.refresh, Status: true}
 		} else {
-			c.data[key] = struct {
-				Peers []peer.ID
-				Timer uint
-			}{Peers: []peer.ID{}, Timer: c.refresh}
+			c.data[key] = HostData{Peers: []peer.ID{}, Timer: c.refresh, Status: true}
 		}
 		go func() {
 
@@ -223,24 +216,15 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 
 	} else {
 		if !contains(c.data[key].Peers, value) {
-			c.data[key] = struct {
-				Peers []peer.ID
-				Timer uint
-			}{Peers: append(c.data[key].Peers, value), Timer: c.refresh}
+			c.data[key] = HostData{Peers: append(c.data[key].Peers, value), Timer: c.refresh, Status: true}
 		}
 	}
 
 	if _, ok := c.data[""]; !ok {
-		c.data[""] = struct {
-			Peers []peer.ID
-			Timer uint
-		}{Peers: []peer.ID{value}, Timer: c.refresh}
+		c.data[""] = HostData{Peers: []peer.ID{value}, Timer: c.refresh, Status: true}
 	} else {
 		if !contains(c.data[""].Peers, value) {
-			c.data[""] = struct {
-				Peers []peer.ID
-				Timer uint
-			}{Peers: append(c.data[""].Peers, value), Timer: c.refresh}
+			c.data[""] = HostData{Peers: append(c.data[""].Peers, value), Timer: c.refresh, Status: true}
 		}
 
 	}
@@ -257,10 +241,7 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 func (c *P2Papp) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.data = make(map[string]struct {
-		Peers []peer.ID
-		Timer uint
-	})
+	c.data = make(map[string]HostData)
 
 	c.priv = nil
 
@@ -354,10 +335,7 @@ func (c *P2Papp) SetTimer(key string, value uint) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	aux := c.data[key]
-	c.data[key] = struct {
-		Peers []peer.ID
-		Timer uint
-	}{Peers: aux.Peers, Timer: value}
+	c.data[key] = HostData{Peers: aux.Peers, Timer: value, Status: aux.Status}
 
 }
 func (c *P2Papp) GetKeys() []string {
@@ -371,25 +349,14 @@ func (c *P2Papp) GetKeys() []string {
 	}
 	return keys
 }
-func (c *P2Papp) ListChats() []string {
+func (c *P2Papp) ListChats() map[string]HostData {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	var chats []string
-	for k := range c.data {
-		if k != "" {
-			chats = append(chats, k)
-		}
-	}
-	if len(chats) == 0 {
-		chats = []string{}
-	}
-	return chats
+
+	return c.data
 }
 
-func (c *P2Papp) GetData() map[string]struct {
-	Peers []peer.ID
-	Timer uint
-} {
+func (c *P2Papp) GetData() map[string]HostData {
 	return c.data
 }
 

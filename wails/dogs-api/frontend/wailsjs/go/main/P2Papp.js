@@ -78,10 +78,6 @@ export function GetRend() {
   return window['go']['main']['P2Papp']['GetRend']();
 }
 
-export function GetThrahs() {
-  return window['go']['main']['P2Papp']['GetThrahs']();
-}
-
 export function GetTimer(arg1) {
   return window['go']['main']['P2Papp']['GetTimer'](arg1);
 }

@@ -83,11 +83,13 @@ export function getColorForUserId(userId) {
 
 
   export async function SetUsers(Users2,current_red, directmessages) {
+  
     if (current_red == "settings"){
       current_red = "";
     }
     let usersAux = Users2[current_red];
-    if (directmessages.includes(current_red)) {
+    if (directmessages.hasOwnProperty(current_red)) {
+   
       usersAux = Users2[""].filter((user) => user.user == current_red);
     }
 
@@ -267,7 +269,7 @@ export function getColorForUserId(userId) {
   
    export function auxchangechat(last_rend,current_redaux,Users,directmessages) {
 
-alert("last_rend: " + last_rend + " current_redaux: " + current_redaux);
+
       var currentchatdivid;
       var lastchatdivid;
       if (current_redaux == "settings")
@@ -286,12 +288,13 @@ alert("last_rend: " + last_rend + " current_redaux: " + current_redaux);
         lastchatdivid="home_container";
       }
       let currentchatdiv = document.getElementById(currentchatdivid);
-      alert("currentchatdiv"+currentchatdivid);
+
+    
       if (currentchatdiv) {
         currentchatdiv.style.display = "block";
       }
       let lastchatdiv = document.getElementById(lastchatdivid);
-      alert("lastchatdiv"+lastchatdivid);
+      
       if (lastchatdiv) {
         lastchatdiv.style.display = "none";
       }
@@ -301,7 +304,7 @@ alert("last_rend: " + last_rend + " current_redaux: " + current_redaux);
       );
       if (nowchatoptionsbutton) {  
         let but = nowchatoptionsbutton.getElementsByTagName("button")[0]; 
-        alert(but);     
+      
           but.style.border = "1px solid #fff";
 
       }

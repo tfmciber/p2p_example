@@ -11,7 +11,7 @@ export async function addRend() {
 
   };
   export function reload(chat) {
-    alert(chat);
+
     ReloadChat(chat).then();
   }
   export async function cancelRendezvous() {
@@ -20,8 +20,6 @@ export async function addRend() {
     }
     export function cancelRendezvousstr(rend) {
 
-      alert(rend);
-    
       CancelRendezvous(rend).then();
       }
 

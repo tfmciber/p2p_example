@@ -24,32 +24,19 @@ type Message struct {
 
 func (c *P2Papp) SendDM(aux string) {
 
-	for _, v := range c.direcmessages {
-		if v.String() == aux {
-			return
-		}
-	}
 	peerid, err := peer.Decode(aux)
 	if err == nil {
-		// add to direct messages if not already there
-
-		for _, v := range c.direcmessages {
-			if v.String() == peerid.String() {
-				return
-			}
+		//check if peerid in map of peers
+		if _, ok := c.direcmessages[peerid.String()]; !ok {
+			c.direcmessages[peerid.String()] = DmData{Status: true}
 		}
-
-		c.direcmessages = append(c.direcmessages, peerid)
 	}
-
 }
 
 func (c *P2Papp) SendTextHandler(text string, rendezvous string) int {
 	c.fmtPrintln("SendTextHandler " + text + " " + rendezvous)
 	////get time and date dd/mm/yyyy hh:mm
-	t := time.Now()
-	date := t.Format("02/01/2006 15:04:30")
-
+	date := time.Now().Format("02/01/2006 15:04:30")
 	ok := true
 	message := (rendezvous + "$" + text + "$" + date)
 
@@ -146,69 +133,30 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 	c.useradded <- true
 
 }
-func (c *P2Papp) deleteDm(peerid peer.ID) {
-	if contains(c.direcmessages, peerid) {
-		for i, p := range c.direcmessages {
-			if p == peerid {
-				c.direcmessages = append(c.direcmessages[:i], c.direcmessages[i+1:]...)
-			}
-		}
 
-		var peerids []string
-		for _, v := range c.direcmessages {
-			peerids = append(peerids, v.String())
-		}
-		if len(peerids) == 0 {
-			peerids = []string{}
-		}
-		c.trashchats[peerid.String()] = true
-		runtime.EventsEmit(c.ctx, "directMessage", peerids)
+func (c *P2Papp) deleteDm(peerid peer.ID) {
+
+	if _, ok := c.direcmessages[peerid.String()]; ok {
+		c.direcmessages[peerid.String()] = DmData{Status: false}
+
+		runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
 	}
-	c.newThrash(peerid.String(), true)
+
 }
 func (c *P2Papp) leaveChat(rendezvous string) {
 	c.fmtPrintln("LeaveChat " + rendezvous)
-	delete(c.data, rendezvous)
 
-	c.newThrash(rendezvous, true)
+	c.data[rendezvous] = HostData{Peers: c.data[rendezvous].Peers, Timer: c.data[rendezvous].Timer, Status: false}
+	c.chatadded <- rendezvous
 
 }
 func (c *P2Papp) DeleteChat(rendezvous string) {
 	c.fmtPrintln("DeleteChat " + rendezvous)
-
-	c.newThrash(rendezvous, false)
+	delete(c.data, rendezvous)
+	c.chatadded <- rendezvous
 
 }
 
-func (c *P2Papp) newThrash(key string, add bool) {
-	var aux []string
-	//add key to trashchats
-
-	c.trashchats[key] = add
-	// convert map to slice for true values
-	for k, g := range c.trashchats {
-		if g == true {
-			aux = append(aux, k)
-		}
-	}
-	if len(aux) == 0 {
-		aux = []string{}
-	}
-
-	c.EmitEvent("newThrash", aux)
-}
-func (c *P2Papp) GetThrahs() {
-	var aux []string
-	for k, g := range c.trashchats {
-		if g == true {
-			aux = append(aux, k)
-		}
-	}
-	if len(aux) == 0 {
-		aux = []string{}
-	}
-	c.EmitEvent("newThrash", aux)
-}
 func (c *P2Papp) receiveTexthandler(stream network.Stream) {
 
 	for {
@@ -308,30 +256,20 @@ func (c *P2Papp) LoadData() {
 				}
 
 			}
-			c.data[k] = struct {
-				Peers []peer.ID
-				Timer uint
-			}{Peers: peers, Timer: uint(v.(map[string]interface{})["Timer"].(float64))}
+			fmt.Println("dasdsaaaaaaaaaaaaaa", v)
+			c.data[k] = HostData{Peers: peers, Timer: uint(v.(map[string]interface{})["Timer"].(float64)), Status: v.(map[string]interface{})["Status"].(bool)}
 		}
 
 	}
-
-	if dat["thrashchats"] != nil {
-		aux := dat["thrashchats"].(map[string]interface{})
-		// convert map[string]interface{} to map[string]bool
-		for k, v := range aux {
-			c.trashchats[k] = v.(bool)
-		}
-	}
-
 	if dat["direcmessages"] != nil {
-		aux := dat["direcmessages"].([]interface{})
-		for _, v := range aux {
-			peerid, err := peer.Decode(v.(string))
-			if err == nil {
-				c.direcmessages = append(c.direcmessages, peerid)
+
+		aux := dat["direcmessages"].(map[string]interface{})
+		for k, v := range aux {
+			if v == nil {
+				continue
 			}
 
+			c.direcmessages[k] = DmData{Status: v.(map[string]interface{})["Status"].(bool)}
 		}
 
 	}
@@ -341,10 +279,8 @@ func (c *P2Papp) LoadData() {
 	runtime.EventsEmit(c.ctx, "updateChats", c.ListChats())
 	runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
 
-	c.GetThrahs()
-
 	if c.direcmessages == nil {
-		c.direcmessages = []peer.ID{}
+		c.direcmessages = make(map[string]DmData)
 	}
 	runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
 
@@ -398,15 +334,10 @@ func (c *P2Papp) LoadData() {
 				} else {
 					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, nil, intstatus)
 				}
-
 			}
-
 		}
-
 	}
-
 }
-
 func (c *P2Papp) saveMessages(message map[string]Message) {
 
 	//join c.messages with message
