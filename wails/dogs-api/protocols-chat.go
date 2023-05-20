@@ -30,7 +30,9 @@ func (c *P2Papp) SendDM(aux string) {
 		if _, ok := c.direcmessages[peerid.String()]; !ok {
 			c.direcmessages[peerid.String()] = DmData{Status: true}
 		}
+
 	}
+
 }
 
 func (c *P2Papp) SendTextHandler(text string, rendezvous string) int {
@@ -256,7 +258,7 @@ func (c *P2Papp) LoadData() {
 				}
 
 			}
-			fmt.Println("dasdsaaaaaaaaaaaaaa", v)
+
 			c.data[k] = HostData{Peers: peers, Timer: uint(v.(map[string]interface{})["Timer"].(float64)), Status: v.(map[string]interface{})["Status"].(bool)}
 		}
 
@@ -268,7 +270,7 @@ func (c *P2Papp) LoadData() {
 			if v == nil {
 				continue
 			}
-
+			c.fmtPrintln("dirrrrrrr:   ", v)
 			c.direcmessages[k] = DmData{Status: v.(map[string]interface{})["Status"].(bool)}
 		}
 

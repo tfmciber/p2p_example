@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -102,9 +103,11 @@ func (c *P2Papp) CancelRendezvous(rend string) {
 	}
 }
 func (c *P2Papp) AddRendezvous(rendezvous string) {
+
 	go func() {
+		fmt.Println("c.Add")
 		c.Add(rendezvous, "")
-		c.fmtPrintln("[*] DHT Adding Rendezvous", rendezvous)
+		fmt.Println("searchrend")
 		c.EmitEvent("searchRend", rendezvous)
 		if c.data[rendezvous].Status == false {
 			c.fmtPrintln("the chat was prevoiusly deleted, now it is restored")

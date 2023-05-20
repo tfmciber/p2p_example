@@ -296,7 +296,7 @@ function addData1(chart,x, y) {
   }
 
   function updateChats() {
-    window.runtime.EventsOn("updateChats", function (arg) {   
+    window.runtime.EventsOn("updateChats", async function (arg) {      
       chats = arg;
     });
   }
@@ -315,14 +315,11 @@ function addData1(chart,x, y) {
           Users[arg[i].chat].push(user);
         }
       }
-      
-
       await SetUsers(Users, current_red, directmessages);
+
+      
     });
   }
-
-
-
 
   function DMleft() {
     window.runtime.EventsOn("dmLeft", async function () {
@@ -369,10 +366,11 @@ function Statistics(){
   }
 
   function seachRend() {
-    window.runtime.EventsOn("searchRend", function (arg) {
+    window.runtime.EventsOn("searchRend", async function (arg) {
 
       let chatbuttondiv = document.getElementById("chatoptions"+arg);
-      
+      alert(chatbuttondiv.innerHTML);
+   
       if ( chatbuttondiv!=null){  
         
         //get button in div with class chatoption
@@ -415,7 +413,9 @@ function Statistics(){
   
   function direcMessage() {
     window.runtime.EventsOn("directMessage", function (arg) {
+    
       directmessages = arg;
+ 
     });
   }
   function receiveFile() {
@@ -552,7 +552,11 @@ async function deleteAccount() {
   async function deleteChat(arg) {
     
     await DeleteChat(arg).then();
-    setTimeout(ChangeChat,0,"");
+    let chatid = document.getElementById("chat" + arg);
+    
+    
+    ChangeChat("");
+    chatid.remove();
   }
 
   async function addfile() {
@@ -701,19 +705,23 @@ async function deleteAccount() {
 
     modal.style.display = "none";
 
-    let auxdirectmessages = directmessages;
-    if (!directmessages.find((ch) => ch === poputname.innerText)) {
-      auxdirectmessages.push(poputname.innerText);
-    }
-    SendDM(poputname.innerText).then();
-    directmessages = auxdirectmessages;
+
+
+    let userid = poputname.innerText;
+
+    if (!directmessages.hasOwnProperty(userid)) {
+   
+   directmessages[userid] = { Status: true };
+ }
+ 
+    SendDM(userid).then();
    
    var mess = document.getElementById("textinpopup");
 
   
-    sendmessage(mess.value, true, poputname.innerText);
+    sendmessage(mess.value, true,userid);
     document.forms["chatinpopup"].reset();
-   setTimeout(ChangeChat,0,poputname.innerText);
+   setTimeout(ChangeChat,0,userid);
     
   }
 
@@ -756,8 +764,8 @@ async function deleteAccount() {
               {chat}</button
             >
             {/if}
-            <button class="reloadchatbtn" on:click={() => reload(chat)}>&#x21bb;</button>
-            <button  class ="removechatbtn" on:click={() => cancelRendezvousstr(chat)}> &#x2715 </button>
+            <button class="reloadchatbtn" title="Reload {chat}" on:click={() => reload(chat)}> &#x21bb;</button>
+            <button  class ="removechatbtn" title="Stop {chat}" on:click={() => cancelRendezvousstr(chat)}>&#x2715 </button>
           </div>
           {/if}
           {/each}

@@ -40,23 +40,24 @@ type P2Papp struct {
 	cancelRendezvous map[string]context.CancelFunc
 	priv             crypto.PrivKey
 	kdht             *dht.IpfsDHT
-	data             map[string]HostData
 
+	data          map[string]HostData
 	direcmessages map[string]DmData
-	refresh       uint
-	preferquic    bool
-	rendezvousS   chan string
-	textproto     protocol.ID
-	audioproto    protocol.ID
-	benchproto    protocol.ID
-	cmdproto      protocol.ID
-	fileproto     protocol.ID
-	useradded     chan bool
-	updateDHT     chan bool
-	reloadChat    chan string
-	chatadded     chan string
-	key           []byte
-	messages      map[string][]Message
+
+	refresh     uint
+	preferquic  bool
+	rendezvousS chan string
+	textproto   protocol.ID
+	audioproto  protocol.ID
+	benchproto  protocol.ID
+	cmdproto    protocol.ID
+	fileproto   protocol.ID
+	useradded   chan bool
+	updateDHT   chan bool
+	reloadChat  chan string
+	chatadded   chan string
+	key         []byte
+	messages    map[string][]Message
 }
 type HostData struct {
 	Peers  []peer.ID `json:"Peers"`
@@ -64,7 +65,7 @@ type HostData struct {
 	Status bool      `json:"Status"`
 }
 type DmData struct {
-	Status bool `json:"status"`
+	Status bool `json:"Status"`
 }
 type PathFilename struct {
 	Path     string `json:"path"`
@@ -199,7 +200,7 @@ func (c *P2Papp) SetPeers(key string, values []peer.ID) {
 }
 func (c *P2Papp) Add(key string, value peer.ID) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+
 	c.fmtPrintln("Adding", key, value)
 	//if key not in data, add it
 	if _, ok := c.data[key]; !ok {
@@ -208,11 +209,6 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 		} else {
 			c.data[key] = HostData{Peers: []peer.ID{}, Timer: c.refresh, Status: true}
 		}
-		go func() {
-
-			c.chatadded <- key
-
-		}()
 
 	} else {
 		if !contains(c.data[key].Peers, value) {
@@ -228,14 +224,12 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 		}
 
 	}
-
+	c.mu.Unlock()
+	c.EmitEvent("updateChats", c.ListChats())
 	if value != "" {
-		go func() {
-			//aux := []string{key, value.String()}
-			c.useradded <- true
-		}()
-
+		c.EmitEvent("updateUsers", c.ListUsers())
 	}
+
 }
 
 func (c *P2Papp) Clear() {

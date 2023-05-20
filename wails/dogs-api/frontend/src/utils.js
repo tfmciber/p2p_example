@@ -80,8 +80,77 @@ export function getColorForUserId(userId) {
           progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
         }
   };
+/*
+  export async function NewChat(chat){
+    let chatscontainer = document.getElementById("chatdiv");
 
+    if (chat != ""){
 
+      let newchat = document.createElement("div");
+      newchat.className = "chatdiveach";
+      newchat.id = "chat" + chat;
+      let leavebutton = document.createElement("button");
+      leavebutton.className = "leave-chat";
+      leavebutton.id = "buttonleave" + chat;
+      
+      if (chat.Status == true){
+
+        leavebutton.title = "Leave chat";
+        leavebutton.addEventListener("click", function () {
+          leaveChat(chat);
+        });
+        leavebutton.innerHTML = "&#x2715";
+
+      }else{
+          leavebutton.title = "Delete chat";
+          leavebutton.addEventListener("click", function () {
+          deleteChat(chat);
+        });
+        leavebutton.innerHTML = "&#xF5DE";
+
+      }
+
+      <h1 class="chatname">{chat}</h1>
+      
+        <div class="chat-box" id="chat-box{chat}">
+          <div class="filecontainers" id="filescontainer{chat}" />
+        </div>
+
+        {#if item.Status == true}
+          <div class="inputcontainer">
+            <textarea
+              on:keyup={() => textareacheck()}
+              class="input-textarea"
+              id="inputtextarea{chat}"
+              placeholder="Send message ..."
+            />
+            <img
+              class="uploadlabed"
+              src={uploadBtn}
+              alt="img"
+              on:click={() => addfile()}
+            />
+            <input
+              type="file"
+              name="myfile"
+              id="file{chat}"
+              style="display:none"
+            />
+
+            <button
+              class="sendBtn"
+              id="sendBtn{chat}"
+              on:click={() => sendmessage(null,null,chat)}
+            
+              />
+
+          </div>
+          {/if}
+      </div>
+      {/if}
+    {/each}
+  }
+*/
   export async function SetUsers(Users2,current_red, directmessages) {
   
     if (current_red == "settings"){
