@@ -19,7 +19,6 @@ export async function addRend() {
     CancelRendezvous(rend).then();
     }
     export function cancelRendezvousstr(rend) {
-
       CancelRendezvous(rend).then();
       }
 

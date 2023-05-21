@@ -49,8 +49,6 @@ export function InitDHT():Promise<void>;
 
 export function LeaveChat(arg1:string):Promise<void>;
 
-export function ListChats():Promise<{[key: string]: main.HostData}>;
-
 export function ListUsers():Promise<Array<main.Users>>;
 
 export function LoadData():Promise<void>;

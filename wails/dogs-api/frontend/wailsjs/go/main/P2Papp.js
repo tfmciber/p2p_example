@@ -94,10 +94,6 @@ export function LeaveChat(arg1) {
   return window['go']['main']['P2Papp']['LeaveChat'](arg1);
 }
 
-export function ListChats() {
-  return window['go']['main']['P2Papp']['ListChats']();
-}
-
 export function ListUsers() {
   return window['go']['main']['P2Papp']['ListUsers']();
 }

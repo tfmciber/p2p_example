@@ -29,6 +29,7 @@ func (c *P2Papp) SendDM(aux string) {
 		//check if peerid in map of peers
 		if _, ok := c.direcmessages[peerid.String()]; !ok {
 			c.direcmessages[peerid.String()] = DmData{Status: true}
+			c.EmitEvent("directMessage", c.direcmessages)
 		}
 
 	}
@@ -90,11 +91,11 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 		return
 	}
 	peerid, err := peer.Decode(rendezvous)
-	fmt.Println(peerid, err)
+	fmt.Println("peer.Decode(rendezvous)", peerid, err, rendezvous)
 	if err == nil {
 
-		//delete from direct messages
-		c.deleteDm(peerid)
+		c.fmtPrintln("Leave DM")
+		c.leaveDm(peerid)
 		c.EmitEvent("directMessage", c.direcmessages)
 	} else if c.checkRend(rendezvous) == false {
 
@@ -103,6 +104,8 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 		c.useradded <- true
 		return
 	} else {
+		c.fmtPrintln("Leave chat")
+		c.CancelRendezvous(rendezvous)
 		c.fmtPrintln("rendezvous deleted "+rendezvous, "c.data:", c.data)
 		c.leaveChat(rendezvous)
 	}
@@ -128,15 +131,14 @@ func (c *P2Papp) LeaveChat(rendezvous string) {
 
 	})
 
-	//stop searching for rendezvous
-	//c.stopSearchRend(rendezvous)
-
 	c.chatadded <- rendezvous
 	c.useradded <- true
 
+	c.fmtPrintln("LeaveChat " + rendezvous + " done")
+
 }
 
-func (c *P2Papp) deleteDm(peerid peer.ID) {
+func (c *P2Papp) leaveDm(peerid peer.ID) {
 
 	if _, ok := c.direcmessages[peerid.String()]; ok {
 		c.direcmessages[peerid.String()] = DmData{Status: false}
@@ -154,8 +156,17 @@ func (c *P2Papp) leaveChat(rendezvous string) {
 }
 func (c *P2Papp) DeleteChat(rendezvous string) {
 	c.fmtPrintln("DeleteChat " + rendezvous)
-	delete(c.data, rendezvous)
-	c.chatadded <- rendezvous
+
+	peerid, err := peer.Decode(rendezvous)
+	fmt.Println("peer.Decode(rendezvous)", peerid, err, rendezvous)
+	if err == nil {
+		delete(c.direcmessages, peerid.String())
+		c.EmitEvent("directMessage", c.direcmessages)
+	} else {
+		c.CancelRendezvous(rendezvous)
+		delete(c.data, rendezvous)
+		c.chatadded <- rendezvous
+	}
 
 }
 
@@ -278,7 +289,7 @@ func (c *P2Papp) LoadData() {
 
 	c.updateDHT <- true
 
-	runtime.EventsEmit(c.ctx, "updateChats", c.ListChats())
+	runtime.EventsEmit(c.ctx, "updateChats", c.GetData())
 	runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
 
 	if c.direcmessages == nil {

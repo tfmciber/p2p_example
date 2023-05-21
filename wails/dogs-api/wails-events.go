@@ -42,8 +42,8 @@ func (c *P2Papp) DataChanged() {
 		for {
 			select {
 			case <-c.chatadded:
-
-				runtime.EventsEmit(c.ctx, "updateChats", c.ListChats())
+				c.fmtPrintln("chat added")
+				runtime.EventsEmit(c.ctx, "updateChats", c.GetData())
 			case <-c.useradded:
 
 				runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())

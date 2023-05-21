@@ -80,77 +80,7 @@ export function getColorForUserId(userId) {
           progressbuttons.innerHTML= `<img class="message-ok" src=${progressicon} alt="ok" />`;
         }
   };
-/*
-  export async function NewChat(chat){
-    let chatscontainer = document.getElementById("chatdiv");
 
-    if (chat != ""){
-
-      let newchat = document.createElement("div");
-      newchat.className = "chatdiveach";
-      newchat.id = "chat" + chat;
-      let leavebutton = document.createElement("button");
-      leavebutton.className = "leave-chat";
-      leavebutton.id = "buttonleave" + chat;
-      
-      if (chat.Status == true){
-
-        leavebutton.title = "Leave chat";
-        leavebutton.addEventListener("click", function () {
-          leaveChat(chat);
-        });
-        leavebutton.innerHTML = "&#x2715";
-
-      }else{
-          leavebutton.title = "Delete chat";
-          leavebutton.addEventListener("click", function () {
-          deleteChat(chat);
-        });
-        leavebutton.innerHTML = "&#xF5DE";
-
-      }
-
-      <h1 class="chatname">{chat}</h1>
-      
-        <div class="chat-box" id="chat-box{chat}">
-          <div class="filecontainers" id="filescontainer{chat}" />
-        </div>
-
-        {#if item.Status == true}
-          <div class="inputcontainer">
-            <textarea
-              on:keyup={() => textareacheck()}
-              class="input-textarea"
-              id="inputtextarea{chat}"
-              placeholder="Send message ..."
-            />
-            <img
-              class="uploadlabed"
-              src={uploadBtn}
-              alt="img"
-              on:click={() => addfile()}
-            />
-            <input
-              type="file"
-              name="myfile"
-              id="file{chat}"
-              style="display:none"
-            />
-
-            <button
-              class="sendBtn"
-              id="sendBtn{chat}"
-              on:click={() => sendmessage(null,null,chat)}
-            
-              />
-
-          </div>
-          {/if}
-      </div>
-      {/if}
-    {/each}
-  }
-*/
   export async function SetUsers(Users2,current_red, directmessages) {
   
     if (current_red == "settings"){
@@ -218,6 +148,7 @@ export function getColorForUserId(userId) {
     modal.style.display = "block";
     modal.style.right = "300px";
   }
+
 
     //creates a new message div and returns it
     export function createMessage(chat, message, sender, time, files, ok) {
@@ -339,6 +270,7 @@ export function getColorForUserId(userId) {
    export function auxchangechat(last_rend,current_redaux,Users,directmessages) {
 
 
+
       var currentchatdivid;
       var lastchatdivid;
       if (current_redaux == "settings")
@@ -357,12 +289,13 @@ export function getColorForUserId(userId) {
         lastchatdivid="home_container";
       }
       let currentchatdiv = document.getElementById(currentchatdivid);
-
     
       if (currentchatdiv) {
+       
         currentchatdiv.style.display = "block";
       }
       let lastchatdiv = document.getElementById(lastchatdivid);
+
       
       if (lastchatdiv) {
         lastchatdiv.style.display = "none";
@@ -390,8 +323,7 @@ export function getColorForUserId(userId) {
 
     export   async function showsendBtn(Files,current_red) {
       var sendBtn = document.getElementById("sendBtn" + current_red);
-      var textarea = document.getElementById("inputtextarea" + current_red);
-      
+      var textarea = document.getElementById("inputtextarea" + current_red);     
       if (textarea.value.trim() !== "" || Files[current_red].length > 0) {
         sendBtn.style.opacity = "100%";
         sendBtn.style.pointerEvents = "auto";

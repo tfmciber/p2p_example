@@ -68,8 +68,7 @@ func (c *P2Papp) startStreams(rendezvous string, peerid peer.ID) {
 
 	stream1 := c.streamStart(peerid, c.textproto)
 	go c.receiveTexthandler(stream1)
-	stream2 := c.streamStart(peerid, c.audioproto)
-	go c.receiveAudioHandler(stream2)
+
 
 }
 func (c *P2Papp) closeConns(ID peer.ID) {

@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -117,7 +114,7 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 			c.fmtPrintln("removing DM")
 			if peerid == c.Host.ID() {
 				c.fmtPrintln("Removing DM deleted ")
-				c.deleteDm(user)
+				c.leaveChat(rendezvous)
 				c.EmitEvent("dmLeft")
 				c.EmitEvent("directMessage", c.direcmessages)
 			} else {
@@ -317,21 +314,4 @@ func (c *P2Papp) requestConnection(failed []peer.ID, rendezvous string, quic boo
 		return peersID
 	}
 
-}
-
-func (c *P2Papp) computePOW(ctx context.Context, difficulty int, nonce int, hash string) string {
-	for i := nonce; i < math.MaxInt64; i++ {
-
-		select {
-		case <-ctx.Done():
-			return ""
-		default:
-			hash := sha256.Sum256([]byte(hash + strconv.Itoa(i)))
-			hashString := hex.EncodeToString(hash[:])
-			if strings.HasPrefix(hashString, strings.Repeat("0", difficulty)) {
-				return hashString
-			}
-		}
-	}
-	return ""
 }

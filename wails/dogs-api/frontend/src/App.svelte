@@ -32,8 +32,7 @@
   import { DeleteChat } from "../wailsjs/go/main/P2Papp.js";
   import uploadBtn from "./assets/images/uploadBtn.png";
   import fileIcon from "./assets/images/folder.png";
-  import micBtn from "./assets/images/microphone.png";
-  import pauseBtn from "./assets/images/pause.png";
+
 
   import Chart from 'chart.js/auto'
 
@@ -85,6 +84,141 @@
   }
   startup();
 
+  async function NewChat(chat,status) {
+    let chatscontainer = document.getElementById("chatdiv");
+
+    //check if id "chat" + chat;  already exists
+    let exists = false;
+    let chatdiveach = document.getElementById("chat" + chat);
+    if (chatdiveach == null){
+      
+
+    chatdiveach = document.createElement("div");
+    chatdiveach.className = "chatdiveach";
+    chatdiveach.id = "chat" + chat;
+    let leavebutton = document.createElement("button");
+    leavebutton.className = "leave-chat";
+    if (status == true){
+      leavebutton.title = "Leave chat";
+      leavebutton.addEventListener("click", function () {
+        leaveChat(chat);
+      });
+      leavebutton.innerHTML = "&#x2715";
+    }else{
+      leavebutton.title = "Delete chat";
+      leavebutton.addEventListener("click", function () {
+        deleteChat(chat);
+
+      });
+      leavebutton.innerHTML = "&#xF5DE";
+    }
+    chatdiveach.appendChild(leavebutton);
+   
+    let chatname = document.createElement("h1");
+    chatname.className = "chatname";
+    chatname.innerText = chat;
+    chatdiveach.appendChild(chatname);
+
+    let chatbox = document.createElement("div");
+    chatbox.className = "chat-box";
+    chatbox.id = "chat-box" + chat;
+   
+
+    let filescontainer = document.createElement("div");
+    filescontainer.className = "filecontainers";
+    filescontainer.id = "filescontainer" + chat;
+    chatbox.appendChild(filescontainer);
+
+    chatdiveach.appendChild(chatbox);
+    
+    }else{
+      exists = true;
+    
+      let leavebutton = chatdiveach.getElementsByClassName("leave-chat")[0];
+
+      // remove all event listeners from button
+      let leavebuttonclone = leavebutton.cloneNode(true);
+      leavebutton.parentNode.replaceChild(leavebuttonclone, leavebutton);
+      leavebutton = leavebuttonclone;
+
+
+
+
+    if (status == true){
+      leavebutton.title = "Leave chat";
+
+      leavebutton.addEventListener("click", function () {
+        leaveChat(chat);
+      });
+   
+      leavebutton.innerHTML = "&#x2715";
+    }else{
+      leavebutton.title = "Delete chat";
+
+      leavebutton.addEventListener("click", function () {
+        deleteChat(chat);
+
+      });
+      leavebutton.innerHTML = "&#xF5DE";
+      
+    }
+
+    }
+    if (status == true && exists == false) { //first time creating chat 
+      let inputcontainer = CreateChatInputs(chat);
+      chatdiveach.appendChild(inputcontainer);
+    }else if (status == false ){
+      let inputcontainerchat = chatdiveach.getElementsByClassName("inputcontainer")[0];
+      if (inputcontainerchat != null){
+        inputcontainerchat.remove();
+      }
+    }
+    chatscontainer.appendChild(chatdiveach);
+  }
+
+
+function CreateChatInputs(chat){
+
+  let inputcontainer = document.createElement("div");
+      inputcontainer.className = "inputcontainer";
+     
+      let inputtextarea = document.createElement("textarea");
+      inputtextarea.className = "input-textarea";
+      inputtextarea.id = "inputtextarea" + chat;
+      inputtextarea.placeholder = "Send message ...";
+      inputtextarea.addEventListener("keyup", function () {
+     
+            
+      textareacheck(chat);
+    });
+      inputcontainer.appendChild(inputtextarea);
+
+      let uploadlabed = document.createElement("img");
+      uploadlabed.className = "uploadlabed";
+      uploadlabed.src = uploadBtn;
+      uploadlabed.alt = "img";
+      uploadlabed.addEventListener("click", function () {
+        addfile();
+      });
+      inputcontainer.appendChild(uploadlabed);
+
+      let fileinput = document.createElement("input");
+      fileinput.type = "file";
+      fileinput.name = "myfile";
+      fileinput.id = "file" + chat;
+      fileinput.style.display = "none";
+
+      inputcontainer.appendChild(fileinput);
+
+      let sendBtn = document.createElement("button");
+      sendBtn.className = "sendBtn";
+      sendBtn.id = "sendBtn" + chat;
+      sendBtn.addEventListener("click", function () {
+        sendmessage(null,null,chat);
+      });
+      inputcontainer.appendChild(sendBtn);
+      return inputcontainer;
+}
 
 function startGraphs(){
 
@@ -298,6 +432,15 @@ function addData1(chart,x, y) {
   function updateChats() {
     window.runtime.EventsOn("updateChats", async function (arg) {      
       chats = arg;
+      
+      for (const [key, value] of Object.entries(chats)) {
+        if (value.hasOwnProperty('Status')) {
+          NewChat(key,value.Status);
+        }
+      }
+
+      
+
     });
   }
 
@@ -369,8 +512,7 @@ function Statistics(){
     window.runtime.EventsOn("searchRend", async function (arg) {
 
       let chatbuttondiv = document.getElementById("chatoptions"+arg);
-      alert(chatbuttondiv.innerHTML);
-   
+
       if ( chatbuttondiv!=null){  
         
         //get button in div with class chatoption
@@ -413,8 +555,14 @@ function Statistics(){
   
   function direcMessage() {
     window.runtime.EventsOn("directMessage", function (arg) {
-    
       directmessages = arg;
+     
+      for (const [key, value] of Object.entries(arg)) {
+        if (value.hasOwnProperty('Status')) {
+          NewChat(key,value.Status);
+        }
+      }
+      
  
     });
   }
@@ -544,13 +692,15 @@ async function deleteAccount() {
   }
 
   async function leaveChat(arg) {
+
     await LeaveChat(arg).then();
    
     setTimeout(ChangeChat,0,"");
  
   }
   async function deleteChat(arg) {
-    
+
+    alert("deletechat"+arg);
     await DeleteChat(arg).then();
     let chatid = document.getElementById("chat" + arg);
     
@@ -665,13 +815,13 @@ async function deleteAccount() {
     }
   }
 
-  async function textareacheck() {
-    var textarea = document.getElementById("inputtextarea" + current_red);
+  async function textareacheck(chat) {
+    var textarea = document.getElementById("inputtextarea" + chat);
 
     textarea.style.height = "16px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 56)}px`;
 
-    await showsendBtn(Files,current_red);
+    await showsendBtn(Files,chat);
   }
 
 
@@ -714,7 +864,7 @@ async function deleteAccount() {
    directmessages[userid] = { Status: true };
  }
  
-    SendDM(userid).then();
+    await SendDM(userid).then();
    
    var mess = document.getElementById("textinpopup");
 
@@ -744,7 +894,7 @@ async function deleteAccount() {
        
           {#each Object.entries({...chats, ...directmessages})  as [chat, item]}
           {#if chat != ""}
-         
+ 
           <div  id="chatoptions{chat}">
             {#if item.Status == true}
             <button
@@ -966,70 +1116,9 @@ async function deleteAccount() {
 
         </div>
 
-        <div class="chatdiv">
+        <div class="chatdiv" id="chatdiv">
          
-          {#each Object.entries({...chats, ...directmessages})  as [chat, item]}
-          {#if chat != ""}
-          <div class="chatdiveach" id="chat{chat}">
-            {#if item.Status == true}
-              <button
-                class="leave-chat"
-                id="buttonleave{chat}"
-                title="Leave chat"
-                on:click={() => leaveChat(chat)}
-              >
-              &#x2715
-              </button>
-            {:else}
-              <button
-                class="leave-chat"
-                id="buttonleave{chat}"
-                title="Delete chat"
-                on:click={() => deleteChat(chat)}
-              >
-               &#xF5DE
-              </button>
-            {/if}
-
-            <h1 class="chatname">{chat}</h1>
-            
-              <div class="chat-box" id="chat-box{chat}">
-                <div class="filecontainers" id="filescontainer{chat}" />
-              </div>
-
-              {#if item.Status == true}
-                <div class="inputcontainer">
-                  <textarea
-                    on:keyup={() => textareacheck()}
-                    class="input-textarea"
-                    id="inputtextarea{chat}"
-                    placeholder="Send message ..."
-                  />
-                  <img
-                    class="uploadlabed"
-                    src={uploadBtn}
-                    alt="img"
-                    on:click={() => addfile()}
-                  />
-                  <input
-                    type="file"
-                    name="myfile"
-                    id="file{chat}"
-                    style="display:none"
-                  />
-
-                  <button
-                    class="sendBtn"
-                    id="sendBtn{chat}"
-                    on:click={() => sendmessage(null,null,chat)}
-                  
-                    />
-
-                </div>
-                {/if}
-            </div>
-            {/if}
-          {/each}
+        
         </div>
       </div>
      

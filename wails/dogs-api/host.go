@@ -9,7 +9,6 @@ import (
 
 	"strings"
 
-	"github.com/gen2brain/malgo"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 
@@ -225,7 +224,7 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 
 	}
 	c.mu.Unlock()
-	c.EmitEvent("updateChats", c.ListChats())
+	c.EmitEvent("updateChats", c.GetData())
 	if value != "" {
 		c.EmitEvent("updateUsers", c.ListUsers())
 	}
@@ -248,7 +247,8 @@ func (c *P2Papp) Clear() {
 
 }
 func (c *P2Papp) Get(key string, getonlineonly bool) ([]peer.ID, bool) {
-
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	id, err := peer.Decode(key)
 	if err == nil {
 
@@ -303,11 +303,8 @@ func (c *P2Papp) GetRend() []string {
 }
 
 func (c *P2Papp) checkRend(rend string) bool {
-	rendezvous := c.GetRend()
-	for _, rendez := range rendezvous {
-		if rend == rendez {
-			return true
-		}
+	if _, ok := c.data[rend]; ok {
+		return true
 	}
 	return false
 }
@@ -342,12 +339,6 @@ func (c *P2Papp) GetKeys() []string {
 		i++
 	}
 	return keys
-}
-func (c *P2Papp) ListChats() map[string]HostData {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return c.data
 }
 
 func (c *P2Papp) GetData() map[string]HostData {
@@ -437,7 +428,6 @@ func (c *P2Papp) NewHost() string {
 	}
 
 	c.Host.SetStreamHandler(c.textproto, c.receiveTexthandler)
-	c.Host.SetStreamHandler(c.audioproto, c.receiveAudioHandler)
 	c.Host.SetStreamHandler(c.fileproto, c.receiveFilehandler)
 	c.Host.SetStreamHandler(c.benchproto, c.receiveBenchhandler)
 	c.Host.SetStreamHandler(c.cmdproto, c.receiveCommandhandler)
@@ -671,8 +661,7 @@ func (c *P2Papp) Reconnect(rendezvous string) {
 
 }
 
-func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdChan chan string) {
-	var quitchan chan bool
+func (c *P2Papp) execCommnad(quic bool, cmdChan chan string) {
 
 	for {
 
@@ -707,16 +696,6 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			c.SendTextHandler(param2, rendezvous)
 		case cmd == "file":
 			go c.SendFile(rendezvous, param2)
-		case cmd == "call":
-			initAudio(ctxmalgo)
-			c.sendAudioHandler(rendezvous)
-		case cmd == "stopcall":
-			quitAudio(ctxmalgo)
-		case cmd == "audio": //iniciar audio
-			c.recordAudio(ctxmalgo, rendezvous, quitchan)
-		case cmd == "stopaudio": //para audio y enviar
-			quitchan <- true
-
 		case cmd == "stats":
 			c.HostStats()
 		case cmd == "conns":
@@ -735,7 +714,6 @@ func (c *P2Papp) execCommnad(ctxmalgo *malgo.AllocatedContext, quic bool, cmdCha
 			if err == nil {
 				c.benchTCPQUIC(peerid, nBytes, nMess, times)
 			}
-
 		case cmd == "help":
 			c.fmtPrintln("Commands:  \n mdns$rendezvous : Discover peers using Multicast DNS \n dht$rendezvous : Discover peers using DHT \n remove$rendezvous : Remove rendezvous from DHT \n clear : Disconnect all peers \n text$rendezvous$text : Send text to peers \n file$rendezvous$filepath : Send file to peers \n call$rendezvous : Call peers \n stopcall : Stop call \n audio$rendezvous : Record audio and send to peer \n stopaudio : Stop recording audio \n users : List all users \n conns : List all connections \n streams : List all streams \n disconn$peerid : Disconnect peer \n benchmark$times$nMessages$nBytes : Benchmark TCP/QUIC \n help : Show this help")
 		case cmd == "exit":

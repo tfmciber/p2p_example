@@ -97,7 +97,7 @@ func (c *P2Papp) discoverPeers(RendezvousString string, ctx context.Context, ctx
 
 }
 func (c *P2Papp) CancelRendezvous(rend string) {
-	c.fmtPrintln("[*] DHT canceling", c.cancelRendezvous[rend])
+	c.fmtPrintln("[*] DHT canceling", rend)
 	if c.cancelRendezvous[rend] != nil {
 		c.cancelRendezvous[rend]()
 	}
@@ -105,7 +105,7 @@ func (c *P2Papp) CancelRendezvous(rend string) {
 func (c *P2Papp) AddRendezvous(rendezvous string) {
 
 	go func() {
-		fmt.Println("c.Add")
+
 		c.Add(rendezvous, "")
 		fmt.Println("searchrend")
 		c.EmitEvent("searchRend", rendezvous)
