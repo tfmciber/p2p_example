@@ -281,17 +281,22 @@ func (c *P2Papp) LoadData() {
 			if v == nil {
 				continue
 			}
-			c.fmtPrintln("dirrrrrrr:   ", v)
 			c.direcmessages[k] = DmData{Status: v.(map[string]interface{})["Status"].(bool)}
 		}
 
 	}
 
-	c.updateDHT <- true
-
 	runtime.EventsEmit(c.ctx, "updateChats", c.GetData())
 	runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
+	for rendezvous, item := range c.data {
+		if rendezvous != "" {
+			if item.Status {
 
+				c.AddRendezvous(rendezvous)
+				c.SetTimer(rendezvous, c.refresh)
+			}
+		}
+	}
 	if c.direcmessages == nil {
 		c.direcmessages = make(map[string]DmData)
 	}

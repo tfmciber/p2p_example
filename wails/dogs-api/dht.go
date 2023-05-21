@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -105,30 +104,66 @@ func (c *P2Papp) CancelRendezvous(rend string) {
 func (c *P2Papp) AddRendezvous(rendezvous string) {
 
 	go func() {
+		var isRendezvous bool
 
-		c.Add(rendezvous, "")
-		fmt.Println("searchrend")
-		c.EmitEvent("searchRend", rendezvous)
-		if c.data[rendezvous].Status == false {
-			c.fmtPrintln("the chat was prevoiusly deleted, now it is restored")
-			c.DeleteChat(rendezvous)
+		peerid, err := peer.Decode(rendezvous)
+		if err == nil {
+			isRendezvous = false
+			c.fmtPrintln("[*] Peer")
+
+		} else {
+			isRendezvous = true
+
+			c.Add(rendezvous, "")
+			c.SetTimer(rendezvous, c.refresh)
 
 		}
-
+		c.fmtPrintln("[*] Rendezvous", rendezvous, "isRendezvous", isRendezvous)
+		c.EmitEvent("searchRend", rendezvous)
 		var ctx context.Context
 		var end = make(chan bool)
-		c.kdht, _ = dht.New(c.ctx, c.Host)
+
 		ctx, c.cancelRendezvous[rendezvous] = context.WithTimeout(context.Background(), 120*time.Second)
 		defer c.cancelRendezvous[rendezvous]()
 		var cancelfunc1, cancelfunc2, cancelfunc3, cancelfunc4, cancelfunc5 context.CancelFunc
 		var context1, context2, context3, context4, context5 context.Context
 		go func() {
 			context1, cancelfunc1 = context.WithTimeout(context.Background(), 60*time.Second)
-			FoundPeersDHT := c.discoverPeers(rendezvous, ctx, context1)
+			var FoundPeersDHT []peer.AddrInfo
+			if isRendezvous {
+				c.fmtPrintln("[*] Searching for peers in DHT [", rendezvous, "]")
+				FoundPeersDHT = c.discoverPeers(rendezvous, ctx, context1)
+			} else {
+				pinfo, err := c.kdht.FindPeer(ctx, peerid)
+				c.fmtPrintln("[*] Searching for ", rendezvous, "pinfo", pinfo, "err", err, "peerid", peerid)
+				if err == nil {
+					FoundPeersDHT = append(FoundPeersDHT, pinfo)
+
+				}
+			}
 			if len(FoundPeersDHT) > 0 {
 				context2, cancelfunc2 = context.WithTimeout(context.Background(), 30*time.Second)
-				failed := c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
-				connected, _ := c.Get(rendezvous, true)
+				var failed, connected []peer.ID
+				if isRendezvous {
+					failed = c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
+					connected, _ = c.Get(rendezvous, true)
+				} else {
+					err = c.Host.Connect(ctx, FoundPeersDHT[0])
+					if err != nil {
+						failed = append(failed, FoundPeersDHT[0].ID)
+						/// get connected peers from other rendezvous
+						for chat, item := range c.data {
+							if item.Status == true {
+								conn, _ := c.Get(chat, true)
+								connected = append(connected, conn...)
+							}
+						}
+					} else {
+						connected = append(connected, FoundPeersDHT[0].ID)
+						failed = []peer.ID{}
+					}
+				}
+
 				c.fmtPrintln("connected Users=", connected, "len:", len(connected))
 				if len(connected) > 0 {
 					context3, cancelfunc3 = context.WithTimeout(context.Background(), 15*time.Second)
@@ -183,24 +218,17 @@ func (c *P2Papp) DhtRoutine(quic bool) {
 			case <-time.After(60 * time.Second):
 				for rendezvous, s := range c.data {
 					if rendezvous != "" {
-						if s.Timer == 0 {
-							c.AddRendezvous(rendezvous)
-							c.SetTimer(rendezvous, c.refresh)
-						} else {
-							c.SetTimer(rendezvous, s.Timer-1)
+						if s.Status {
+							if s.Timer == 0 {
+								c.AddRendezvous(rendezvous)
+								c.SetTimer(rendezvous, c.refresh)
+							} else {
+								c.SetTimer(rendezvous, s.Timer-1)
+							}
 						}
 					}
 				}
 
-			case <-c.updateDHT:
-				for rendezvous := range c.data {
-					if rendezvous != "" {
-
-						c.AddRendezvous(rendezvous)
-						c.SetTimer(rendezvous, c.refresh)
-
-					}
-				}
 			case rendezvous := <-c.reloadChat:
 				c.AddRendezvous(rendezvous)
 				c.SetTimer(rendezvous, c.refresh)
@@ -209,7 +237,4 @@ func (c *P2Papp) DhtRoutine(quic bool) {
 			}
 		}
 	}()
-}
-func (c *P2Papp) ReloadChat(rendezvous string) {
-	c.reloadChat <- rendezvous
 }

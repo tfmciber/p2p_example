@@ -69,8 +69,6 @@ export function ReadKeys(arg1:string):Promise<Array<number>>;
 
 export function Reconnect(arg1:string):Promise<void>;
 
-export function ReloadChat(arg1:string):Promise<void>;
-
 export function RestartApplication():Promise<void>;
 
 export function SelectFiles():Promise<Array<main.PathFilename>>;

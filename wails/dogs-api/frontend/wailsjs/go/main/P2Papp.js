@@ -134,10 +134,6 @@ export function Reconnect(arg1) {
   return window['go']['main']['P2Papp']['Reconnect'](arg1);
 }
 
-export function ReloadChat(arg1) {
-  return window['go']['main']['P2Papp']['ReloadChat'](arg1);
-}
-
 export function RestartApplication() {
   return window['go']['main']['P2Papp']['RestartApplication']();
 }
