@@ -381,33 +381,30 @@ function addData1(chart,x, y) {
   }
 
 
-  function login() {
+  async function  login() {
     ciphered = document.getElementById("ciphered").value;
     password = document.getElementById("password").value;
-    OpenID(ciphered, password).then((result) => test1(result));
-  }
-  function test1(result) {
-    {
-      if (result == "") {
-        //show error message in html
-        startHost().then((result) => (loggedin = result));
-      } else {
-        //change ciphered item in html to text in red
-        let text = "~ Id or password are not correct";
-        document.getElementById("idlabel").innerHTML = "Id " + text;
-        document.getElementById("idlabel").style.color = "red";
-        document.getElementById("plabel").innerHTML = "Password " + text;
-        document.getElementById("plabel").style.color = "red";
-      }
+    let res = "";
+   await OpenID(ciphered, password).then((result)=>{res=result});
+    if (res == "") {
+      //show error message in html
+      await startHost().then((result) => (loggedin = result));
+    } else {
+      //change ciphered item in html to text in red
+      let text = "~ Id or password are not correct";
+      document.getElementById("idlabel").innerHTML = "Id " + text;
+      document.getElementById("idlabel").style.color = "red";
+      document.getElementById("plabel").innerHTML = "Password " + text;
+      document.getElementById("plabel").style.color = "red";
     }
 
   }
 
-  function register() {
+ async function register() {
    
     password = document.getElementById("password").value;
-    NewID(password, filename).then();
-    startHost().then((result) => (loggedin = result));
+   await NewID(password, filename).then();
+   await  startHost().then((result) => (loggedin = result));
     
 
 
@@ -446,6 +443,7 @@ function addData1(chart,x, y) {
 
   function updateUsers() {
     window.runtime.EventsOn("updateUsers", async function (arg) {
+      alert("updateUsers");
       Users = {};
      
       for (let i = 0; i < arg.length; i++) {

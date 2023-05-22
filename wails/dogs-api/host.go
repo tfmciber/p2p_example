@@ -396,7 +396,7 @@ func (c *P2Papp) NewHost() string {
 		libp2p.Transport(quic.NewTransport),
 	)
 
-	c.fmtPrintln("[*] Creating Host")
+	c.fmtPrintln("[*] Creating Host", c.priv)
 	c.Host, err = libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(c.priv),
@@ -433,6 +433,7 @@ func (c *P2Papp) NewHost() string {
 	c.Host.SetStreamHandler(c.cmdproto, c.receiveCommandhandler)
 
 	c.fmtPrintln("\t[*] Host listening on: ", c.Host.Addrs())
+	c.fmtPrintln("\t[*] Host ID : ", c.Host.ID().String())
 	c.fmtPrintln("\t[*] Starting Relay system")
 
 	_, err1 := relay.New(c.Host)

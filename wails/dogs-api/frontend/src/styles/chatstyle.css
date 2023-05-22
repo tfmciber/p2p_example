@@ -257,6 +257,11 @@ pointer-events: none;
 
 }
 
+
+key:  [116 130 156 245 125 71 96 179 65 132 202 44 132 20 122 164 210 1 217 156 244 64 184 95 10 229 93 11 59 219 236 68]
+salt:  [32 18 108 23 76 139 178 59 170 121 241 233 30 151 101 249]
+Eo
+
 .sendBtn::before {
   content: "\f1d8"; /* The same symbol as the input */
   font-family: "Font Awesome 5 Free"; /* Make sure to include Font Awesome */
