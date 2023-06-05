@@ -113,10 +113,13 @@ func (c *P2Papp) receiveCommandhandler(stream network.Stream) {
 		if err == nil {
 			c.fmtPrintln("removing DM")
 			if peerid == c.Host.ID() {
-				c.fmtPrintln("Removing DM deleted ")
-				c.leaveChat(rendezvous)
-				c.EmitEvent("dmLeft")
-				c.EmitEvent("directMessage", c.direcmessages)
+
+				if _, ok := c.direcmessages[stream.Conn().RemotePeer().String()]; ok {
+					c.direcmessages[stream.Conn().RemotePeer().String()] = DmData{Status: false}
+					c.EmitEvent("dmLeft")
+					c.EmitEvent("directMessage", c.direcmessages)
+				}
+
 			} else {
 				c.fmtPrintln("User is not the owner of the DM")
 				goto end

@@ -42,7 +42,7 @@ func PrintToVariable(args ...interface{}) (string, error) {
 }
 
 func (c *P2Papp) OpenFileExplorer(path string) error {
-	c.fmtPrintln("open file explorer")
+	c.fmtPrintln("open file explorer", path)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
@@ -30,29 +31,30 @@ func (c *P2Papp) InitDHT() {
 		c.fmtPrintln("Error bootstrapping DHT: ", err)
 		panic(err)
 	}
+
 	c.fmtPrintln("[*] DHT Initiated")
 
 }
+func (c *P2Papp) BootstrapDHT() {
+	var wg sync.WaitGroup
+	for _, peerAddr := range dht.DefaultBootstrapPeers {
+		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := c.Host.Connect(c.ctx, *peerinfo); err != nil {
 
+			}
+		}()
+	}
+	wg.Wait()
+}
 func (c *P2Papp) discoverPeers(RendezvousString string, ctx context.Context, ctx2 context.Context) []peer.AddrInfo {
 
 	var peersFound []peer.AddrInfo
 
-	var wg sync.WaitGroup
 	var end = make(chan bool)
 	go func() {
-
-		for _, peerAddr := range dht.DefaultBootstrapPeers {
-			peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := c.Host.Connect(c.ctx, *peerinfo); err != nil {
-
-				}
-			}()
-		}
-		wg.Wait()
 
 		routingDiscovery := drouting.NewRoutingDiscovery(c.kdht)
 
@@ -110,11 +112,18 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 		if err == nil {
 			isRendezvous = false
 			c.fmtPrintln("[*] Peer")
+			if c.Host.Network().Connectedness(peerid) == network.Connected {
+
+				c.direcmessages[peerid.String()] = DmData{Status: true}
+				return
+			}
 
 		} else {
 			isRendezvous = true
 
 			c.Add(rendezvous, "")
+			//set status to true
+
 			c.SetTimer(rendezvous, c.refresh)
 
 		}
@@ -134,12 +143,17 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 				c.fmtPrintln("[*] Searching for peers in DHT [", rendezvous, "]")
 				FoundPeersDHT = c.discoverPeers(rendezvous, ctx, context1)
 			} else {
+
 				pinfo, err := c.kdht.FindPeer(ctx, peerid)
 				c.fmtPrintln("[*] Searching for ", rendezvous, "pinfo", pinfo, "err", err, "peerid", peerid)
+
 				if err == nil {
 					FoundPeersDHT = append(FoundPeersDHT, pinfo)
 
 				}
+				c.direcmessages[peerid.String()] = DmData{Status: true}
+				c.EmitEvent("directMessage", c.direcmessages)
+
 			}
 			if len(FoundPeersDHT) > 0 {
 				context2, cancelfunc2 = context.WithTimeout(context.Background(), 30*time.Second)
@@ -148,19 +162,25 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 					failed = c.connectToPeers(FoundPeersDHT, rendezvous, c.preferquic, true, ctx, context2)
 					connected, _ = c.Get(rendezvous, true)
 				} else {
-					err = c.Host.Connect(ctx, FoundPeersDHT[0])
-					if err != nil {
-						failed = append(failed, FoundPeersDHT[0].ID)
-						/// get connected peers from other rendezvous
-						for chat, item := range c.data {
-							if item.Status == true {
-								conn, _ := c.Get(chat, true)
-								connected = append(connected, conn...)
-							}
-						}
-					} else {
+					//check if peer is connected
+					if c.Host.Network().Connectedness(FoundPeersDHT[0].ID) == network.Connected {
 						connected = append(connected, FoundPeersDHT[0].ID)
-						failed = []peer.ID{}
+
+					} else {
+						err = c.Host.Connect(ctx, FoundPeersDHT[0])
+						if err != nil {
+							failed = append(failed, FoundPeersDHT[0].ID)
+							/// get connected peers from other rendezvous
+							for chat, item := range c.data {
+								if item.Status == true {
+									conn, _ := c.Get(chat, true)
+									connected = append(connected, conn...)
+								}
+							}
+						} else {
+							connected = append(connected, FoundPeersDHT[0].ID)
+							failed = []peer.ID{}
+						}
 					}
 				}
 
@@ -225,6 +245,12 @@ func (c *P2Papp) DhtRoutine(quic bool) {
 							} else {
 								c.SetTimer(rendezvous, s.Timer-1)
 							}
+						}
+					} else {
+						if s.Timer == 0 {
+							c.BootstrapDHT()
+						} else {
+							c.SetTimer(rendezvous, s.Timer-1)
 						}
 					}
 				}

@@ -9,6 +9,8 @@ export function AddDm(arg1:peer.ID):Promise<void>;
 
 export function AddRendezvous(arg1:string):Promise<void>;
 
+export function BootstrapDHT():Promise<void>;
+
 export function CancelRendezvous(arg1:string):Promise<void>;
 
 export function ChangePassword(arg1:string,arg2:string,arg3:Array<number>,arg4:string):Promise<boolean>;

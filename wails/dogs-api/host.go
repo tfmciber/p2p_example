@@ -33,6 +33,7 @@ import (
 type P2Papp struct {
 	Host             host.Host
 	mu               sync.Mutex
+	filemu           sync.Mutex
 	queueFiles       map[string][]string
 	queueFilesMutex  sync.Mutex
 	ctx              context.Context
@@ -212,6 +213,8 @@ func (c *P2Papp) Add(key string, value peer.ID) {
 	} else {
 		if !contains(c.data[key].Peers, value) {
 			c.data[key] = HostData{Peers: append(c.data[key].Peers, value), Timer: c.refresh, Status: true}
+		} else {
+			c.data[key] = HostData{Status: true, Peers: c.data[key].Peers, Timer: c.data[key].Timer}
 		}
 	}
 
@@ -414,7 +417,7 @@ func (c *P2Papp) NewHost() string {
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 		libp2p.EnableHolePunching(),
-		//libp2p.EnableNATService(),
+		libp2p.EnableNATService(),
 
 		libp2p.ChainOptions(
 			libp2p.Muxer("/yamux/1.0.0", yamux.DefaultTransport),

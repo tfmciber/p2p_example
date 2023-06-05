@@ -288,6 +288,13 @@ func (c *P2Papp) LoadData() {
 
 	runtime.EventsEmit(c.ctx, "updateChats", c.GetData())
 	runtime.EventsEmit(c.ctx, "updateUsers", c.ListUsers())
+
+	if c.direcmessages == nil {
+		c.direcmessages = make(map[string]DmData)
+	}
+	c.fmtPrintln("LoadData", c.direcmessages)
+	runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
+
 	for rendezvous, item := range c.data {
 		if rendezvous != "" {
 			if item.Status {
@@ -297,10 +304,6 @@ func (c *P2Papp) LoadData() {
 			}
 		}
 	}
-	if c.direcmessages == nil {
-		c.direcmessages = make(map[string]DmData)
-	}
-	runtime.EventsEmit(c.ctx, "directMessage", c.direcmessages)
 
 	if dat["message"] != nil {
 
@@ -353,6 +356,14 @@ func (c *P2Papp) LoadData() {
 					c.EmitEvent("loadMessages", chat, textstr, srcstr, datestr, nil, intstatus)
 				}
 			}
+		}
+	}
+	for peer, item := range c.direcmessages {
+
+		if item.Status {
+
+			c.AddRendezvous(peer)
+
 		}
 	}
 }

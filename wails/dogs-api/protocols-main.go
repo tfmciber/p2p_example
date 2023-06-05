@@ -30,7 +30,7 @@ func (c *P2Papp) disconnectHost(stream network.Stream, err error, protocol strin
 
 }
 
-//funt to send data to all peers in a rendezvous in a effient way from a channel
+// funt to send data to all peers in a rendezvous in a effient way from a channel
 func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream network.Stream)) {
 
 	rend, _ := c.Get(rendezvous, true)
@@ -61,6 +61,31 @@ func (c *P2Papp) writeDataRendFunc(ProtocolID protocol.ID, rendezvous string, f 
 
 	}
 	wg.Wait()
+
+}
+
+func (c *P2Papp) writeFileRendFunc(ProtocolID protocol.ID, rendezvous string, f func(stream []network.Stream)) {
+
+	rend, _ := c.Get(rendezvous, true)
+	streams := make([]network.Stream, 0)
+	for _, v := range rend {
+
+		if c.Host.Network().Connectedness(v) == network.Connected {
+
+			stream := c.streamStart(v, ProtocolID)
+
+			if stream == nil {
+				c.fmtPrintln("stream is nil")
+
+			} else {
+
+				streams = append(streams, stream)
+
+			}
+		}
+
+	}
+	f(streams)
 
 }
 

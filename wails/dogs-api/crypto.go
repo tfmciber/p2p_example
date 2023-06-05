@@ -34,12 +34,10 @@ func (c *P2Papp) NewID(password string, filename string) {
 	fmt.Println("NewID")
 
 	key, salt := c.DeriveKey([]byte(password), nil)
-	c.fmtPrintln("key: ", key)
-	c.fmtPrintln("jdf salt: ", salt)
+
 	c.SetKey(key)
 
 	sk := c.setID()
-	c.fmtPrintln("sk: ", sk)
 
 	ciphertext := c.encrypt(sk, key)
 
@@ -47,11 +45,11 @@ func (c *P2Papp) NewID(password string, filename string) {
 	ciphertext = append(ciphertext, salt...)
 
 	c.writeKeys(filename, ciphertext)
-	var err error
-	c.priv, err = crypto.UnmarshalPrivateKey(sk)
-	c.fmtPrintln("priv: ", c.priv)
-	c.fmtPrintln("err: ", err)
 
+	priv, err := crypto.UnmarshalPrivateKey(sk)
+	if err == nil {
+		c.priv = priv
+	}
 }
 
 func (c *P2Papp) OpenID(data []byte, password string) string {
@@ -63,11 +61,8 @@ func (c *P2Papp) OpenID(data []byte, password string) string {
 
 	pwd := []byte(password)
 	key, _ := c.DeriveKey(pwd, salt)
-	c.fmtPrintln("key: ", key)
-	c.fmtPrintln("kdt salt: ", salt)
 	c.SetKey(key)
 	sk, err := c.decrypt(data, key)
-	c.fmtPrintln("sk: ", sk)
 
 	if err != nil {
 		fmt.Println("Error decrypting key: ", err)
@@ -78,8 +73,7 @@ func (c *P2Papp) OpenID(data []byte, password string) string {
 		return err.Error()
 	}
 	c.priv = priv
-	c.fmtPrintln("priv: ", c.priv)
-	c.fmtPrintln("err: ", err)
+
 	return ""
 
 }

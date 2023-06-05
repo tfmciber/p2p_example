@@ -67,12 +67,13 @@ export function getColorForUserId(userId) {
          //change button atribute to path
          if (peer != "me"){
             let button = document.getElementById("button" + rend + peer+fileName);
+           
             button.setAttribute("path", path);
          }
         }else  if (progress == -1)
         {
       
-                   
+                  
           progressbar.id = "error";
           progressbuttons.id = "error";
           progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
@@ -156,6 +157,8 @@ export function getColorForUserId(userId) {
      
       let chatbox = document.getElementById("chat-box" + chat);
       
+      
+      
       let newmessage = document.createElement("div");
       if (sender == "me") {
         newmessage.className = "messagesent";
@@ -185,6 +188,7 @@ export function getColorForUserId(userId) {
           button.addEventListener("click", async () => {
             //get path attribute
             let path = button.getAttribute("path");
+      
             
             await OpenFileExplorer(path).then();
           });
@@ -242,21 +246,21 @@ export function getColorForUserId(userId) {
           container.appendChild(progressbuttons);
         }
       }
-  if (message != ""){
+
       newmessage.innerHTML = `<div class="message-header">
       <div class="message-sender">${sender}</div>
       <div class="message-time">${time}</div>
     </div>
       <div class="message-text">${message}</div>
       `;
-      if (sender == "me" ) {
+      if (sender == "me" && message != "" ) {
         if (ok == 1) {
           newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
         } else {
           newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
         }
       }
-  }
+  
       if (files != null) {
         newmessage.appendChild(container);
       }

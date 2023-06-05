@@ -14,6 +14,10 @@ export function AddRendezvous(arg1) {
   return window['go']['main']['P2Papp']['AddRendezvous'](arg1);
 }
 
+export function BootstrapDHT() {
+  return window['go']['main']['P2Papp']['BootstrapDHT']();
+}
+
 export function CancelRendezvous(arg1) {
   return window['go']['main']['P2Papp']['CancelRendezvous'](arg1);
 }
