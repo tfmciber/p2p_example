@@ -21,7 +21,7 @@ func main() {
 	var cmdproto = protocol.ID("/cmd/1.0.0")
 	var fileproto = protocol.ID("/file/1.0.0")
 
-	app := &P2Papp{data: make(map[string]HostData), direcmessages: make(map[string]DmData), preferquic: false, refresh: 15, messages: make(map[string][]Message), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), updateDHT: make(chan bool), useradded: make(chan bool), reloadChat: make(chan string), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto, cancelRendezvous: make(map[string]context.CancelFunc, 0)}
+	app := &P2Papp{data: make(map[string]HostData), direcmessages: make(map[string]DmData), preferquic: true, refresh: 15, messages: make(map[string][]Message), queueFiles: make(map[string][]string), rendezvousS: make(chan string, 1), updateDHT: make(chan bool), useradded: make(chan bool), reloadChat: make(chan string), chatadded: make(chan string), textproto: textproto, audioproto: audioproto, benchproto: benchproto, cmdproto: cmdproto, fileproto: fileproto, cancelRendezvous: make(map[string]context.CancelFunc, 0)}
 
 	err := wails.Run(&options.App{
 		Title:  "P2P",

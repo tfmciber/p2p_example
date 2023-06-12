@@ -115,6 +115,7 @@ func (c *P2Papp) AddRendezvous(rendezvous string) {
 			if c.Host.Network().Connectedness(peerid) == network.Connected {
 
 				c.direcmessages[peerid.String()] = DmData{Status: true}
+				c.EmitEvent("directMessage", c.direcmessages)
 				return
 			}
 

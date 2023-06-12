@@ -151,8 +151,9 @@
         leavebutton.innerHTML = "&#xF5DE";
       }
     }
-    if (status == true && exists == false) {
-      //first time creating chat
+
+    if (status == true && chatdiveach.getElementsByClassName("inputcontainer")[0]  == null) {
+      //online chat and no previous input
       let inputcontainer = CreateChatInputs(chat);
       chatdiveach.appendChild(inputcontainer);
     } else if (status == false) {

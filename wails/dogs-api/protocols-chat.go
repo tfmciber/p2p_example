@@ -21,6 +21,12 @@ type Message struct {
 	Pa     PathFilename `json:"pa"`
 	Status int          `json:"status"`
 }
+type Config struct {
+	Username   string `json:"username"`
+	Avatar     string `json:"avatar"`
+	PreferQUIC bool   `json:"preferQUIC"`
+	Refresh    int    `json:"refresh"`
+}
 
 func (c *P2Papp) SendDM(aux string) {
 
