@@ -1,0 +1,18 @@
+.statusmodalcontent{
+   
+       display: flex;
+       flex-direction: column;
+}
+.statusmodalcontent select{
+    
+    background: #fff;
+    border-radius: 10px;
+    position: relative;
+    
+}
+.statusmodalcontent select option{
+    padding: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #000;
+}

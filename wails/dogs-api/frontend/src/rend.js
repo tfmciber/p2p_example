@@ -1,5 +1,6 @@
 import { AddRendezvous } from "../wailsjs/go/main/P2Papp.js";
 import { CancelRendezvous } from "../wailsjs/go/main/P2Papp.js";
+import { getModal } from "./Modals.svelte";
 export async function addRend() {
 
     let rend = document.getElementById("rend").value;
@@ -7,6 +8,8 @@ export async function addRend() {
    
     AddRendezvous(rend).then();
     document.forms["rendform"].reset();
+
+    getModal('rendmodal').close();
 
   };
   export function reload(chat) {

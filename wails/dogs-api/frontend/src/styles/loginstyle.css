@@ -3,13 +3,14 @@
 
 
 .rendform{
-    width: 70%;
+    width: 100%;
     
        position: relative;
-      
+       margin-top: 5%;
     }
     .rend-input{
     width: 50%;
+    margin-left: 10%;
     left: 0;
     position: absolute;
     border: none;
@@ -24,6 +25,7 @@
     
     
     }
+
     
 .login-form {
    display: flex;

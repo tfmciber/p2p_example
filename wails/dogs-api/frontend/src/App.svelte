@@ -32,16 +32,34 @@
   import { DeleteChat } from "../wailsjs/go/main/P2Papp.js";
   import uploadBtn from "./assets/images/uploadBtn.png";
   import fileIcon from "./assets/images/folder.png";
-
+  import add from "./assets/images/add.png";
+  import user from "./assets/images/user.png";
   import Chart from "chart.js/auto";
-
+  import Videoimg from "./assets/images/video.png";
+  import Audioimg from "./assets/images/audio.png";
+  import Settingsimg from "./assets/images/settings.png";
+  import Logoutimg from "./assets/images/power-off.png";
+  import Modal,{getModal} from './Modals.svelte'
+  
+  
   let current_red = "";
   let ciphered = [];
   let id = "";
-
+  let userstatus = 0;
+  let statusstrings=["Online", "Away", "Busy", "Offline"];
+  let statuscolors=["green", "yellow", "red", "gray"];
   let Users = {};
   let Files = {};
   var chats = {};
+  let  avatar, fileinput;
+  const onFileSelected =(e)=>{
+  let image = e.target.files[0];
+            let reader = new FileReader();
+            reader.readAsDataURL(image);
+            reader.onload = e => {
+                 avatar = e.target.result
+            };
+}
 
   var directmessages = {};
   let filename = "key.key";
@@ -89,6 +107,15 @@
     let chatdiveach = document.getElementById("chat" + chat);
     if (chatdiveach == null) {
       chatdiveach = document.createElement("div");
+
+      let topdiv = document.createElement("div");
+      topdiv.className = "topdivchatdiveach";
+      let middlediv = document.createElement("div");
+      middlediv.className = "middledivchatdiveach";
+      let bottomdiv = document.createElement("div");
+      bottomdiv.className = "bottomdivchatdiveach";
+
+
       chatdiveach.className = "chatdiveach";
       chatdiveach.id = "chat" + chat;
       let leavebutton = document.createElement("button");
@@ -166,6 +193,7 @@
     chatscontainer.appendChild(chatdiveach);
   }
 
+
   function CreateChatInputs(chat) {
     let inputcontainer = document.createElement("div");
     inputcontainer.className = "inputcontainer";
@@ -177,24 +205,21 @@
     inputtextarea.addEventListener("keyup", function () {
       textareacheck(chat);
     });
-    inputcontainer.appendChild(inputtextarea);
-
-    let uploadlabed = document.createElement("img");
-    uploadlabed.className = "uploadlabed";
-    uploadlabed.src = uploadBtn;
-    uploadlabed.alt = "img";
-    uploadlabed.addEventListener("click", function () {
+   inputcontainer.appendChild(inputtextarea);
+   let inputbtnsdiv = document.createElement("div");
+    let uploadlabedbtn = document.createElement("button");
+    uploadlabedbtn.className = "uploadlabed";
+    let uploadlabeimg = document.createElement("img");
+    
+    uploadlabeimg.src = uploadBtn;
+    uploadlabeimg.alt = "img";
+    uploadlabedbtn.addEventListener("click", function () {
       addfile();
     });
-    inputcontainer.appendChild(uploadlabed);
+    uploadlabedbtn.appendChild(uploadlabeimg);
+    inputbtnsdiv.appendChild(uploadlabedbtn);
 
-    let fileinput = document.createElement("input");
-    fileinput.type = "file";
-    fileinput.name = "myfile";
-    fileinput.id = "file" + chat;
-    fileinput.style.display = "none";
-
-    inputcontainer.appendChild(fileinput);
+    
 
     let sendBtn = document.createElement("button");
     sendBtn.className = "sendBtn";
@@ -202,7 +227,8 @@
     sendBtn.addEventListener("click", function () {
       sendmessage(null, null, chat);
     });
-    inputcontainer.appendChild(sendBtn);
+    inputbtnsdiv.appendChild(sendBtn);
+    inputcontainer.appendChild(inputbtnsdiv);
     return inputcontainer;
   }
 
@@ -542,8 +568,9 @@
       let chatbuttondiv = document.getElementById("chatoptions" + arg);
 
       if (chatbuttondiv != null) {
-        //get button in div with class chatoption
-        let but = chatbuttondiv.getElementsByClassName("chatoptions")[0];
+        //get button element in div
+        let but = chatbuttondiv.getElementsByTagName("button")[0];
+
 
         let reloadbtn =
           chatbuttondiv.getElementsByClassName("reloadchatbtn")[0];
@@ -809,11 +836,7 @@
       if (Files[chat] == null) {
         Files[chat] = [];
       }
-      //scroll chats-menu to the current chat button
-      let chatsmenu = document.getElementById("chats-menu");
-      let button = document.getElementById("chatoptions" + chat);
-      let scrollHeight = button.offsetTop - 100;
-      chatsmenu.scrollTo(0, scrollHeight);
+      
     }
   }
 
@@ -902,15 +925,46 @@
     {:else if loggedin}
     
       <div class="left-menu">
-        <button class="Home" on:click={() => ChangeChat("")}> Home </button>
+        <div class="left-sub-menu">
+          <div >
+        <button  title="Profile Picture" class="Home-button" on:click={()=>getModal("profilepicturemodal").open()}> 
+          {#if avatar}
+          <img class="avatar" src="{avatar}" alt="d" />
+          {:else}
+          <img src={user} alt="User">
+          {/if}
+        
+        </button>
+       
+        
+        <button title="Status {statusstrings[userstatus]}" class="status-button" style="background-color: {statuscolors[userstatus]};" on:click={()=>getModal("statusmodal").open()}></button>
+
+      </div>
+        <div>
+          <p>#{id}</p>
+          </div>
+        <div class="menuunderhome">
+
+          <button title="Add User or Group" on:click={()=>getModal("rendmodal").open()}>
+            <img src={add} alt="Add">
+          </button>
+          <div><button>
+
+            <img src={Videoimg} alt="">
+          </button>
+            <button>  <img src={Audioimg} alt=""></button></div>
+
+        </div>
+       
+      </div>
         <div class="chats-menu" id="chats-menu">
           {#each Object.entries( { ...chats, ...directmessages } ) as [chat, item]}
             {#if chat != ""}
-              <div id="chatoptions{chat}">
+              <div id="chatoptions{chat}" class="chatoptions">
                 {#if item.Status == true}
                   <button
                     type="button"
-                    class="chatoptions"
+                    
                     style="background-color: {getColorForUserId(
                       chat
                     )};color: {getContrastColor(getColorForUserId(chat))}"
@@ -921,7 +975,7 @@
                 {:else}
                   <button
                     type="button"
-                    class="chatoptions"
+                    
                     on:click={() => ChangeChat(chat)}
                   >
                     {chat}</button
@@ -945,14 +999,14 @@
           {/each}
         </div>
         <div class="option">
-          <button on:click={() => RestartApplication().then()}>
-            Log out
-            <i class="fas fa-sign-out-alt" />
-          </button>
-          <button on:click={() => ChangeChat("settings")}> Settings </button>
+          <button class="settingsbttn" on:click={() => RestartApplication().then()}>
+            <img src={Logoutimg} alt="Exit"> </button>
+        
+          <button class="settingsbttn" on:click={() => ChangeChat("settings")}> <img src={Settingsimg} alt="Settings"> </button>
         </div>
       </div>
 
+      
       <div class="data-container">
         <div id="settings">
           <h1>Settings</h1>
@@ -961,7 +1015,7 @@
               <td>Host ID</td>
               <td>{id}</td>
             </tr>
-            4n
+           
 
             <tr>
               <td>Change password</td>
@@ -1108,34 +1162,63 @@
           </div>
         </div>
         <div id="home_container" class="homecontainer">
-          <h4>Host ID: {id}</h4>
+       
+          <!-- Modals Start -->
+          <Modal id ="rendmodal"> 
+            <h1>Search User(s)</h1>
+              <div class="rendform">
+                <form
+                  autocomplete="off"
+                  id="rendform"
+                  on:submit|preventDefault={addRend}
+                >
+                  <button
+                    type="submit"
+                    disabled
+                    style="display: none"
+                    aria-hidden="true"
+                  />
+  
+                  <input
+                    type="text"
+                    placeholder="Enter code"
+                    id="rend"
+                    class="rend-input"
+                    name="rend"
+                    required
+                  />
+                  
+                  <button  id="submit-btn" class="submit-btn"> Search </button>
+                </form>
+              </div>
+          </Modal>
+          <Modal id ="profilepicturemodal"> 
+            <div class="profilepicturemodaldiv">
+            {#if avatar}
+            <img class="avatar" src="{avatar}" alt="d" />
+            <br>
+            
+            {/if}
+            <img class="upload" src={uploadBtn} alt="" on:click={()=>{fileinput.click();}} />
+        <div class="chan" on:click={()=>{fileinput.click();}}>Choose Image</div>
+        <input style="display:none" type="file" accept=".jpg, .jpeg, .png" on:change={(e)=>onFileSelected(e)} bind:this={fileinput} >
+      </div>    
+      </Modal>
+          <Modal id ="statusmodal"> 
+            <div class="statusmodalcontent" >
+            Change Status
+            <br/>
+            
+            <select bind:value={userstatus} >
+              {#each statusstrings as status,index}
+                <option value={index}>{status}</option>
+              {/each}
+              
 
-          <div class="rend-container">
-            <div class="rendform">
-              <form
-                autocomplete="off"
-                id="rendform"
-                on:submit|preventDefault={addRend}
-              >
-                <button
-                  type="submit"
-                  disabled
-                  style="display: none"
-                  aria-hidden="true"
-                />
-
-                <input
-                  type="text"
-                  placeholder="Enter code"
-                  id="rend"
-                  class="rend-input"
-                  name="rend"
-                  required
-                />
-                <button id="submit-btn" class="submit-btn"> Join </button>
-              </form>
-            </div>
+            </select>
           </div>
+          </Modal>
+            <!-- Modals End -->
         </div>
 
         <div class="chatdiv" id="chatdiv" />

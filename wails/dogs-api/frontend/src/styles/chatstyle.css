@@ -8,13 +8,14 @@
   padding: 1%;
   margin-top: 20px;
   margin-right: 20px;
-  height: auto;
-  word-wrap: break-word;
+ 
+  max-width:400px;
   text-align: left;
   align-self: flex-end;
   margin-left: 5%;
   border-radius: 5px;
-  width: fit-content;
+
+
 }
 .messagereceived {
   background-color: rgb(44, 44, 44);
@@ -29,7 +30,7 @@
   align-self: flex-start;
   margin-left: 5%;
   border-radius: 5px;
-  width: fit-content;
+  width: 60%;
 }
 /* width */
 ::-webkit-scrollbar {
@@ -62,6 +63,8 @@ margin-top: 10px;
 display: flex;
 flex-direction: row;
 align-items: center;
+height: 30px;
+
 }
 .message-sender{
 font-weight: bold;
@@ -70,17 +73,29 @@ margin-right: 10px;
 }
 .message-time{
 font-size: 9px;
+margin-right: 30px;
 }
+.message-status{
+  font-size: 9px;
+  }
 .message-ok{
   height: 15px;
   width: 15px;
-  margin-top: 5px;
-
-float: right;
-position: relative;
-
+  margin-top: -25px;
+  float: right;
 
 }
+.message-ok-files{
+  height: 15px;
+  width: 15px;
+  margin-top: 3px;
+  float: right;
+
+}
+
+.message-text{
+
+  }
 .chat-box{
 width: 100%;
 height: 80%;
@@ -91,7 +106,6 @@ flex-direction: column;
 overflow-y: scroll;
 padding-bottom: 20px
 }
-
 
 .chatname{
 font-size: 15px;
@@ -171,36 +185,71 @@ width: 20%;
 
 
 .chatdiv{
+margin: 5%;
+padding: 0;
+  height: 80%;
 
-  width: 80%;
-  height: 90%;
-  margin-left: 5%;
-  background-color: rgb(115, 112, 112);
+  background-color: #8d8d8d;
   border-radius: 10px;
 
 }
 
 .inputcontainer{
 
-width: 100%;
-display: flex;
-flex-direction: row;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #8d8d8d;
+
+  border-radius: 0 0 10px 10px;
 
 
-padding-top: 2%;
+
+
 
 }
+.inputcontainer div{
+  width: 30%;
+
+margin-left: 1%;
+padding: 1%;
+margin-top: 10px;
+display: flex;
+
+justify-content: space-between;
+
+}
+.topdivchatdiveach{
+  height: 10%;
+  background-color: blue;
+}
+.middledivchatdiveach{
+  height: 80%;
+  background-color: rgb(46, 46, 48);
+}
+.bottomdivchatdiveach{
+  height: 10%;
+  background-color: rgb(49, 49, 197);
+}
+
 .homecontainer{
   width: 100%;
   height: 100%;
   display: block;
 }
 .chatdiveach{
-  display: none;
-  margin: 20px;
+
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
-  width: 95%;
-  height: 95%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  display: none;
+
+
 }
 
 #settings{
@@ -209,7 +258,7 @@ padding-top: 2%;
   height: 100%;
 }
 .input-textarea{
-  position: relative;
+
   width: 65%;
   resize: none;
   overflow: hidden;
@@ -217,9 +266,10 @@ padding-top: 2%;
   line-height: 1.5;
   border-radius: 10px;
   margin-left: 0%;
-  height: 2%;
+  height: 100%;
   padding-top: 2%;
-  padding-left: 7%;
+  padding-left: 3%;
+  padding-right: 3%;
   
 }
 
@@ -255,6 +305,7 @@ opacity: 0%;
 pointer-events: none;
   height: 5%;
 
+
 }
 
 
@@ -269,16 +320,18 @@ pointer-events: none;
 }
 .uploadlabed{
 
-  cursor: pointer;
-position: relative;
+ 
   color: rgb(255, 255, 255);
-  border: none;   
+  border: none;  
+
+width: 60px;
+
+  height: 5%;
  
-  left:-6%;
-  margin-top: 2%;
-  width: 4%;
-  height: 3%;
- 
+  }
+  .uploadlabed img{
+    width: 100%;
+    height: auto;
   }
 .progress{
 
@@ -290,20 +343,7 @@ position: relative;
   overflow: hidden;
 
 }
-.removechatbtn{
-  position: relative;
-  margin-right: 20px;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  background-color: rgb(216, 60, 60);
-  color: white;
-  justify-content: center;
-  padding: 0px;
-  float: right;
-  display: none;
- 
-  }
+
   .chatbuttons{
     background-color: aliceblue;
     border-style: 10px solid black;
@@ -384,20 +424,7 @@ position: relative;
     transform: translate(0, 0);
   }
 }
-  .reloadchatbtn{
-    float: right;
-    margin-right: 20px;
-    position: relative;
 
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    background-color: rgb(81, 83, 230);
-    color: white;
-    justify-content: center;
-    padding: 0px;
-   
-  }
 .progressbar{
   border-radius: 4px;
   width: 0%;
@@ -413,8 +440,8 @@ td:first-child {
 
 .leave-chat{
   position: relative;
-top : -2%;
-left: 52%;
+  float: right;
+
   border-radius: 50%;
   width: 20px;
   height: 20px;

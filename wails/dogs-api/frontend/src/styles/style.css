@@ -7,13 +7,22 @@ html {
   text-align: center;
   color: black ;
 }
-
+img{
+  width: 100%;
+  height: 100%;
+}
 body {
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   
+}
+.profilepicturemodaldiv{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-flow:column;
 }
 
 .settingsform{
@@ -91,10 +100,10 @@ display: none;
 }
 .data-container{
   
-  top: 0%;
+  
 
   word-break: break-all; /* break long words */
-  padding-top: 20px;
+
   color: #efefef;
   background-color: rgb(54, 54, 54);
   flex-grow: 1; /* variable width */
@@ -104,9 +113,14 @@ height: 100%;
  
 }
 
-
+.upload{
+  display:flex;
+height:50px;
+  width:50px;
+  cursor:pointer;
+}
 .rend-container {
-  top: 10%;
+  
   width: 100%;
   position: relative;
   height: 100%;  
@@ -160,55 +174,19 @@ left:0;
  
 
 }
-.left-menu {
 
-  width: 250px; /* fixed width */
 
-  height: 100%;
-  margin: 0%;
-  display: flex; 
-  flex-direction: column;
-  
-  
-  
- 
-}
-.chats-menu{
-  overflow-y: auto;
-  
-  display: flex; 
-  margin-top: 10px;
-  
-  flex-direction: column;
-  height: 77%;
-}
-.option{
-  position: absolute;
-  bottom: 0;
-  margin-left: 10px;
-
-}
-.Home{
-
-  width: 220px;
-  margin-right: 20px;
-  margin-left: 20px;
-margin-top: 20px;
-border-radius: 5px;
-background-color: rgb(115, 197, 127);
-border-bottom: #eee;
-margin-bottom: 30px;
-}
 .command{
   color: white;
   font-size: 10px;
   margin-bottom: 10px;
   text-align: left;
   margin-left: 10px;
+  max-width: 400px;
 }
 #terminal-box{
   overflow-y: auto;
-  width: 90%;
+  
   height: 80%;
   padding: 1%;
   margin-left: 2%;
@@ -232,7 +210,7 @@ margin-bottom: 30px;
 
 
 #settings{
-  width: 100%;
+  
   height: 100%;
   display: flex;
   overflow-y: auto;
@@ -257,75 +235,7 @@ height: 20%;
   justify-content: space-between;
 }
 
-.chatoptions{
 
-
-width: fit-content;
-text-align: left;
-margin-left: 20px;
-border-radius: 5px;
-
-float: left;
- 
-}
-.chatoptions-loading {
-  width: fit-content;
-text-align: left;
-margin-left: 20px;
-border-radius: 5px;
-  --border-size: 3px;
-  --border-angle: 0turn;
-  float: left;
-  background-image: conic-gradient(
-      from var(--border-angle),
-      #213,
-      #112 50%,
-      #213
-    ),
-    conic-gradient(from var(--border-angle), transparent 20%, #08f, #f03);
-  background-size: calc(100% - (var(--border-size) * 2))
-      calc(100% - (var(--border-size) * 2)),
-    cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-
-  animation: bg-spin 3s linear infinite;
- 
-}
-@-webkit-keyframes bg-spin {
-  to {
-    --border-angle: 1turn;
-  }
-}
-@keyframes bg-spin {
-  to {
-    --border-angle: 1turn;
-  }
-}
-
-@property --border-angle {
-  syntax: "<angle>";
-  inherits: true;
-  initial-value: 0turn;
-}
-
-.chatoptions-deleted{
-  width: fit-content;
-text-align: left;
-margin-left: 10%;
-border-radius: 5px;
-background-color: gray;  
-}
-
-.directmessages{
-
-  width: fit-content;
-text-align: left;
-margin-left: 10%;
-border-radius: 5px;
-
-
-}
 
 
 .middle {

@@ -195,7 +195,17 @@ export function getColorForUserId(userId) {
           //add and image inside the button
           let name = document.createElement("div");
           name.innerText = files[i].filename;
-          button.src = fileIcon;
+          if (file.type.startsWith("image/")) {
+            const reader = new FileReader();
+        
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+              button.src = `url('${reader.result}')`;
+            };
+          }else{
+            button.src = fileIcon;
+          }
+          
           button.className = "fileIconmessage";
           let file = files[i];
           let path = file.path;
@@ -218,12 +228,12 @@ export function getColorForUserId(userId) {
             progressbar.id = "progress" + chat + sender + files[i].filename;
             progressbuttons.id = "progressbuttons" + chat + sender + files[i].filename;
             button.id = "button" + chat + sender + files[i].filename;
-            progressbuttons.innerHTML= `<img class="message-ok" src=${queue} alt="ok" />`;
+            progressbuttons.innerHTML= `<img class="message-ok-files" src=${queue} alt="ok" />`;
 
           }
           if (file.progress == 100)
           {
-            progressbuttons.innerHTML= `<img class="message-ok" src=${check} alt="ok" />`;
+            progressbuttons.innerHTML= `<img class="message-ok-files" src=${check} alt="ok" />`;
             button.id ="done"
             progressbar.id = "done";
             progressbar.style.width = file.progress + "%";
@@ -236,7 +246,7 @@ export function getColorForUserId(userId) {
             button.id ="error"
             progressbar.id = "error";
             progressbuttons.id = "error";
-            progressbuttons.innerHTML= `<img class="message-ok" src=${wrong} alt="ok" />`;
+            progressbuttons.innerHTML= `<img class="message-ok-files" src=${wrong} alt="ok" />`;
           }
       
           progress.appendChild(progressbar);
@@ -250,17 +260,19 @@ export function getColorForUserId(userId) {
       newmessage.innerHTML = `<div class="message-header">
       <div class="message-sender">${sender}</div>
       <div class="message-time">${time}</div>
-    </div>
-      <div class="message-text">${message}</div>
+      <div class="message-status">
       `;
       if (sender == "me" && message != "" ) {
         if (ok == 1) {
-          newmessage.innerHTML += `<img class="message-ok" src=${check} alt="ok" />`;
+          newmessage.innerHTML += `    <img class="message-ok" src=${check} alt="ok" />`;
         } else {
           newmessage.innerHTML += `<img class="message-ok" src=${wrong} alt="ok" />`;
         }
       }
-  
+      newmessage.innerHTML += `
+    </div></div>
+      <p>${message}</p>
+      `;
       if (files != null) {
         newmessage.appendChild(container);
       }
@@ -270,7 +282,6 @@ export function getColorForUserId(userId) {
       chatbox.scrollTop = chatbox.scrollHeight;
     }
 
-  
    export function auxchangechat(last_rend,current_redaux,Users,directmessages) {
 
 
