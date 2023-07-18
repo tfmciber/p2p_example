@@ -1,3 +1,4 @@
+
 <script>
   import { getColorForUserId } from "./utils.js";
   import { checkPasswordMatch } from "./utils.js";
@@ -25,7 +26,6 @@
   import { SendDM } from "../wailsjs/go/main/P2Papp.js";
 
   import { SendTextHandler } from "../wailsjs/go/main/P2Papp.js";
-  import { SelectFiles } from "../wailsjs/go/main/P2Papp.js";
   import { QueueFile } from "../wailsjs/go/main/P2Papp.js";
 
   import { LeaveChat } from "../wailsjs/go/main/P2Papp.js";
@@ -45,6 +45,7 @@
   let current_red = "";
   let ciphered = [];
   let id = "";
+  let loggedin = false;
   let userstatus = 0;
   let statusstrings=["Online", "Away", "Busy", "Offline"];
   let statuscolors=["green", "yellow", "red", "gray"];
@@ -66,7 +67,7 @@
   let wait = false;
   let password = "";
   let login_register = true;
-  let loggedin = false;
+
 
   let sysMemorychart;
   let sysNumFDchart;
@@ -77,7 +78,28 @@
   let transNumFDchart;
   let transNumConnschart;
   let transNumStreamschart;
-
+  function preventDefault(event) {
+    event.preventDefault();
+  }
+  function addFiles(files) {
+    for (let i = 0; i < files.length; i++) {
+      Files = [...Files[current_red], files[i]];
+    }
+    showsendBtn(Files[current_red], current_red);
+  }
+  function handleFileInput(event) {
+    const files = event.target.files;
+    addFiles(files);
+  }
+  function handleDrop(event) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+   
+    addFiles(files);
+  }
+  function removeFile(index) {
+    Files[current_red] = Files[current_red].filter((_, i) => i !== index);
+  }
   async function startup() {
     await ReadKeys(filename).then((result) => (ciphered = result));
 
@@ -143,7 +165,13 @@
       let chatbox = document.createElement("div");
       chatbox.className = "chat-box";
       chatbox.id = "chat-box" + chat;
-
+      chatbox.ondrop = function (event) {
+        handleDrop(event);
+      };
+      chatbox.ondragover = function (event) {
+        preventDefault(event);
+      };
+     
 
       let filescontainer = document.createElement("div");
       filescontainer.className = "filecontainers";
@@ -214,7 +242,7 @@
     uploadlabeimg.src = uploadBtn;
     uploadlabeimg.alt = "img";
     uploadlabedbtn.addEventListener("click", function () {
-      addfile();
+      addFiles
     });
     uploadlabedbtn.appendChild(uploadlabeimg);
     inputbtnsdiv.appendChild(uploadlabedbtn);
@@ -752,65 +780,7 @@
     chatid.remove();
   }
 
-  async function addfile() {
-    //files is array of struct of path and size
-    let newfiles = [];
-    const container = document.getElementById("filescontainer" + current_red);
-    container.style.display = "flex";
 
-    await SelectFiles().then((result) => {
-      result.forEach((pathfilename) => {
-        let path = pathfilename.path;
-
-        let filename = pathfilename.filename;
-        let progress = pathfilename.progress;
-        if (!Files[current_red]) {
-          Files[current_red] = [];
-        }
-
-        if (!Files[current_red].find((file) => file.path === path)) {
-          Files[current_red].push({ path, filename, progress });
-          newfiles.push({ path, filename, progress });
-        }
-      });
-    });
-
-    for (let i = 0; i < newfiles.length; i++) {
-      let icon = document.createElement("img");
-      icon.className = "fileicon";
-      //icon image depends on file type, if image then show image, else show a default icon
-      let filename = newfiles[i].filename;
-
-      icon.src = fileIcon;
-      let filediv = document.createElement("div");
-      //on mouse over show button to remove file, on mouse out hide button
-
-      const button = document.createElement("button");
-      // Add a click event listener to the button
-      button.addEventListener("click", () => {
-        const name =
-          button.parentElement.querySelector(".filedivname").innerText;
-        button.parentElement.querySelector(".filedivname").parentNode.remove();
-
-        deleteFile(name);
-        if (Files[current_red].length == 0) {
-          container.style.display = "none";
-        }
-        showsendBtn(Files, current_red);
-      });
-      button.innerHTML = '<i class="fas fa-trash"></i>';
-      button.className = "removefilebtn";
-
-      filediv.className = "filediv";
-      filediv.innerHTML = `
-          <div class="filedivname">${filename}</div>
-          ${icon.outerHTML}`;
-
-      filediv.appendChild(button);
-      container.appendChild(filediv);
-    }
-    showsendBtn(Files, current_red);
-  }
   //Manually disable pinch zoom!
   document.addEventListener(
     "wheel",
@@ -960,7 +930,7 @@
         <div class="chats-menu" id="chats-menu">
           {#each Object.entries( { ...chats, ...directmessages } ) as [chat, item]}
             {#if chat != ""}
-              <div id="chatoptions{chat}" class="chatoptions">
+              <div id="chatoptions{chat}" class="chatoptions" >
                 {#if item.Status == true}
                   <button
                     type="button"
@@ -1008,6 +978,7 @@
 
       
       <div class="data-container">
+       
         <div id="settings">
           <h1>Settings</h1>
           <table class="settingstable">
@@ -1197,7 +1168,7 @@
             {#if avatar}
             <img class="avatar" src="{avatar}" alt="d" />
             <br>
-            
+
             {/if}
             <img class="upload" src={uploadBtn} alt="" on:click={()=>{fileinput.click();}} />
         <div class="chan" on:click={()=>{fileinput.click();}}>Choose Image</div>

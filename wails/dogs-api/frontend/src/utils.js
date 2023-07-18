@@ -195,16 +195,9 @@ export function getColorForUserId(userId) {
           //add and image inside the button
           let name = document.createElement("div");
           name.innerText = files[i].filename;
-          if (file.type.startsWith("image/")) {
-            const reader = new FileReader();
-        
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-              button.src = `url('${reader.result}')`;
-            };
-          }else{
+         
             button.src = fileIcon;
-          }
+          
           
           button.className = "fileIconmessage";
           let file = files[i];
